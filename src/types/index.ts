@@ -151,6 +151,52 @@ export function sectionCode(type: string): string {
   return SECTION_PREFIX[type] || 'ITEM';
 }
 
+// ============ 小说馆 ============
+export type SpoilerMode = 'open' | 'unlock';
+
+export interface NovelBook {
+  id: string;
+  title: string;
+  cover?: string;
+  spoilerMode: SpoilerMode;
+  totalChapters: number;
+  completedChapters: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface NovelVolume {
+  id: string;
+  bookId: string;
+  title: string;
+  order: number;
+}
+
+export interface NovelMention {
+  charId: string;
+  name: string;
+  firstOffset: number;
+}
+
+export interface NovelChapter {
+  id: string;
+  bookId: string;
+  volumeId: string;
+  order: number;
+  title: string;
+  content: string;
+  mentions: NovelMention[];
+  read: boolean;
+  updatedAt: number;
+}
+
+export interface NovelProgress {
+  bookId: string;
+  lastChapterId: string;
+  scrollRatio: number;
+  updatedAt: number;
+}
+
 // ============ 评论系统 ============
 export interface Comment {
   id: string;

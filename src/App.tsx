@@ -3,6 +3,7 @@ import { useEffect, useRef, Suspense, lazy } from 'react';
 import { useAuthStore } from './store/authStore';
 import { useDataStore } from './store/dataStore';
 import { useCommentStore } from './store/commentStore';
+import { useNovelStore } from './store/novelStore';
 import { seedData } from './data/seed';
 import { exportAll, restoreFromBackupIfNeeded } from './data/db';
 import { useRipple } from './hooks/useRipple';
@@ -27,11 +28,15 @@ const importers = [
   () => import('./pages/CommentSection'),
   () => import('./pages/CommentOverview'),
   () => import('./pages/About'),
+  () => import('./pages/NovelShelf'),
+  () => import('./pages/NovelDetail'),
+  () => import('./pages/NovelReader'),
 ];
 const [
   Login, Home, Timeline, Character, Geography, Tech,
   Milestone, Custom, EntryDetail, EntryEditor, AllIndex,
   CommentSection, CommentOverview, About,
+  NovelShelf, NovelDetail, NovelReader,
 ] = importers.map(lazy);
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -83,6 +88,7 @@ export default function App() {
   const refresh = useDataStore(s => s.refresh);
   const loaded = useDataStore(s => s.loaded);
   const refreshComments = useCommentStore(s => s.refresh);
+  const refreshNovel = useNovelStore(s => s.refresh);
   const location = useLocation();
 
   // 启用按钮金粉涟漪（全局事件委托，挂载一次）
@@ -101,6 +107,7 @@ export default function App() {
       await seedData();
       await refresh();
       await refreshComments();
+      await refreshNovel();
     })();
   }, []);
 
@@ -164,6 +171,9 @@ export default function App() {
             <Route path="comments" element={<PrivateRoute><CommentOverview /></PrivateRoute>} />
             <Route path="comments/:targetCode" element={<PrivateRoute><CommentSection /></PrivateRoute>} />
             <Route path="about" element={<PrivateRoute><About /></PrivateRoute>} />
+            <Route path="novel" element={<PrivateRoute><NovelShelf /></PrivateRoute>} />
+            <Route path="novel/:bookId" element={<PrivateRoute><NovelDetail /></PrivateRoute>} />
+            <Route path="novel/:bookId/chapter/:chapterId" element={<PrivateRoute><NovelReader /></PrivateRoute>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>

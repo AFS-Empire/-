@@ -3,7 +3,7 @@ import type { AnyEntry, Era, CustomSection, User, Comment } from '../types';
 import { SECTION_PREFIX } from '../types';
 
 const DB_NAME = 'worldarchive';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 // localStorage 兜底备份键 —— IndexedDB 被意外清空时从此恢复
 const BACKUP_KEY = 'worldarchive_backup_v1';
@@ -46,6 +46,25 @@ export async function getDB(): Promise<IDBPDatabase> {
         const store = db.createObjectStore('comments', { keyPath: 'id' });
         store.createIndex('targetCode', 'targetCode', { unique: false });
         store.createIndex('createdAt', 'createdAt', { unique: false });
+      }
+      // 小说：书籍（v3 新增）
+      if (!db.objectStoreNames.contains('novelBooks')) {
+        db.createObjectStore('novelBooks', { keyPath: 'id' });
+      }
+      // 小说：分卷（v3 新增）
+      if (!db.objectStoreNames.contains('novelVolumes')) {
+        const store = db.createObjectStore('novelVolumes', { keyPath: 'id' });
+        store.createIndex('bookId', 'bookId', { unique: false });
+      }
+      // 小说：章节（v3 新增）
+      if (!db.objectStoreNames.contains('novelChapters')) {
+        const store = db.createObjectStore('novelChapters', { keyPath: 'id' });
+        store.createIndex('bookId', 'bookId', { unique: false });
+        store.createIndex('volumeId', 'volumeId', { unique: false });
+      }
+      // 小说：阅读进度（v3 新增）
+      if (!db.objectStoreNames.contains('novelProgress')) {
+        db.createObjectStore('novelProgress', { keyPath: 'bookId' });
       }
     },
   });

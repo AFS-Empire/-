@@ -17,6 +17,7 @@ import {
   Monitor,
   Info,
   RefreshCw,
+  BookOpen,
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { SECTION_PREFIX } from '../types';
@@ -31,6 +32,7 @@ const navItems = [
   { to: '/geography', label: '地理与势力', icon: Map },
   { to: '/tech', label: '科技与设定', icon: Cog },
   { to: '/milestone', label: '剧情里程碑', icon: Flag },
+  { to: '/novel', label: '小说馆', icon: BookOpen },
   { to: '/custom', label: '扩展分类', icon: Layers },
   { to: '/index', label: '全部内容', icon: List },
 ];
