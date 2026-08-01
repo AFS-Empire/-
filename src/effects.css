@@ -1,0 +1,78 @@
+/* ======================================================================
+   独立动效文件：不经过 Tailwind v4 的 @import "tailwindcss" 管线，
+   避免裸 CSS 被错误丢弃。在 main.tsx 里紧随 index.css 之后引入。
+   ====================================================================== */
+
+/* 涟漪扩散（保留，作为锦上添花；不影响点击反馈主体） */
+@keyframes rippleSpreadFx {
+  0%   { transform: scale(0);   opacity: 0.9; }
+  60%  { opacity: 0.55; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+.ripple-fx {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  transform: scale(0);
+  animation: rippleSpreadFx 0.65s ease-out forwards;
+  z-index: 0;
+}
+.btn-gold .ripple-fx {
+  background: radial-gradient(circle, rgba(255,250,235,0.95) 0%, rgba(255,240,200,0.6) 50%, transparent 75%);
+}
+.btn-ghost .ripple-fx,
+.btn-outline .ripple-fx,
+.panel .ripple-fx,
+.panel-gold .ripple-fx,
+.card-entry .ripple-fx {
+  background: radial-gradient(circle, rgba(255,220,130,0.9) 0%, rgba(212,168,67,0.55) 50%, transparent 75%);
+}
+
+/* 按钮内文字/图标始终在涟漪之上 */
+.btn-gold > *:not(.ripple-fx),
+.btn-ghost > *:not(.ripple-fx),
+.btn-outline > *:not(.ripple-fx) {
+  position: relative;
+  z-index: 1;
+}
+
+/* ======================================================================
+   核心点击反馈（:active 纯 CSS，零显存开销，100% 稳定触发）
+   按下去立刻有"被按到"的触感，松手即回弹
+   ====================================================================== */
+.btn-gold:active {
+  transform: translateY(1px) scale(0.97) !important;
+  filter: brightness(1.08) saturate(1.1) !important;
+  box-shadow: 0 1px 3px rgba(200,144,42,0.35), inset 0 2px 6px rgba(0,0,0,0.28) !important;
+  transition: transform 0.05s ease-out, filter 0.05s ease-out, box-shadow 0.05s ease-out !important;
+}
+.btn-ghost:active {
+  transform: scale(0.96) !important;
+  background-color: rgba(200,144,42,0.15) !important;
+  color: #e0c068 !important;
+  transition: transform 0.05s ease-out, background-color 0.05s ease-out !important;
+}
+.btn-outline:active {
+  transform: scale(0.965) !important;
+  border-color: #b07420 !important;
+  background-color: rgba(200,144,42,0.13) !important;
+  transition: transform 0.05s ease-out, border-color 0.05s ease-out !important;
+}
+.panel:active,
+.panel-gold:active {
+  transform: translateY(1px) scale(0.993) !important;
+  filter: brightness(1.07) !important;
+  transition: transform 0.07s ease-out, filter 0.07s ease-out !important;
+}
+.card-entry:active {
+  transform: translateY(1px) scale(0.99) !important;
+  border-color: rgba(143,89,28,0.75) !important;
+  box-shadow: inset 0 0 0 1px rgba(200,144,42,0.18) !important;
+  transition: transform 0.07s ease-out, border-color 0.07s ease-out !important;
+}
+
+/* 所有可点击元素 -webkit-tap 已经在 index.css 里禁用了，这里再兜底 */
+button, [role="button"], .card-entry, .panel, .panel-gold {
+  -webkit-tap-highlight-color: transparent;
+}

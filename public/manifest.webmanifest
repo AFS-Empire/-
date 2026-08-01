@@ -1,0 +1,26 @@
+{
+  "name": "奥菲斯帝国档案馆",
+  "short_name": "帝国档案",
+  "description": "AFS-JZY 出品 · 奥菲斯帝国世界观档案管理系统（人物·地理·时间线·里程碑·科技·评论）",
+  "theme_color": "#0d0d0f",
+  "background_color": "#0d0d0f",
+  "display": "standalone",
+  "orientation": "portrait",
+  "scope": "/",
+  "start_url": "/",
+  "lang": "zh-CN",
+  "categories": ["productivity", "books", "utilities"],
+  "author": "AFS—JZY <1360335662@qq.com>",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any maskable"
+    }
+  ],
+  "prefer_related_applications": false,
+  "permissions": [
+    "storage"
+  ]
+}

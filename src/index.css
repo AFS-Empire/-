@@ -1,0 +1,270 @@
+@import "tailwindcss";
+
+@theme {
+  /* 黑金主题色板 */
+  --color-gold-50: #fbf8ef;
+  --color-gold-100: #f5ecd0;
+  --color-gold-200: #ecd9a0;
+  --color-gold-300: #e0c068;
+  --color-gold-400: #d4a843;
+  --color-gold-500: #c8902a;
+  --color-gold-600: #b07420;
+  --color-gold-700: #8f591c;
+  --color-gold-800: #76491c;
+  --color-gold-900: #653e1c;
+
+  --color-ink-50: #f6f6f7;
+  --color-ink-100: #e2e2e4;
+  --color-ink-200: #c5c5c9;
+  --color-ink-300: #9f9fa6;
+  --color-ink-400: #76767e;
+  --color-ink-500: #5a5a62;
+  --color-ink-600: #47474d;
+  --color-ink-700: #3a3a3f;
+  --color-ink-800: #2a2a2e;
+  --color-ink-850: #1e1e22;
+  --color-ink-900: #161619;
+  --color-ink-950: #0d0d0f;
+
+  --animate-fade-in: fadeIn 0.5s ease-out;
+  --animate-slide-up: slideUp 0.4s ease-out;
+  --animate-glow: glow 3s ease-in-out infinite;
+  --animate-shimmer: shimmer 4s linear infinite;
+}
+
+@keyframes fadeIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+@keyframes slideUp {
+  0% { transform: translateY(16px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 8px rgba(200, 144, 42, 0.15); }
+  50% { box-shadow: 0 0 24px rgba(200, 144, 42, 0.3); }
+}
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+@keyframes skeletonPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+@keyframes pageEnter {
+  0% { opacity: 0; transform: translateY(14px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes rippleSpread {
+  0% { transform: scale(0); opacity: 0.85; }
+  60% { opacity: 0.55; }
+  100% { transform: scale(2.6); opacity: 0; }
+}
+
+/* ======================================================================
+   点击涟漪：放在 @layer 之外，保证样式始终被打入（Tailwind @layer 下
+   自定义嵌套类偶尔编译丢失，背景为空导致"看不见"）。
+   ====================================================================== */
+.ripple {
+  position: absolute !important;
+  border-radius: 50% !important;
+  pointer-events: none !important;
+  transform: scale(0);
+  animation: rippleSpread 0.7s ease-out forwards !important;
+  z-index: 0 !important;
+}
+.btn-gold .ripple {
+  background: radial-gradient(circle, rgba(255, 250, 235, 0.95) 0%, rgba(255, 240, 200, 0.6) 50%, transparent 75%) !important;
+}
+.btn-ghost .ripple,
+.btn-outline .ripple,
+.panel .ripple,
+.panel-gold .ripple,
+.card-entry .ripple {
+  background: radial-gradient(circle, rgba(255, 220, 130, 0.9) 0%, rgba(212, 168, 67, 0.55) 50%, transparent 75%) !important;
+}
+
+/* ======================================================================
+   轻量级点击反馈（:active 纯 CSS，不依赖 JS，稳定不占用额外显存）
+   —— 按下去明显"被按到了"，松手回弹。涟漪作为锦上添花，不影响主体反馈。
+   ====================================================================== */
+.btn-gold:active {
+  transform: translateY(1px) scale(0.97) !important;
+  filter: brightness(1.08) !important;
+  box-shadow: 0 1px 4px rgba(200, 144, 42, 0.3), inset 0 2px 6px rgba(0,0,0,0.25) !important;
+  transition: transform 0.06s ease-out, filter 0.06s ease-out, box-shadow 0.06s ease-out !important;
+}
+.btn-ghost:active {
+  transform: scale(0.97) !important;
+  background-color: rgba(200, 144, 42, 0.12) !important;
+  color: #e0c068 !important;
+  transition: transform 0.06s ease-out, background-color 0.06s ease-out !important;
+}
+.btn-outline:active {
+  transform: scale(0.97) !important;
+  border-color: #b07420 !important;
+  background-color: rgba(200, 144, 42, 0.1) !important;
+  transition: transform 0.06s ease-out !important;
+}
+.panel:active,
+.panel-gold:active {
+  transform: translateY(1px) scale(0.992) !important;
+  filter: brightness(1.06) !important;
+  transition: transform 0.08s ease-out, filter 0.08s ease-out !important;
+}
+.card-entry:active {
+  transform: translateY(1px) scale(0.99) !important;
+  border-color: rgba(143, 89, 28, 0.7) !important;
+  box-shadow: inset 0 0 0 1px rgba(200, 144, 42, 0.15) !important;
+  transition: transform 0.08s ease-out, border-color 0.08s ease-out !important;
+}
+
+/* 让按钮内文字/图标始终在涟漪之上 */
+.btn-gold > *:not(.ripple),
+.btn-ghost > *:not(.ripple),
+.btn-outline > *:not(.ripple) {
+  position: relative;
+  z-index: 1;
+}
+
+@layer base {
+  html {
+    font-family: 'Noto Serif SC', 'Songti SC', 'STSong', serif;
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply text-ink-100;
+    background-color: #0d0d0f;
+    /* 顶部暗金渐变光（固定，全屏居中） */
+    background-image: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(200, 144, 42, 0.06), transparent);
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    background-position: center top;
+    background-size: auto;
+    min-height: 100vh;
+  }
+  /* 暗金铭文背景：挂在内容容器上，自动与内容居中对齐，随页面滚动重复 */
+  .rune-bg {
+    background-image: url('/runes.svg');
+    background-repeat: repeat;
+    background-attachment: scroll;
+    background-position: center top;
+    background-size: 320px 1000px;
+  }
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: #0d0d0f; }
+  ::-webkit-scrollbar-thumb { background: #653e1c; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #8f591c; }
+
+  /* 移动端触摸优化 */
+  button, a, [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  /* 输入框字体不小于 16px，避免 iOS 自动放大 */
+  input, textarea, select {
+    font-size: 16px;
+  }
+  /* 长按不选中文本（避免误触） */
+  body {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  /* 输入框允许选中（要复制粘贴） */
+  input, textarea, [contenteditable] {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+}
+
+@layer components {
+  .btn-gold {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-b from-gold-400 to-gold-600 text-ink-950 font-semibold tracking-wide transition-all duration-300 relative overflow-hidden;
+    box-shadow: 0 2px 8px rgba(200, 144, 42, 0.2), inset 0 1px 0 rgba(255,255,255,0.15);
+  }
+  .btn-gold:hover {
+    box-shadow: 0 4px 16px rgba(200, 144, 42, 0.35), inset 0 1px 0 rgba(255,255,255,0.25);
+    @apply from-gold-300 to-gold-500 -translate-y-0.5;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-ink-400 hover:text-gold-300 hover:bg-ink-800/50 transition-colors relative overflow-hidden;
+  }
+  .btn-outline {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-gold-800/60 text-gold-400 hover:border-gold-600 hover:bg-gold-900/20 transition-all relative overflow-hidden;
+  }
+  /* 骨架屏闪烁 */
+  .skeleton-block {
+    @apply bg-ink-800/60 border border-ink-700/40;
+    animation: skeletonPulse 1.6s ease-in-out infinite;
+  }
+  /* 页面切换过渡 */
+  .page-enter {
+    animation: pageEnter 0.35s ease-out;
+  }
+  .panel {
+    @apply bg-ink-900/60 border border-ink-800 rounded-xl backdrop-blur-sm;
+  }
+  .panel-gold {
+    @apply bg-ink-900/60 border border-gold-900/40 rounded-xl backdrop-blur-sm;
+  }
+  .input-field {
+    @apply w-full px-4 py-2.5 rounded-lg bg-ink-850 border border-ink-700 text-ink-100 placeholder:text-ink-500 focus:outline-none focus:border-gold-700 focus:ring-1 focus:ring-gold-700/50 transition-all;
+  }
+  .label-text {
+    @apply block text-sm font-medium text-gold-400/80 mb-1.5 tracking-wide;
+  }
+  .gold-divider {
+    @apply h-px;
+    background: linear-gradient(to right, transparent, rgba(143, 89, 28, 0.4), transparent);
+  }
+  /* 鎏金字体：多层渐变 + 微光流动 + 描边光晕 */
+  .gold-text {
+    @apply text-transparent bg-clip-text;
+    background-image: linear-gradient(
+      135deg,
+      #76491c 0%,
+      #c8902a 25%,
+      #f5ecd0 50%,
+      #c8902a 75%,
+      #76491c 100%
+    );
+    background-size: 200% auto;
+    animation: shimmer 6s linear infinite;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 1px rgba(200, 144, 42, 0.6)) drop-shadow(0 0 3px rgba(200, 144, 42, 0.25));
+  }
+  /* 鎏金大标题：更深沉的渐变 + 描边 */
+  .gold-title {
+    @apply text-transparent bg-clip-text;
+    background-image: linear-gradient(
+      180deg,
+      #f5ecd0 0%,
+      #e0c068 30%,
+      #c8902a 60%,
+      #8f591c 100%
+    );
+    -webkit-text-fill-color: transparent;
+    letter-spacing: 0.15em;
+    filter: drop-shadow(0 0 1px rgba(224, 192, 104, 0.5)) drop-shadow(0 0 4px rgba(200, 144, 42, 0.2));
+  }
+  .section-title {
+    @apply text-xl font-bold text-gold-200/90 tracking-wider;
+  }
+  .tag {
+    @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-ink-800/80 text-ink-400 border border-ink-700;
+  }
+  .tag-gold {
+    @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gold-900/30 text-gold-400/90 border border-gold-800/40;
+  }
+  .card-entry {
+    @apply bg-ink-900/60 border border-ink-800 rounded-xl backdrop-blur-sm p-4 hover:border-gold-800/60 hover:bg-ink-850/60 cursor-pointer transition-all duration-300;
+  }
+  /* 暗金边框装饰 */
+  .gold-border {
+    border: 1px solid rgba(143, 89, 28, 0.25);
+  }
+  .gold-border-top {
+    border-top: 1px solid rgba(143, 89, 28, 0.3);
+  }
+}

@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="1000" viewBox="0 0 320 1000">
+  <!-- 暗金铭文长卷：多列符文 + 装饰分隔，纵向重复铺满
+       透明度刻意压低（0.15-0.22），保证背景不抢内容，仅在纯黑处隐约可见 -->
+  <defs>
+    <linearGradient id="runeGold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#8f591c" stop-opacity="0.22"/>
+      <stop offset="50%" stop-color="#7a4a18" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#5c3812" stop-opacity="0.15"/>
+    </linearGradient>
+  </defs>
+
+  <g fill="url(#runeGold)" font-family="serif" font-weight="500">
+
+    <!-- 左列符文 -->
+    <g font-size="20" letter-spacing="10" text-anchor="start">
+      <text x="28" y="40">ᚠᚢᚦᚨᚱᚲ</text>
+      <text x="28" y="80">ᚷᚺᚾᛁᛃᛇ</text>
+      <text x="28" y="120">ᛈᛉᛊᛏᛒᛖ</text>
+      <text x="28" y="160">ᛗᛚᛜᛞᛟᚠ</text>
+      <text x="28" y="200">ᚢᚦᚨᚱᚲᚷ</text>
+      <text x="28" y="240">ᚺᚾᛁᛃᛇᛈ</text>
+      <text x="28" y="280">ᛉᛊᛏᛒᛖᛗ</text>
+      <text x="28" y="320">ᛚᛜᛞᛟᚠᚢ</text>
+      <text x="28" y="360">ᚦᚨᚱᚲᚷᚺ</text>
+      <text x="28" y="400">ᚾᛁᛃᛇᛈᛉ</text>
+      <text x="28" y="440">ᛊᛏᛒᛖᛗᛚ</text>
+      <text x="28" y="480">ᛜᛞᛟᚠᚢᚦ</text>
+      <text x="28" y="520">ᚨᚱᚲᚷᚺᚾ</text>
+      <text x="28" y="560">ᛁᛃᛇᛈᛉᛊ</text>
+      <text x="28" y="600">ᛏᛒᛖᛗᛚᛜ</text>
+      <text x="28" y="640">ᛞᛟᚠᚢᚦᚨ</text>
+      <text x="28" y="680">ᚱᚲᚷᚺᚾᛁ</text>
+      <text x="28" y="720">ᛃᛇᛈᛉᛊᛏ</text>
+      <text x="28" y="760">ᛒᛖᛗᛚᛜᛞ</text>
+      <text x="28" y="800">ᛟᚠᚢᚦᚨᚱ</text>
+      <text x="28" y="840">ᚲᚷᚺᚾᛁᛃ</text>
+      <text x="28" y="880">ᛇᛈᛉᛊᛏᛒ</text>
+      <text x="28" y="920">ᛖᛗᛚᛜᛞᛟ</text>
+      <text x="28" y="960">ᚠᚢᚦᚨᚱᚲ</text>
+    </g>
+
+    <!-- 中列符文（偏移错落，避免规则感） -->
+    <g font-size="18" letter-spacing="12" text-anchor="middle">
+      <text x="160" y="60">ᚱᚢᚾᛟᚱᛗ</text>
+      <text x="160" y="100">ᚠᚢᚦᚨᚱᚲ</text>
+      <text x="160" y="140">ᚷᚺᚾᛁᛃᛇ</text>
+      <text x="160" y="180">ᛈᛉᛊᛏᛒᛖ</text>
+      <text x="160" y="220">ᛗᛚᛜᛞᛟᚠ</text>
+      <text x="160" y="260">ᚢᚦᚨᚱᚲᚷ</text>
+      <text x="160" y="300">ᚺᚾᛁᛃᛇᛈ</text>
+      <text x="160" y="340">ᛉᛊᛏᛒᛖᛗ</text>
+      <text x="160" y="380">ᛚᛜᛞᛟᚠᚢ</text>
+      <text x="160" y="420">ᚦᚨᚱᚲᚷᚺ</text>
+      <text x="160" y="460">ᚾᛁᛃᛇᛈᛉ</text>
+      <text x="160" y="500">ᛊᛏᛒᛖᛗᛚ</text>
+      <text x="160" y="540">ᛜᛞᛟᚠᚢᚦ</text>
+      <text x="160" y="580">ᚨᚱᚲᚷᚺᚾ</text>
+      <text x="160" y="620">ᛁᛃᛇᛈᛉᛊ</text>
+      <text x="160" y="660">ᛏᛒᛖᛗᛚᛜ</text>
+      <text x="160" y="700">ᛞᛟᚠᚢᚦᚨ</text>
+      <text x="160" y="740">ᚱᚲᚷᚺᚾᛁ</text>
+      <text x="160" y="780">ᛃᛇᛈᛉᛊᛏ</text>
+      <text x="160" y="820">ᛒᛖᛗᛚᛜᛞ</text>
+      <text x="160" y="860">ᛟᚠᚢᚦᚨᚱ</text>
+      <text x="160" y="900">ᚲᚷᚺᚾᛁᛃ</text>
+      <text x="160" y="940">ᛇᛈᛉᛊᛏᛒ</text>
+      <text x="160" y="980">ᛖᛗᛚᛜᛞᛟ</text>
+    </g>
+
+    <!-- 右列符文 -->
+    <g font-size="20" letter-spacing="10" text-anchor="end">
+      <text x="292" y="40">ᚲᚷᚺᚾᛁᛃ</text>
+      <text x="292" y="80">ᛇᛈᛉᛊᛏᛒ</text>
+      <text x="292" y="120">ᛖᛗᛚᛜᛞᛟ</text>
+      <text x="292" y="160">ᚠᚢᚦᚨᚱᚲ</text>
+      <text x="292" y="200">ᚷᚺᚾᛁᛃᛇ</text>
+      <text x="292" y="240">ᛈᛉᛊᛏᛒᛖ</text>
+      <text x="292" y="280">ᛗᛚᛜᛞᛟᚠ</text>
+      <text x="292" y="320">ᚢᚦᚨᚱᚲᚷ</text>
+      <text x="292" y="360">ᚺᚾᛁᛃᛇᛈ</text>
+      <text x="292" y="400">ᛉᛊᛏᛒᛖᛗ</text>
+      <text x="292" y="440">ᛚᛜᛞᛟᚠᚢ</text>
+      <text x="292" y="480">ᚦᚨᚱᚲᚷᚺ</text>
+      <text x="292" y="520">ᚾᛁᛃᛇᛈᛉ</text>
+      <text x="292" y="560">ᛊᛏᛒᛖᛗᛚ</text>
+      <text x="292" y="600">ᛜᛞᛟᚠᚢᚦ</text>
+      <text x="292" y="640">ᚨᚱᚲᚷᚺᚾ</text>
+      <text x="292" y="680">ᛁᛃᛇᛈᛉᛊ</text>
+      <text x="292" y="720">ᛏᛒᛖᛗᛚᛜ</text>
+      <text x="292" y="760">ᛞᛟᚠᚢᚦᚨ</text>
+      <text x="292" y="800">ᚱᚲᚷᚺᚾᛁ</text>
+      <text x="292" y="840">ᛃᛇᛈᛉᛊᛏ</text>
+      <text x="292" y="880">ᛒᛖᛗᛚᛜᛞ</text>
+      <text x="292" y="920">ᛟᚠᚢᚦᚨᚱ</text>
+      <text x="292" y="960">ᚲᚷᚺᚾᛁᛃ</text>
+    </g>
+
+    <!-- 装饰分隔线 + 节点（仿石碑刻纹，透明度同样压低） -->
+    <g stroke="#7a4a18" stroke-opacity="0.15" stroke-width="0.8" fill="none">
+      <line x1="20" y1="250" x2="300" y2="250" stroke-dasharray="2 6"/>
+      <line x1="20" y1="500" x2="300" y2="500" stroke-dasharray="2 6"/>
+      <line x1="20" y1="750" x2="300" y2="750" stroke-dasharray="2 6"/>
+    </g>
+    <g fill="#8f591c" fill-opacity="0.2">
+      <circle cx="160" cy="250" r="2.5"/>
+      <circle cx="160" cy="500" r="2.5"/>
+      <circle cx="160" cy="750" r="2.5"/>
+      <circle cx="160" cy="1000" r="2.5"/>
+    </g>
+
+    <!-- 顶尾装饰菱形 -->
+    <g fill="none" stroke="#7a4a18" stroke-opacity="0.18" stroke-width="1">
+      <path d="M160 8 l6 6 l-6 6 l-6 -6 z"/>
+      <path d="M160 992 l6 6 l-6 6 l-6 -6 z"/>
+    </g>
+  </g>
+</svg>

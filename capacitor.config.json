@@ -1,0 +1,55 @@
+{
+  "appId": "com.orpheus.archive",
+  "appName": "奥菲斯帝国档案馆",
+  "version": "1.0.0",
+  "description": "AFS-JZY 出品 · 奥菲斯帝国世界观档案管理系统（人物·地理·时间线·里程碑·科技·评论）。IndexedDB 本地加密存储，支持系统分享备份/导入。",
+  "author": "AFS—JZY <1360335662@qq.com>",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https",
+    "hostname": "archive.orpheus.local"
+  },
+  "android": {
+    "buildOptions": {
+      "keystorePath": null,
+      "keystoreAlias": null,
+      "releaseType": "APK"
+    },
+    "allowMixedContent": false,
+    "backgroundColor": "#0d0d0f",
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false,
+    "initialFocus": true,
+    "renderer": {
+      "priority": "high"
+    }
+  },
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#0d0d0f"
+  },
+  "plugins": {
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#0d0d0f",
+      "overlaysWebView": false
+    },
+    "NavigationBar": {
+      "style": "DARK",
+      "backgroundColor": "#0d0d0f"
+    },
+    "SplashScreen": {
+      "launchShowDuration": 800,
+      "backgroundColor": "#0d0d0f",
+      "showSpinner": false,
+      "androidScaleType": "CENTER_CROP"
+    },
+    "App": {
+      "overrideUserAgent": "OrpheusArchive/1.0 AFS-JZY"
+    },
+    "Filesystem": {
+      "androidWritePermissions": "ReadWrite"
+    }
+  }
+}
