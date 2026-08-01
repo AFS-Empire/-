@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
+import { IS_WEB_BUILD } from '../lib/buildTarget';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -39,7 +40,7 @@ export default function Home() {
           </p>
           <button onClick={() => navigate('/login')} className="btn-gold">
             <LogIn size={18} />
-            登录查阅
+            {IS_WEB_BUILD ? '申请访问' : '登录查阅'}
           </button>
           <p className="text-xs text-ink-600 mt-12 tracking-wide">
             数据存储于本地 · 无需联网

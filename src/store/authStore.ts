@@ -8,6 +8,7 @@ interface AuthState {
   currentUser: User | null;
   isAuthenticated: boolean;
   login: (username: string, password: string) => Promise<{ success: boolean; message: string }>;
+  guestLogin: () => void;
   logout: () => void;
   isAdmin: () => boolean;
 }
@@ -37,6 +38,20 @@ export const useAuthStore = create<AuthState>()(
           set({ currentUser: user, isAuthenticated: true });
         }
         return { success: true, message: `欢迎回来，${username}` };
+      },
+
+      /** 网页浏览版：以游客身份直接进入，无需账号密码 */
+      guestLogin: () => {
+        set({
+          currentUser: {
+            id: 'guest',
+            username: '访客',
+            passwordHash: '',
+            role: 'guest',
+            createdAt: Date.now(),
+          },
+          isAuthenticated: true,
+        });
       },
 
       logout: () => {

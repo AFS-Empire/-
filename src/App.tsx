@@ -8,6 +8,7 @@ import { exportAll, restoreFromBackupIfNeeded } from './data/db';
 import { useRipple } from './hooks/useRipple';
 import Layout from './components/Layout';
 import { FullScreenLoader } from './components/Skeleton';
+import { IS_WEB_BUILD } from './lib/buildTarget';
 
 // 路由懒加载：首屏只加载必要代码，其余按需加载
 // 把 importer 抽出来复用：lazy() 用一次，首屏后预加载再用一次（Vite 会去重，已加载的立即 resolve）
@@ -40,6 +41,17 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" state={{ from: location }} />;
   }
   return <>{children}</>;
+}
+
+/**
+ * 管理员路由：App 版正常渲染，Web 版直接跳回首页
+ * 这样编辑器代码不会在网页版中被加载
+ */
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  if (IS_WEB_BUILD) {
+    return <Navigate to="/" replace />;
+  }
+  return <PrivateRoute>{children}</PrivateRoute>;
 }
 
 /** 把当前 IndexedDB 完整快照推给主进程（桌面 App 才有效，浏览器无操作） */
@@ -146,8 +158,8 @@ export default function App() {
             <Route path="milestone" element={<PrivateRoute><Milestone /></PrivateRoute>} />
             <Route path="custom" element={<PrivateRoute><Custom /></PrivateRoute>} />
             <Route path="entry/:id" element={<PrivateRoute><EntryDetail /></PrivateRoute>} />
-            <Route path="editor/:type" element={<PrivateRoute><EntryEditor /></PrivateRoute>} />
-            <Route path="editor/:type/:id" element={<PrivateRoute><EntryEditor /></PrivateRoute>} />
+            <Route path="editor/:type" element={<AdminRoute><EntryEditor /></AdminRoute>} />
+            <Route path="editor/:type/:id" element={<AdminRoute><EntryEditor /></AdminRoute>} />
             <Route path="index" element={<PrivateRoute><AllIndex /></PrivateRoute>} />
             <Route path="comments" element={<PrivateRoute><CommentOverview /></PrivateRoute>} />
             <Route path="comments/:targetCode" element={<PrivateRoute><CommentSection /></PrivateRoute>} />

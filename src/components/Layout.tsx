@@ -16,10 +16,13 @@ import {
   MessagesSquare,
   Monitor,
   Info,
+  RefreshCw,
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { SECTION_PREFIX } from '../types';
 import BackupBar from './BackupBar';
+import { IS_WEB_BUILD } from '../lib/buildTarget';
+import { useHiddenUnlock } from '../lib/hiddenUnlock';
 
 const navItems = [
   { to: '/', label: '首页', icon: Home },
@@ -46,10 +49,18 @@ export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const isUnlocked = useHiddenUnlock(s => s.isUnlocked);
 
   const handleLogout = () => {
     logout();
     navigate('/login', { replace: true });
+  };
+
+  /** 强制刷新页面：卡住或数据不同步时使用 */
+  const handleForceRefresh = () => {
+    if (window.confirm('确定强制刷新页面？\n\n未保存的内容可能丢失，但本地已保存的档案不受影响。')) {
+      window.location.reload();
+    }
   };
 
   // 根据当前页面智能跳转评论区
@@ -128,9 +139,25 @@ export default function Layout() {
         <span className="text-sm tracking-wide">关于</span>
       </NavLink>
 
-      {/* 本地备份工具栏（桌面 App 显示；浏览器也显示，走降级方案） */}
+      {/* 本地备份工具栏：App 版始终显示；Web 版仅在隐藏解锁后显示 */}
+      {(!IS_WEB_BUILD || isUnlocked) && (
+        <>
+          <div className="gold-divider my-3" />
+          <BackupBar />
+        </>
+      )}
+
+      {/* 强制刷新按钮（三端通用） */}
       <div className="gold-divider my-3" />
-      <BackupBar />
+      <button
+        onClick={handleForceRefresh}
+        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 border-l-2 border-transparent text-ink-400 hover:text-gold-400/80 hover:bg-ink-800/30"
+        title="卡住或数据不同步时点击"
+      >
+        <RefreshCw size={17} />
+        <span className="text-sm tracking-wide">强制刷新</span>
+      </button>
+
       {/* 桌面 App 状态提示 */}
       {typeof window !== 'undefined' && window.archiveApp && (
         <div className="mt-3 px-2 py-1.5 rounded-md bg-gold-900/10 border border-gold-800/30 flex items-center gap-2">

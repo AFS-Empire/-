@@ -13,6 +13,8 @@ import { useDataStore } from '../store/dataStore';
 import { useCommentStore } from '../store/commentStore';
 import { useAuthStore } from '../store/authStore';
 import { isMobileApp, isMobileBrowser, mobileShareBackup, mobilePickBackupFile, webShareFile } from '../lib/mobile';
+import { IS_WEB_BUILD } from '../lib/buildTarget';
+import { useHiddenUnlock } from '../lib/hiddenUnlock';
 import PinDialog from './PinDialog';
 
 interface AutoBackupItem {
@@ -48,6 +50,8 @@ export default function BackupBar() {
   const refreshComments = useCommentStore(s => s.refresh);
   const currentUser = useAuthStore(s => s.currentUser);
   const isAdmin = currentUser?.role === 'admin';
+  // Web 版：隐藏解锁即视为授权（无 PIN/管理员）
+  const isUnlocked = useHiddenUnlock(s => s.isUnlocked);
   const fileRef = useRef<HTMLInputElement>(null);
   const [toast, setToast] = useState<{ type: 'ok' | 'err'; msg: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -56,7 +60,7 @@ export default function BackupBar() {
   const [autoBackups, setAutoBackups] = useState<AutoBackupItem[]>([]);
   const [showHistory, setShowHistory] = useState(false);
 
-  // PIN 二次校验：备份/恢复前必须通过
+  // PIN 二次校验：备份/恢复前必须通过（App 版专用）
   // 待执行的操作（PIN 通过后执行）
   const [pinOpen, setPinOpen] = useState(false);
   const [pinTitle, setPinTitle] = useState('');
@@ -65,8 +69,20 @@ export default function BackupBar() {
   // 浏览器下载兜底：显示可手动点击的下载链接
   const [downloadLink, setDownloadLink] = useState<{ url: string; name: string } | null>(null);
 
-  /** 要求 PIN 校验后才执行操作 */
+  /**
+   * 操作授权 + 执行
+   * - Web 版：检查隐藏解锁状态，已解锁直接执行 action（不要求 PIN）
+   * - App 版：检查管理员身份，再走 PIN 二次校验
+   */
   const requirePin = (title: string, action: () => void) => {
+    if (IS_WEB_BUILD) {
+      if (!isUnlocked) {
+        showToast('err', '请先在「关于」页面解锁数据同步');
+        return;
+      }
+      action();
+      return;
+    }
     if (!isAdmin) {
       showToast('err', '仅管理员可执行此操作');
       return;
