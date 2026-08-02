@@ -60,20 +60,16 @@ export default function About() {
     }
   };
 
-  /** Web 版：验证隐藏密码 */
+  /** Web 版：暂存密码到内存（不校验，真正校验在导入文件时） */
   const handleHiddenUnlock = async () => {
     if (!hiddenPassword) return;
-    const ok = await unlock(hiddenPassword);
-    if (ok) {
-      setHiddenMsg('已解锁 · 导入导出功能已开启');
-      setTimeout(() => {
-        setShowHiddenPrompt(false);
-        setHiddenPassword('');
-        setHiddenMsg('');
-      }, 1500);
-    } else {
-      setHiddenMsg('密码错误');
-    }
+    unlock(hiddenPassword);
+    setHiddenMsg('已解锁 · 导入功能已开启');
+    setTimeout(() => {
+      setShowHiddenPrompt(false);
+      setHiddenPassword('');
+      setHiddenMsg('');
+    }, 1500);
   };
 
   return (
@@ -166,7 +162,7 @@ export default function About() {
 
             {!isUnlocked ? (
               <div className="space-y-3">
-                <p className="text-xs text-ink-400">输入同步密钥以启用导入/导出功能</p>
+                <p className="text-xs text-ink-400">输入同步密钥以启用导入功能</p>
                 <div className="relative">
                   <KeyRound size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-500" />
                   <input
@@ -186,7 +182,7 @@ export default function About() {
               <div className="space-y-3 text-center">
                 <CheckCircle2 size={36} className="text-green-400 mx-auto" />
                 <p className="text-sm text-green-400">{hiddenMsg || '已解锁'}</p>
-                <p className="text-xs text-ink-500">导入导出功能已在侧边栏开启</p>
+                <p className="text-xs text-ink-500">导入功能已在侧边栏开启</p>
                 <button onClick={() => { lock(); setShowHiddenPrompt(false); }} className="btn-ghost w-full text-sm">
                   重新锁定
                 </button>

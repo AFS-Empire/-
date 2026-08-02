@@ -188,7 +188,12 @@ export async function setSetting(key: string, value: any): Promise<void> {
 }
 
 // ============ 导入导出 ============
-export async function exportAll(): Promise<string> {
+
+/**
+ * 导出全部数据（含小说）为带签名的 JSON
+ * @param privateSalt 私有盐值（仅 App 端传入，网页端不调用此函数）
+ */
+export async function exportAll(privateSalt?: string): Promise<string> {
   const db = await getDB();
   const entries = await db.getAll('entries');
   const eras = await db.getAll('eras');
@@ -199,19 +204,36 @@ export async function exportAll(): Promise<string> {
   for (const k of keys) {
     settings[String(k)] = await db.get('settings', k);
   }
+  // 小说数据
+  const novelBooks = await db.getAll('novelBooks');
+  const novelVolumes = await db.getAll('novelVolumes');
+  const novelChapters = await db.getAll('novelChapters');
+  const novelProgress = await db.getAll('novelProgress');
+
+  // 构建签名 payload（key 顺序必须与 hiddenUnlock.buildSignPayload 一致）
+  const { buildSignPayload, sha256Hex } = await import('../lib/hiddenUnlock');
+  const payload = buildSignPayload({ entries, eras, customSections, users, settings, novelBooks, novelVolumes, novelChapters, novelProgress });
+  const sign = privateSalt ? await sha256Hex(payload + privateSalt) : '';
+
   // 嵌入隐形数字水印（创作者署名），永久写入备份文件
   const { buildExportWatermark } = await import('../lib/watermark');
   const watermark = buildExportWatermark();
   return JSON.stringify({
     entries, eras, customSections, users, settings,
+    novelBooks, novelVolumes, novelChapters, novelProgress,
+    sign,
     exportDate: new Date().toISOString(),
     ...watermark,
   }, null, 2);
 }
 
+/**
+ * 导入全部数据（含小说）
+ * 注意：签名校验由调用方（BackupBar）在调用前完成
+ */
 export async function importAll(json: string): Promise<void> {
   const data = JSON.parse(json);
-  // 校验水印（仅记录日志，不阻断导入 —— 用户可能要导入无水印的旧备份）
+  // 校验水印（仅记录日志，不阻断导入）
   const { verifyImportWatermark } = await import('../lib/watermark');
   const wm = verifyImportWatermark(data);
   if (!wm.hasWatermark) {
@@ -220,17 +242,28 @@ export async function importAll(json: string): Promise<void> {
     console.info(`[import] 水印校验通过：作者 ${wm.author}`);
   }
   const db = await getDB();
-  const tx = db.transaction(['entries', 'eras', 'customSections', 'users', 'settings'], 'readwrite');
+  const storeNames = ['entries', 'eras', 'customSections', 'users', 'settings', 'novelBooks', 'novelVolumes', 'novelChapters', 'novelProgress'];
+  const tx = db.transaction(storeNames, 'readwrite');
+  // 清空旧数据
   await Promise.all([
     tx.objectStore('entries').clear(),
     tx.objectStore('eras').clear(),
     tx.objectStore('customSections').clear(),
+    tx.objectStore('novelBooks').clear(),
+    tx.objectStore('novelVolumes').clear(),
+    tx.objectStore('novelChapters').clear(),
+    tx.objectStore('novelProgress').clear(),
   ]);
+  // 写入新数据
   if (data.entries) for (const e of data.entries) await tx.objectStore('entries').put(e);
   if (data.eras) for (const e of data.eras) await tx.objectStore('eras').put(e);
   if (data.customSections) for (const s of data.customSections) await tx.objectStore('customSections').put(s);
   if (data.users) for (const u of data.users) await tx.objectStore('users').put(u);
   if (data.settings) for (const [k, v] of Object.entries(data.settings)) await tx.objectStore('settings').put(v, k);
+  if (data.novelBooks) for (const b of data.novelBooks) await tx.objectStore('novelBooks').put(b);
+  if (data.novelVolumes) for (const v of data.novelVolumes) await tx.objectStore('novelVolumes').put(v);
+  if (data.novelChapters) for (const c of data.novelChapters) await tx.objectStore('novelChapters').put(c);
+  if (data.novelProgress) for (const p of data.novelProgress) await tx.objectStore('novelProgress').put(p);
   await tx.done;
 }
 

@@ -197,16 +197,27 @@ export default function BackupBar() {
     }
   };
 
-  /** 浏览器环境：从文件读（PIN 校验后才真正导入） */
+  /** 浏览器环境：从文件读（需解锁 + 签名校验） */
   const handleRestoreBrowser = (file: File | null) => {
     if (!file || busy) return;
-    // 文件选择器关闭后，浏览器的 change 事件可能和后续弹窗的点击冲突
-    // 延迟一帧再弹 PIN，避免点击穿透导致弹窗秒关
     requestAnimationFrame(() => {
       requirePin('导入档案', async () => {
         setBusy(true);
         try {
           const json = await file.text();
+          const fileData = JSON.parse(json);
+
+          // 网页端：签名校验（App端跳过，App有自己的PIN+管理员权限体系）
+          if (IS_WEB_BUILD) {
+            const verifyImport = useHiddenUnlock.getState().verifyImport;
+            const ok = await verifyImport(fileData);
+            if (!ok) {
+              showToast('err', '签名校验失败：密钥错误或文件已被篡改，拒绝导入');
+              setBusy(false);
+              return;
+            }
+          }
+
           await importAll(json);
           await Promise.all([refresh(), refreshComments()]);
           showToast('ok', '档案已导入，请刷新页面以查看');
@@ -316,7 +327,7 @@ export default function BackupBar() {
   return (
     <div className="space-y-2">
       <div className="text-[11px] uppercase tracking-[0.15em] text-gold-500/80 flex items-center gap-1.5 px-1">
-        <HardDrive size={12} /> 档案导出 / 导入
+        <HardDrive size={12} /> {IS_WEB_BUILD ? '档案导入' : '档案导出 / 导入'}
       </div>
 
       {/* 数据存储位置（仅桌面版） */}
@@ -332,15 +343,18 @@ export default function BackupBar() {
       )}
 
       <div className="flex gap-2 flex-wrap">
-        <button
-          onClick={handleBackup}
-          disabled={busy}
-          className="flex-1 min-w-[88px] flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg bg-gold-900/20 hover:bg-gold-900/40 border border-gold-800/50 text-gold-300 hover:text-gold-200 transition-all text-xs disabled:opacity-50"
-          title={isDesktop ? '将完整档案导出到本地文件' : isMobile ? '分享档案 JSON 到其他应用' : '下载档案 JSON 文件'}
-        >
-          {isMobile ? <Share2 size={14} /> : <Download size={14} />}
-          导出
-        </button>
+        {/* 网页版：不显示导出按钮，只允许单向导入 */}
+        {!IS_WEB_BUILD && (
+          <button
+            onClick={handleBackup}
+            disabled={busy}
+            className="flex-1 min-w-[88px] flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg bg-gold-900/20 hover:bg-gold-900/40 border border-gold-800/50 text-gold-300 hover:text-gold-200 transition-all text-xs disabled:opacity-50"
+            title={isDesktop ? '将完整档案导出到本地文件' : isMobile ? '分享档案 JSON 到其他应用' : '下载档案 JSON 文件'}
+          >
+            {isMobile ? <Share2 size={14} /> : <Download size={14} />}
+            导出
+          </button>
+        )}
         {isDesktop ? (
           <button
             onClick={handleRestoreDesktop}

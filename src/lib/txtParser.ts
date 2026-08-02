@@ -23,13 +23,15 @@ export function parseNovelTxt(text: string): ParsedChapter[] {
 
   // 章节标题正则：兼容阿拉伯数字 + 中文数字
   // 第1章 / 第一章 / 第一百二十三章
-  const chapterRe = /^第\s*[0-9零一二三四五六七八九十百千万]+\s*章[\s—\-]/;
+  // 支持：第X章 标题 / 第X章—标题 / 第X章（单独一行无标题）
+  const chapterRe = /^第\s*[0-9零一二三四五六七八九十百千万]+\s*章([\s—\-]|$)/;
 
   const chapters: ParsedChapter[] = [];
   let currentOrder = 0;
   let currentTitle = '';
   let currentLines: string[] = [];
   let inChapter = false;
+  let preChapterLines: string[] = [];  // 第一章之前的文字（前言等）
 
   const flushChapter = () => {
     if (!inChapter) return;
@@ -47,13 +49,28 @@ export function parseNovelTxt(text: string): ParsedChapter[] {
     if (chapterRe.test(trimmed)) {
       // 保存上一章
       flushChapter();
-      // 开始新章
+      // 如果有前言内容且这是第一章，先把前言作为第0章
+      if (chapters.length === 0 && preChapterLines.length > 0) {
+        const preParas = cleanParagraphs(preChapterLines);
+        if (preParas.length > 0) {
+          chapters.push({
+            order: 0,
+            title: '前言',
+            content: preParas.join('\n\n'),
+            paragraphs: preParas,
+          });
+        }
+      }
+      // 开始新章（序号 = 已有正文章节数 + 1，前言不算）
       inChapter = true;
-      currentOrder = chapters.length + 1;
+      currentOrder = chapters.filter(c => c.order > 0).length + 1;
       currentTitle = extractChapterTitle(trimmed);
       currentLines = [];
     } else if (inChapter) {
       currentLines.push(trimmed);
+    } else {
+      // 第一章之前的内容
+      preChapterLines.push(trimmed);
     }
   }
   // 保存最后一章
@@ -67,7 +84,11 @@ function extractChapterTitle(line: string): string {
   // 去掉"第X章"部分
   const afterChapter = line.replace(/^第\s*[0-9零一二三四五六七八九十百千万]+\s*章/, '');
   // 去掉开头的分隔符（—、-、空格）
-  return afterChapter.replace(/^[\s—\-]+/, '').trim() || `第${line.match(/[0-9零一二三四五六七八九十百千万]+/)?.[0] || '?'}章`;
+  const title = afterChapter.replace(/^[\s—\-]+/, '').trim();
+  if (title) return title;
+  // 无副标题：返回"第X章"
+  const numMatch = line.match(/[0-9零一二三四五六七八九十百千万]+/);
+  return `第${numMatch?.[0] || '?'}章`;
 }
 
 /** 清理空行、合并过短的段落 */

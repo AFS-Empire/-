@@ -1,30 +1,35 @@
 /**
- * 隐藏解锁状态管理
+ * 隐藏解锁 + 签名校验
  *
- * 网页浏览版：关于页面标题点击 5 次后弹出密码框，
- * 输入正确密码后解锁导入/导出功能。
+ * 安全模型（单向数据流：App导出 → 网页导入）：
  *
- * 密码不存明文，只存 SHA-256(password + salt) 的哈希值。
- * 即使有人扒出编译后的 JS，也只能看到哈希和盐值，无法逆推密码。
+ * 1. App 内置私有盐值（用户自定义），导出 JSON 时：
+ *    sign = SHA256( JSON.stringify(dataPayload) + 私有盐值 )
+ *    sign 写入 JSON 文件
+ *
+ * 2. 网页端不存储任何盐值/密钥。
+ *    用户在「关于」页点击标题5次 → 输入密码（= 盐值）
+ *    → 密码仅暂存内存（sessionKey），不落盘、不持久化
+ *    → 解锁导入面板
+ *
+ * 3. 导入文件时：
+ *    从 JSON 提取 dataPayload + sign
+ *    计算 SHA256( JSON.stringify(dataPayload) + sessionKey )
+ *    与 sign 对比 → 匹配则导入，不匹配则拒绝
+ *
+ * 逆向网页 JS 只能拿到算法，拿不到盐值。
+ * 拿到 JSON 文件也只有 sign，无法伪造或篡改数据。
  */
 import { create } from 'zustand';
 
-// 密码：Orpheus@2026!Archive
-// 盐值：dae8b46163aacf81e88f698724702bfb79f0eca2f0295ec8bece21c53d957df1
-// 哈希：c5b6842d098c5af1a56177eefe2a6171c4537ea8db7327ced592e052f9d0b986
-const HIDDEN_SALT = 'dae8b46163aacf81e88f698724702bfb79f0eca2f0295ec8bece21c53d957df1';
-const HIDDEN_HASH = 'c5b6842d098c5af1a56177eefe2a6171c4537ea8db7327ced592e052f9d0b986';
-
-/** 纯 JS SHA-256（不依赖 crypto.subtle，兼容所有浏览器） */
-async function sha256Hex(text: string): Promise<string> {
-  // 优先用原生 crypto.subtle
+/** 纯 JS SHA-256（优先用 crypto.subtle，降级到纯 JS） */
+export async function sha256Hex(text: string): Promise<string> {
   if (typeof crypto !== 'undefined' && crypto.subtle) {
     try {
       const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
       return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
-    } catch { /* 降级到纯 JS */ }
+    } catch { /* 降级 */ }
   }
-  // 纯 JS 降级（跟 crypto.ts 里同一套实现）
   return sha256PureJS(text);
 }
 
@@ -75,23 +80,87 @@ function sha256PureJS(message: string): string {
   return Array.from(H).map(x => x.toString(16).padStart(8,'0')).join('');
 }
 
-interface HiddenUnlockState {
-  isUnlocked: boolean;
-  unlock: (password: string) => Promise<boolean>;
-  lock: () => void;
+/**
+ * 构建用于签名的 data payload 字符串
+ * 两端（App 导出 / 网页导入）必须用完全相同的 key 顺序
+ */
+export function buildSignPayload(data: {
+  entries?: unknown[];
+  eras?: unknown[];
+  customSections?: unknown[];
+  users?: unknown[];
+  settings?: Record<string, unknown>;
+  novelBooks?: unknown[];
+  novelVolumes?: unknown[];
+  novelChapters?: unknown[];
+  novelProgress?: unknown[];
+}): string {
+  return JSON.stringify({
+    entries: data.entries || [],
+    eras: data.eras || [],
+    customSections: data.customSections || [],
+    users: data.users || [],
+    settings: data.settings || {},
+    novelBooks: data.novelBooks || [],
+    novelVolumes: data.novelVolumes || [],
+    novelChapters: data.novelChapters || [],
+    novelProgress: data.novelProgress || [],
+  });
 }
 
-export const useHiddenUnlock = create<HiddenUnlockState>((set) => ({
-  isUnlocked: false,
+/**
+ * 校验导入文件的签名
+ * @param fileData 解析后的 JSON 对象
+ * @param sessionKey 用户输入的密码（= 私有盐值）
+ * @returns true = 签名匹配，可安全导入
+ */
+export async function verifySign(
+  fileData: Record<string, unknown>,
+  sessionKey: string,
+): Promise<boolean> {
+  const sign = fileData.sign as string | undefined;
+  if (!sign || typeof sign !== 'string') return false;
+  if (!sessionKey) return false;
 
-  unlock: async (password: string) => {
-    const hash = await sha256Hex(password + HIDDEN_SALT);
-    if (hash === HIDDEN_HASH) {
-      set({ isUnlocked: true });
-      return true;
-    }
-    return false;
+  const payload = buildSignPayload({
+    entries: fileData.entries as unknown[],
+    eras: fileData.eras as unknown[],
+    customSections: fileData.customSections as unknown[],
+    users: fileData.users as unknown[],
+    settings: fileData.settings as Record<string, unknown>,
+    novelBooks: fileData.novelBooks as unknown[],
+    novelVolumes: fileData.novelVolumes as unknown[],
+    novelChapters: fileData.novelChapters as unknown[],
+    novelProgress: fileData.novelProgress as unknown[],
+  });
+
+  const computed = await sha256Hex(payload + sessionKey);
+  return computed === sign;
+}
+
+interface HiddenUnlockState {
+  isUnlocked: boolean;
+  sessionKey: string | null;  // 密码仅暂存内存，不持久化
+  unlock: (password: string) => void;
+  lock: () => void;
+  verifyImport: (fileData: Record<string, unknown>) => Promise<boolean>;
+}
+
+export const useHiddenUnlock = create<HiddenUnlockState>((set, get) => ({
+  isUnlocked: false,
+  sessionKey: null,
+
+  // 解锁：仅暂存密码到内存，不做本地校验
+  // 真正校验在导入文件时通过 verifySign 完成
+  unlock: (password: string) => {
+    set({ isUnlocked: true, sessionKey: password });
   },
 
-  lock: () => set({ isUnlocked: false }),
+  lock: () => set({ isUnlocked: false, sessionKey: null }),
+
+  verifyImport: async (fileData) => {
+    const key = get().sessionKey;
+    if (!key) return false;
+    return verifySign(fileData, key);
+  },
 }));
