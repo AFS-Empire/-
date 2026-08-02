@@ -22,7 +22,8 @@
     "cap:run:android": "npm run cap:sync && cap run android",
     "build:android": "npm run cap:sync && cd android && ./gradlew assembleRelease && cd .. && echo 'APK 在 android/app/build/outputs/apk/release/'",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "sync": "node scripts/sync-check.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^6.1.2",
