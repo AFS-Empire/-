@@ -73,13 +73,14 @@ console.log('✅ proguard-rules.pro 已写入');
 const gradlePath = path.join(androidAppDir, 'build.gradle');
 let gradle = fs.readFileSync(gradlePath, 'utf-8');
 
-// 在 android { } 块内添加 signingConfigs 和 buildTypes
-// Capacitor 默认的 build.gradle 没有 release signing，需要加
+// 移除已存在的 signingConfigs 块（避免重复）
+gradle = gradle.replace(/signingConfigs\s*\{[\s\S]*?\n\s*\}/g, '');
 
-// 检查是否已经配置过
-if (!gradle.includes('proguard-rules.pro')) {
-  // 添加 signingConfig
-  const signingBlock = `
+// 移除已存在的 buildTypes 块
+gradle = gradle.replace(/buildTypes\s*\{[\s\S]*?\n\s*\}/g, '');
+
+// 在 android { 块内插入正确的 signingConfigs + buildTypes
+const signingAndBuildTypes = `
     signingConfigs {
         release {
             if (project.hasProperty('RELEASE_STORE_FILE')) {
@@ -89,19 +90,8 @@ if (!gradle.includes('proguard-rules.pro')) {
                 keyPassword RELEASE_KEY_PASSWORD
             }
         }
-    }`;
-
-  // 在 buildTypes.release 里开启 minify + signing
-  gradle = gradle.replace(
-    /buildTypes\s*\{/,
-    `signingConfigs {${signingBlock.includes('signingConfigs') ? '' : ''}}\n    buildTypes {`
-  );
-
-  // 更简单的方式：直接替换整个 buildTypes 块
-  // 先找到 buildTypes { ... } 块
-  const buildTypesMatch = gradle.match(/buildTypes\s*\{[\s\S]*?\n\s*\}/);
-  if (buildTypesMatch) {
-    const newBuildTypes = `buildTypes {
+    }
+    buildTypes {
         debug {
             minifyEnabled false
         }
@@ -112,37 +102,17 @@ if (!gradle.includes('proguard-rules.pro')) {
             if (project.hasProperty('RELEASE_STORE_FILE')) {
                 signingConfig signingConfigs.release
             } else {
-                // 没有签名密钥时用 debug 签名（仅测试用，不能上架）
                 signingConfig signingConfigs.debug
             }
         }
-    }`;
-    gradle = gradle.replace(buildTypesMatch[0], newBuildTypes);
-  }
-
-  // 添加 signingConfigs 定义（在 buildTypes 之前）
-  if (!gradle.includes('signingConfigs')) {
-    gradle = gradle.replace(
-      /buildTypes\s*\{/,
-      `signingConfigs {
-        release {
-            if (project.hasProperty('RELEASE_STORE_FILE')) {
-                storeFile file(RELEASE_STORE_FILE)
-                storePassword RELEASE_STORE_PASSWORD
-                keyAlias RELEASE_KEY_ALIAS
-                keyPassword RELEASE_KEY_PASSWORD
-            }
-        }
     }
-    buildTypes {`
-    );
-  }
+`;
 
-  fs.writeFileSync(gradlePath, gradle);
-  console.log('✅ build.gradle 已配置 ProGuard + 签名');
-} else {
-  console.log('⏭️  build.gradle 已配置过，跳过');
-}
+// 在 android { 块的末尾（最后一个 } 之前）插入
+gradle = gradle.replace(/\n\s*\}\s*$/, '\n' + signingAndBuildTypes + '    }\n');
+
+fs.writeFileSync(gradlePath, gradle);
+console.log('✅ build.gradle 已配置 ProGuard + 签名');
 
 // ── 3. 修改 AndroidManifest.xml 添加权限 ──
 const manifestPath = path.join(androidAppDir, 'src', 'main', 'AndroidManifest.xml');

@@ -95,15 +95,33 @@ jobs:
           path: orpheus-archive.apk
           retention-days: 90
 
-      - name: 部署到 Netlify（不阻塞主流程）
-        continue-on-error: true
+      - name: 验证 APK 签名
         run: |
-          SITE_ID="731c2022-9424-44e8-8cec-b455f01af8ab"
-          TOKEN="nfp_aKhDSDkMAjcyK5eMa9KeyYPP5WrE7H7652d9"
+          # 检查 APK 是否包含 V2 签名
+          APK="${{ env.APK_PATH }}"
+          if grep -c "APK Sig Block 42" "$APK" > /dev/null 2>&1; then
+            echo "✅ APK V2 签名验证通过"
+          else
+            echo "⚠️  警告：APK 未检测到 V2 签名，部分手机可能无法安装"
+          fi
+
+      - name: 发布到 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: 奥菲斯帝国档案馆 v1.0.${{ github.run_number }}
+          files: ${{ env.APK_PATH }}
+          generate_release_notes: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 部署到 Netlify（需要配置 secrets）
+        if: ${{ secrets.NETLIFY_SITE_ID != '' && secrets.NETLIFY_AUTH_TOKEN != '' }}
+        run: |
           mkdir -p apk-deploy
           cp "${{ env.APK_PATH }}" "apk-deploy/archive-latest.apk"
 
-          # 生成下载页
           cat > apk-deploy/index.html << 'HTMLEOF'
           <!DOCTYPE html>
           <html lang="zh-CN">
@@ -134,5 +152,8 @@ jobs:
           HTMLEOF
 
           npm install -g netlify-cli
-          netlify deploy --dir=apk-deploy --site="$SITE_ID" --auth="$TOKEN" --prod
+          netlify deploy --dir=apk-deploy --site="$NETLIFY_SITE_ID" --auth="$NETLIFY_AUTH_TOKEN" --prod
           echo "✅ Netlify 部署成功"
+        env:
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
