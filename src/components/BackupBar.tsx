@@ -7,7 +7,7 @@
  * - 浏览器：a 标签下载 + FileReader 读
  */
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Download, Upload, HardDrive, CheckCircle2, XCircle, History, RotateCcw, Trash2, RefreshCw, Database, Share2 } from 'lucide-react';
+import { Download, Upload, HardDrive, CheckCircle2, XCircle, History, RotateCcw, Trash2, RefreshCw, Database, Share2, ShieldAlert } from 'lucide-react';
 import { exportAll, importAll } from '../data/db';
 import { useDataStore } from '../store/dataStore';
 import { useCommentStore } from '../store/commentStore';
@@ -68,6 +68,9 @@ export default function BackupBar() {
 
   // 浏览器下载兜底：显示可手动点击的下载链接
   const [downloadLink, setDownloadLink] = useState<{ url: string; name: string } | null>(null);
+
+  // 网页端验签失败警告卡片
+  const [showReject, setShowReject] = useState(false);
 
   /**
    * 操作授权 + 执行
@@ -212,8 +215,9 @@ export default function BackupBar() {
             const verifyImport = useHiddenUnlock.getState().verifyImport;
             const ok = await verifyImport(fileData);
             if (!ok) {
-              showToast('err', '签名校验失败：密钥错误或文件已被篡改，拒绝导入');
+              // 不加载文件的任何内容，直接拒绝并弹出警告卡片
               setBusy(false);
+              setShowReject(true);
               return;
             }
           }
@@ -522,6 +526,28 @@ export default function BackupBar() {
           if (action) action();
         }}
       />
+
+      {/* 网页端验签失败警告卡片 */}
+      {showReject && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={() => setShowReject(false)}>
+          <div className="w-full max-w-sm p-6 rounded-xl border border-red-900/60 bg-gradient-to-b from-red-950/80 to-ink-950 shadow-2xl text-center" onClick={e => e.stopPropagation()}>
+            <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-red-900/40 border border-red-700/50 flex items-center justify-center">
+              <ShieldAlert size={28} className="text-red-400" />
+            </div>
+            <h3 className="text-lg font-bold text-red-300 tracking-wide mb-2">奥菲斯帝国记录了你的行为</h3>
+            <p className="text-xs text-red-400/70 leading-relaxed mb-4">
+              签名校验失败 — 文件密钥错误或数据已被篡改，系统已拒绝载入该文件。<br />
+              非法文件不会被加载任何内容。
+            </p>
+            <button
+              onClick={() => setShowReject(false)}
+              className="px-6 py-2 rounded-lg border border-red-800/50 text-red-300 hover:text-red-200 hover:bg-red-900/30 transition-colors text-sm"
+            >
+              知道了
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -191,9 +191,10 @@ export async function setSetting(key: string, value: any): Promise<void> {
 
 /**
  * 导出全部数据（含小说）为带签名的 JSON
- * @param privateSalt 私有盐值（仅 App 端传入，网页端不调用此函数）
+ * 盐值从 appSecret.ts 导入（App构建有真实值，Web构建为空字符串）
+ * 网页端不调用此函数（导出按钮已被移除）
  */
-export async function exportAll(privateSalt?: string): Promise<string> {
+export async function exportAll(): Promise<string> {
   const db = await getDB();
   const entries = await db.getAll('entries');
   const eras = await db.getAll('eras');
@@ -210,10 +211,11 @@ export async function exportAll(privateSalt?: string): Promise<string> {
   const novelChapters = await db.getAll('novelChapters');
   const novelProgress = await db.getAll('novelProgress');
 
-  // 构建签名 payload（key 顺序必须与 hiddenUnlock.buildSignPayload 一致）
+  // 构建签名（盐值从 appSecret 导入，Web 构建时为空 → sign 也为空，但网页端不会调用导出）
   const { buildSignPayload, sha256Hex } = await import('../lib/hiddenUnlock');
+  const { APP_PRIVATE_SALT } = await import('../lib/appSecret');
   const payload = buildSignPayload({ entries, eras, customSections, users, settings, novelBooks, novelVolumes, novelChapters, novelProgress });
-  const sign = privateSalt ? await sha256Hex(payload + privateSalt) : '';
+  const sign = APP_PRIVATE_SALT ? await sha256Hex(payload + APP_PRIVATE_SALT) : '';
 
   // 嵌入隐形数字水印（创作者署名），永久写入备份文件
   const { buildExportWatermark } = await import('../lib/watermark');
