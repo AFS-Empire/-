@@ -33,7 +33,7 @@ jobs:
       - name: 安装 npm 依赖
         run: npm ci
 
-      - name: 构建 Web 资源（跳过 Electron）
+      - name: 构建 Web 资源
         run: npx vite build
         env:
           ARCHIVE_RELEASE: '1'
@@ -117,7 +117,71 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 部署到 Netlify
+      - name: 将 APK 整合进 Web 部署目录
+        run: |
+          VERSION="v1.0.${{ github.run_number }}"
+          mkdir -p dist/apk
+          cp "${{ env.APK_PATH }}" "dist/apk/orpheus-archive.apk"
+          echo "✅ APK 已放入 dist/apk/"
+
+      - name: 创建 APK 下载页和版本信息
+        run: |
+          VERSION="v1.0.${{ github.run_number }}"
+          cat > dist/apk/index.html << HTMLEOF
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>奥菲斯帝国档案馆 · APK 下载</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0d0d0f;color:#e8d5b7;font-family:-apple-system,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1rem}
+.card{text-align:center;padding:2rem;max-width:400px;width:100%}
+h1{color:#d4a857;font-size:1.5rem;margin-bottom:.5rem}
+.ver{color:#8a8074;font-size:.85rem;margin-bottom:1.5rem}
+.btn{display:inline-block;background:linear-gradient(135deg,#d4a857,#b8862e);color:#1a1a1c;text-decoration:none;padding:.9rem 2rem;border-radius:.75rem;font-weight:bold;font-size:1.1rem;transition:transform .15s;cursor:pointer;border:none;width:100%;margin-bottom:.75rem}
+.btn:active{transform:scale(.97)}
+.btn.secondary{background:transparent;color:#d4a857;border:1px solid #d4a857}
+.hint{color:#6a6258;font-size:.75rem;margin-top:1.5rem;line-height:1.6}
+.status{color:#d4a857;font-size:.85rem;margin-bottom:1rem;min-height:1.2rem}
+</style>
+</head>
+<body>
+<div class="card">
+<h1>奥菲斯帝国档案馆</h1>
+<p class="ver">Android 安装包</p>
+<div class="status" id="status">正在检查版本...</div>
+<a href="orpheus-archive.apk" id="downloadBtn" class="btn" style="display:none">下载 APK ($VERSION)</a>
+<button id="refreshBtn" class="btn secondary" onclick="checkVersion()">检查最新版本</button>
+<p class="hint">开启「允许安装未知来源应用」后安装<br>覆盖更新不会丢失档案数据</p>
+</div>
+<script>
+function checkVersion(){
+fetch('version.json?t='+Date.now())
+.then(r=>r.json())
+.then(d=>{
+document.getElementById('status').textContent='当前版本: '+d.version;
+document.getElementById('downloadBtn').style.display='inline-block';
+document.getElementById('downloadBtn').textContent='下载 '+d.version;
+})
+.catch(()=>{
+document.getElementById('status').textContent='版本信息加载中';
+document.getElementById('downloadBtn').style.display='inline-block';
+});
+}
+checkVersion();
+</script>
+</body>
+</html>
+HTMLEOF
+
+          cat > dist/apk/version.json << EOFJSON
+{"version":"$VERSION","build":${{ github.run_number }},"date":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","size":"$(stat -c%s ${{ env.APK_PATH }} 2>/dev/null || echo 'unknown')"}
+EOFJSON
+          echo "✅ 下载页和版本信息已创建"
+
+      - name: 部署到 Netlify（含 APK）
         env:
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
@@ -126,36 +190,13 @@ jobs:
             echo "⏭️ 未配置 Netlify secrets，跳过部署"
             exit 0
           fi
-          mkdir -p apk-deploy
-          cp "${{ env.APK_PATH }}" "apk-deploy/archive-latest.apk"
-          cat > apk-deploy/index.html << 'HTMLEOF'
-          <!DOCTYPE html>
-          <html lang="zh-CN">
-          <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>奥菲斯帝国档案馆</title>
-          <style>
-            *{margin:0;padding:0;box-sizing:border-box}
-            body{background:#0d0d0f;color:#e8d5b7;font-family:-apple-system,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center}
-            .card{text-align:center;padding:2rem;max-width:400px;width:100%}
-            h1{color:#d4a857;font-size:1.5rem;margin-bottom:.5rem}
-            .ver{color:#8a8074;font-size:.85rem;margin-bottom:1.5rem}
-            .btn{display:inline-block;background:linear-gradient(135deg,#d4a857,#b8862e);color:#1a1a1c;text-decoration:none;padding:.9rem 2rem;border-radius:.75rem;font-weight:bold;font-size:1.1rem;transition:transform .15s;cursor:pointer;border:none;width:100%}
-            .btn:active{transform:scale(.97)}
-            .hint{color:#6a6258;font-size:.75rem;margin-top:1.5rem;line-height:1.6}
-          </style>
-          </head>
-          <body>
-          <div class="card">
-            <h1>奥菲斯帝国档案馆</h1>
-            <p class="ver">Android 安装包</p>
-            <a href="archive-latest.apk" class="btn" download>下载 APK</a>
-            <p class="hint">开启「允许安装未知来源应用」后安装<br>覆盖更新不会丢失档案数据</p>
-          </div>
-          </body>
-          </html>
-          HTMLEOF
+          echo "📦 部署目录内容："
+          ls -la dist/
+          echo ""
+          echo "📦 APK 目录内容："
+          ls -la dist/apk/
           npm install -g netlify-cli
-          netlify deploy --dir=apk-deploy --site="$NETLIFY_SITE_ID" --auth="$NETLIFY_AUTH_TOKEN" --prod
+          netlify deploy --dir=dist --site="$NETLIFY_SITE_ID" --auth="$NETLIFY_AUTH_TOKEN" --prod
           echo "✅ Netlify 部署成功"
+          echo "📥 APK 下载地址: https://afs-jzy-archive.netlify.app/apk/orpheus-archive.apk"
+          echo "📥 下载页面: https://afs-jzy-archive.netlify.app/apk/"
