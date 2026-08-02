@@ -50,6 +50,32 @@ interface AutoBackupRestoreResult {
   path: string;
 }
 
+interface CleanupItemInfo {
+  key: string;
+  label: string;
+  size: number;
+  count?: number;
+  safe: boolean;
+}
+interface CleanupProtectedInfo {
+  key: string;
+  label: string;
+  reason: string;
+}
+interface CleanupInfoResult {
+  ok: true;
+  userDataPath: string;
+  backupDir: string;
+  items: CleanupItemInfo[];
+  protected: CleanupProtectedInfo[];
+}
+interface CleanupExecCleared {
+  key: string;
+  count?: number;
+  size?: number;
+  note?: string;
+}
+
 /** 暴露给 UI 的 API（window.archiveApp） */
 const api = {
   /** 是否已处于 Electron 环境（否则就是纯浏览器访问） */
@@ -103,6 +129,20 @@ const api = {
   /** 监听主进程"准备退出"事件，渲染层应立即推送最终快照 */
   onPrepareQuit(cb: () => void): void {
     ipcRenderer.on('app:prepare-quit', () => cb());
+  },
+
+  // —— 系统管理：垃圾清理 + 打开文件夹 ——
+  /** 获取可清理项目清单、各项目大小、以及红线禁止清理的项目说明 */
+  getCleanupInfo(): Promise<CleanupInfoResult> {
+    return ipcRenderer.invoke('system:cleanup-info');
+  },
+  /** 执行清理（传入白名单 key 数组）；永远不传受保护的 key（主进程也不处理） */
+  executeCleanup(args: { keys: string[] }): Promise<{ ok: boolean; error?: string | null; cleared: CleanupExecCleared[] }> {
+    return ipcRenderer.invoke('system:cleanup-execute', args);
+  },
+  /** 用系统文件管理器打开指定路径（打开"你的数据存在哪"） */
+  openPath(args: { path: string }): Promise<{ ok: boolean; error?: string | null }> {
+    return ipcRenderer.invoke('system:open-path', args);
   },
 };
 

@@ -302,10 +302,194 @@ ipcMain.handle('sync:status', () => {
   return { enabled: false, message: '多人实时同步端口已预留，暂未启用' };
 });
 
+// ============ 系统管理：垃圾清理 + 数据目录打开 ============
+// 永远禁止清理的内容：小说&设定数据（IndexedDB 由 Chromium 管理，主进程不直接碰）、latest.json
+// 允许清理：自动备份中超过 N 天的历史快照 / 崩溃日志 / HTTP 缓存 / 临时文件
+
+/** 粗略估算目录 size（字节），失败返回 0 */
+function dirSize(dir: string): number {
+  if (!fs.existsSync(dir)) return 0;
+  let total = 0;
+  const stack = [dir];
+  while (stack.length) {
+    const cur = stack.pop()!;
+    let entries: Array<any> = [];
+    try { entries = fs.readdirSync(cur, { withFileTypes: true }); } catch { continue; }
+    for (const e of entries) {
+      const full = path.join(cur, e.name);
+      try {
+        if (e.isDirectory()) stack.push(full);
+        else if (e.isFile()) total += fs.statSync(full).size || 0;
+      } catch { /* ignore */ }
+    }
+  }
+  return total;
+}
+
+/** 返回可清理项目清单 + 各自大小 + 红线禁用项目说明 */
+ipcMain.handle('system:cleanup-info', () => {
+  const userData = app.getPath('userData');
+  const backupsDir = autoBackupDir();
+  const cacheDir = app.getPath('cache');
+  const crashpadDir = path.join(userData, 'Crashpad');
+  const tempDir = app.getPath('temp'); // 系统临时
+
+  // 自动备份里：30 天以上的 time-stamp 备份（latest.json 和 startup 永远不在清理范围）
+  const now = Date.now();
+  const THIRTY_DAYS = 30 * 24 * 3600 * 1000;
+  const oldBackups = listAutoBackups().filter(b =>
+    !b.isLatest &&
+    !b.name.startsWith('startup-') &&
+    (now - b.mtime) > THIRTY_DAYS
+  );
+  const oldBackupsSize = oldBackups.reduce((a, b) => a + b.size, 0);
+
+  return {
+    ok: true,
+    userDataPath: userData,
+    backupDir: backupsDir,
+    items: [
+      {
+        key: 'old_backups',
+        label: '30天以上的历史自动备份',
+        size: oldBackupsSize,
+        count: oldBackups.length,
+        safe: true,
+        cleanupNames: oldBackups.map(b => b.name),
+      },
+      {
+        key: 'http_cache',
+        label: '浏览器 HTTP 缓存',
+        size: dirSize(cacheDir),
+        safe: true,
+      },
+      {
+        key: 'crashpad',
+        label: '崩溃日志',
+        size: dirSize(crashpadDir),
+        safe: fs.existsSync(crashpadDir),
+      },
+    ],
+    protected: [
+      { key: 'indexeddb', label: '小说 & 设定数据（IndexedDB）', reason: '永远禁止清理：存储你的核心创作内容' },
+      { key: 'latest_json', label: '最新快照 latest.json', reason: '永远禁止清理：故障恢复的第一道防线' },
+      { key: 'startup_backups', label: '最近 5 份启动保护备份', reason: '升级重装前的安全锚点' },
+    ],
+  };
+});
+
+/** 执行清理（白名单 item keys），返回每个 item 实际清理大小和数量 */
+ipcMain.handle('system:cleanup-execute', (_ev, payload: { keys: string[] }) => {
+  const keys = new Set(payload.keys || []);
+  const cleared: any[] = [];
+  let errorMsg: string | null = null;
+
+  try {
+    const info: any = ipcMain.emit ? null : null; // TS dummy
+    // info 不能复用上面的 handler，这里直接重算
+    const userData = app.getPath('userData');
+    const backupsDir = autoBackupDir();
+    const cacheDir = app.getPath('cache');
+    const crashpadDir = path.join(userData, 'Crashpad');
+    const now = Date.now();
+    const THIRTY_DAYS = 30 * 24 * 3600 * 1000;
+
+    // 1. 旧备份
+    if (keys.has('old_backups')) {
+      const oldList = listAutoBackups().filter(b =>
+        !b.isLatest &&
+        !b.name.startsWith('startup-') &&
+        (now - b.mtime) > THIRTY_DAYS
+      );
+      let cnt = 0, sz = 0;
+      for (const b of oldList) {
+        try { fs.unlinkSync(path.join(backupsDir, b.name)); cnt++; sz += b.size; } catch { /* ignore */ }
+      }
+      cleared.push({ key: 'old_backups', count: cnt, size: sz });
+    }
+
+    // 2. HTTP 缓存（标准接口：Chromium 的 clearHostResolverCache / HTTP 缓存等）
+    if (keys.has('http_cache')) {
+      let szBefore = dirSize(cacheDir);
+      try {
+        const sess = mainWindow?.webContents.session || null;
+        if (sess) sess.clearCache().catch(() => {});
+      } catch { /* ignore */ }
+      // 目录级兜底：只清理 cache 下的子文件夹和文件，不删 cache 根目录
+      try {
+        const entries = fs.readdirSync(cacheDir, { withFileTypes: true });
+        for (const e of entries) {
+          const full = path.join(cacheDir, e.name);
+          try { fs.rmSync(full, { recursive: true, force: true, maxRetries: 3 }); } catch { /* ignore */ }
+        }
+      } catch { /* ignore */ }
+      cleared.push({ key: 'http_cache', size: Math.max(0, szBefore - dirSize(cacheDir)), note: '清理后下次启动会重建' });
+    }
+
+    // 3. 崩溃日志
+    if (keys.has('crashpad') && fs.existsSync(crashpadDir)) {
+      let szBefore = dirSize(crashpadDir);
+      let cnt = 0;
+      try {
+        const entries = fs.readdirSync(crashpadDir, { withFileTypes: true });
+        for (const e of entries) {
+          try { fs.rmSync(path.join(crashpadDir, e.name), { recursive: true, force: true, maxRetries: 2 }); cnt++; } catch { /* ignore */ }
+        }
+      } catch { /* ignore */ }
+      cleared.push({ key: 'crashpad', count: cnt, size: Math.max(0, szBefore - dirSize(crashpadDir)) });
+    }
+  } catch (e) {
+    errorMsg = e instanceof Error ? e.message : String(e);
+  }
+
+  return { ok: !errorMsg, error: errorMsg, cleared };
+});
+
+/** 用系统文件管理器打开某个路径；失败返回错误信息 */
+ipcMain.handle('system:open-path', async (_ev, payload: { path: string }) => {
+  try {
+    const target = payload.path;
+    if (!target) return { ok: false, error: '路径为空' };
+    if (!fs.existsSync(target)) return { ok: false, error: '路径不存在：' + target };
+    await shell.openPath(target);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+});
+
 // ============ App 生命周期 ============
 app.whenReady().then(() => {
   // 确保数据备份目录（app.getPath('userData') 下的 backups 子目录）存在
   ensureDir(path.join(app.getPath('userData'), 'backups'));
+
+  // ============ 启动保险：最新快照复制一份为 startup 备份 ============
+  // 无论渲染层是否推送新快照，先把上一次运行的 latest.json 保护起来
+  // 避免升级安装后、用户立刻打开程序、还没推新快照、旧 latest 被覆盖
+  try {
+    const latestPath = latestSnapshotPath();
+    if (fs.existsSync(latestPath)) {
+      const dir = autoBackupDir();
+      const d = new Date();
+      const p = (n: number) => String(n).padStart(2, '0');
+      const stamp = `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+      const startupFile = path.join(dir, `startup-${stamp}.json`);
+      try {
+        fs.copyFileSync(latestPath, startupFile);
+        // 只保留最近 5 份 startup 备份（避免无上限增长）
+        const all = listAutoBackups()
+          .filter(b => b.name.startsWith('startup-'))
+          .sort((a, b) => b.mtime - a.mtime);
+        if (all.length > 5) {
+          for (let i = 5; i < all.length; i++) {
+            try { fs.unlinkSync(path.join(dir, all[i].name)); } catch { /* ignore */ }
+          }
+        }
+      } catch {
+        // 复制失败不影响启动，静默跳过
+      }
+    }
+  } catch { /* ignore */ }
 
   createMainWindow();
 

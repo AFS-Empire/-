@@ -4,12 +4,9 @@ import type { NovelMention } from '../types';
  * 解析 TXT 文件为章节列表
  *
  * 支持的章节标题格式：
- *   第1章 标题
- *   第1章—标题
- *   第一章 标题
- *   第一章—标题
- *
- * 不支持卷信息（口袋写作导出 TXT 不含卷），卷需在 App 里手动创建
+ *   · 关键词章：楔子 / 序章 / 序言 / 前言 / 引子 / 序幕 / 尾声 / 后记 / 附录（允许后跟空格+副标题）
+ *   · 数字章：第1章 标题 / 第1章—标题 / 第一章 / 第三十八回 / 第四节 / 第五卷 / 第二部 / 第七篇
+ *   · 兼容：序号与关键词之间含空格（"第 一百二十三 回"）、中文数字"〇/零/两/亿"
  */
 export interface ParsedChapter {
   order: number;
@@ -18,20 +15,30 @@ export interface ParsedChapter {
   paragraphs: string[];  // 按段落分割后的数组（已清理空行）
 }
 
-export function parseNovelTxt(text: string): ParsedChapter[] {
-  const lines = text.split(/\r?\n/);
+/**
+ * 识别是否为章节标题行（含副标题）
+ * 楔子 夜、序章 毁灭、第1章 开始、第三十八回、尾声 落、后记 谢
+ */
+function isChapterLine(line: string): boolean {
+  const t = line.trim();
+  if (!t) return false;
+  // 1) 关键词标题（前8个常见独立词，后跟空格+副标题可选）
+  const keywordRe = /^(楔子|序章|序言|前言|引子|序幕|尾声|后记|附录)([\s　—\-—–][^\n\r]{0,80})?$/;
+  if (keywordRe.test(t)) return true;
+  // 2) 第 X [章回节卷集部篇]（支持阿拉伯+中文数字+空格穿插）
+  const numRe = /^第\s*[0-9零〇一二三四五六七八九十百千万亿两\d]+\s*[章回节卷集部篇]([\s　—\-—–][^\n\r]{0,80})?$/;
+  return numRe.test(t);
+}
 
-  // 章节标题正则：兼容阿拉伯数字 + 中文数字
-  // 第1章 / 第一章 / 第一百二十三章
-  // 支持：第X章 标题 / 第X章—标题 / 第X章（单独一行无标题）
-  const chapterRe = /^第\s*[0-9零一二三四五六七八九十百千万]+\s*章([\s—\-]|$)/;
+export function parseNovelTxt(text: string): ParsedChapter[] {
+  const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/);
 
   const chapters: ParsedChapter[] = [];
   let currentOrder = 0;
   let currentTitle = '';
   let currentLines: string[] = [];
   let inChapter = false;
-  let preChapterLines: string[] = [];  // 第一章之前的文字（前言等）
+  let preChapterLines: string[] = [];  // 第一个章节标题之前的文字（前言/版权声明等）
 
   const flushChapter = () => {
     if (!inChapter) return;
@@ -44,13 +51,15 @@ export function parseNovelTxt(text: string): ParsedChapter[] {
     });
   };
 
+  let firstChapterFound = false;
+
   for (const line of lines) {
     const trimmed = line.trim();
-    if (chapterRe.test(trimmed)) {
+    if (isChapterLine(trimmed)) {
       // 保存上一章
       flushChapter();
-      // 如果有前言内容且这是第一章，先把前言作为第0章
-      if (chapters.length === 0 && preChapterLines.length > 0) {
+      // 如果这是第一个章节标题且前面有内容 → 加作「前言」
+      if (!firstChapterFound && preChapterLines.length > 0) {
         const preParas = cleanParagraphs(preChapterLines);
         if (preParas.length > 0) {
           chapters.push({
@@ -61,7 +70,8 @@ export function parseNovelTxt(text: string): ParsedChapter[] {
           });
         }
       }
-      // 开始新章（序号 = 已有正文章节数 + 1，前言不算）
+      firstChapterFound = true;
+      // 开新章（正文章节从 1 开始累加；前言 order=0 不算）
       inChapter = true;
       currentOrder = chapters.filter(c => c.order > 0).length + 1;
       currentTitle = extractChapterTitle(trimmed);
@@ -69,26 +79,41 @@ export function parseNovelTxt(text: string): ParsedChapter[] {
     } else if (inChapter) {
       currentLines.push(trimmed);
     } else {
-      // 第一章之前的内容
+      // 第一个章节之前的内容
       preChapterLines.push(trimmed);
     }
   }
-  // 保存最后一章
   flushChapter();
+
+  // 若全文完全没有章节标记，则整个作为「正文」一章
+  if (chapters.length === 0) {
+    const paras = cleanParagraphs(lines.map(l => l.trim()));
+    if (paras.length > 0) {
+      chapters.push({ order: 1, title: '正文', content: paras.join('\n\n'), paragraphs: paras });
+    }
+  }
 
   return chapters;
 }
 
-/** 从章节标题行提取标题文本（去掉"第X章—"或"第X章 "前缀） */
+/** 从章节标题行提取完整标题：
+ *   "第1章 开始" → "第1章 开始"
+ *   "楔子 夜"   → "楔子 夜"
+ *   "尾声"      → "尾声"
+ *  当行本身就是清晰的标题时，不再强剥前缀，只清理首尾空格；
+ *  若副标题是空的（如"第1章"后无文字），保留"第1章"原标题。
+ */
 function extractChapterTitle(line: string): string {
-  // 去掉"第X章"部分
-  const afterChapter = line.replace(/^第\s*[0-9零一二三四五六七八九十百千万]+\s*章/, '');
-  // 去掉开头的分隔符（—、-、空格）
-  const title = afterChapter.replace(/^[\s—\-]+/, '').trim();
-  if (title) return title;
-  // 无副标题：返回"第X章"
-  const numMatch = line.match(/[0-9零一二三四五六七八九十百千万]+/);
-  return `第${numMatch?.[0] || '?'}章`;
+  const t = line.trim();
+  // 对「第X章」开头的行，去掉分隔符后的空标题统一成"第X章 原始标题名"
+  const num = t.match(/^(第\s*[0-9零〇一二三四五六七八九十百千万亿两\d]+\s*[章回节卷集部篇])[\s　—\-—–]*(.*)$/);
+  if (num) {
+    const head = num[1].replace(/\s+/g, '');  // "第 1 章" → "第1章"
+    const tail = num[2].trim();
+    return tail ? `${head} ${tail}` : head;
+  }
+  // 关键词标题：直接返回trim结果
+  return t;
 }
 
 /** 清理空行、合并过短的段落 */
@@ -117,40 +142,52 @@ function cleanParagraphs(lines: string[]): string[] {
 /**
  * 扫描正文中出现的角色名，生成 mentions 索引
  * 仅匹配「档案馆中存在的角色」——单向匹配，不猜
+ *
+ * 子串去重：若多个角色名在同一 firstOffset 均能命中（如 "奥菲斯" vs "奥菲斯大帝"），
+ * 只保留最长的一个，避免短名"吃掉"长名下划线、渲染错乱
  */
 export function scanMentions(
   content: string,
   knownCharacters: Array<{ id: string; name: string }>,
 ): NovelMention[] {
   const mentions: NovelMention[] = [];
-  const lower = content;
   const seen = new Set<string>();
 
   for (const char of knownCharacters) {
     if (!char.name || char.name.length < 2) continue;
-    // 找到角色名在正文中的首次出现位置
-    const idx = lower.indexOf(char.name);
+    const idx = content.indexOf(char.name);
     if (idx === -1) continue;
-    // 避免重复（有些角色名是其他角色名的子串，如"张三"和"张三丰"）
     if (seen.has(char.id)) continue;
-    // 验证：确保不是更长名字的子串
-    // 比如 "王" 出现在 "王小明" 里，不能算 "王" 的出现
-    const before = lower[idx - 1] || '';
-    const after = lower[idx + char.name.length] || '';
-    const isWordBoundary = !isCjkChar(before) && !isCjkChar(after);
-    // 对于 2 字以上的名字，宽松一点（中文没有空格分词）
-    if (char.name.length >= 2 || isWordBoundary) {
-      mentions.push({
-        charId: char.id,
-        name: char.name,
-        firstOffset: idx,
-      });
-      seen.add(char.id);
-    }
+    // 子串名（2字以上）在中文语境下直接信任，不做边界检查
+    mentions.push({
+      charId: char.id,
+      name: char.name,
+      firstOffset: idx,
+    });
+    seen.add(char.id);
   }
 
-  // 按出现位置排序
-  return mentions.sort((a, b) => a.firstOffset - b.firstOffset);
+  // —— 冲突消解：同一 offset 只保留名字最长的 ——
+  const byOffset = new Map<number, NovelMention>();
+  for (const m of mentions) {
+    const prev = byOffset.get(m.firstOffset);
+    if (!prev || m.name.length > prev.name.length) {
+      byOffset.set(m.firstOffset, m);
+    }
+  }
+  // 再额外处理：不同 offset 但彼此覆盖的情况（短名落在长名的范围内），也剔除短名
+  // 按 offset 升序后线性扫描，判断区间是否重叠包含
+  const sorted = Array.from(byOffset.values()).sort((a, b) => a.firstOffset - b.firstOffset);
+  const filtered: NovelMention[] = [];
+  for (const m of sorted) {
+    const end = m.firstOffset + m.name.length;
+    // 检查是否被前一个更长的覆盖（前一个end > 当前firstOffset AND 前一个名更长）
+    const overlappedByPrev = filtered.length > 0 &&
+      (filtered[filtered.length - 1].firstOffset + filtered[filtered.length - 1].name.length) > m.firstOffset &&
+      filtered[filtered.length - 1].name.length > m.name.length;
+    if (!overlappedByPrev) filtered.push(m);
+  }
+  return filtered;
 }
 
 /** 判断是否为中日韩统一表意文字 */
