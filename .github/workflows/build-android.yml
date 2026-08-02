@@ -108,7 +108,8 @@ jobs:
             echo "⚠️ 警告：APK 未检测到 V2 签名"
           fi
 
-      - name: 发布到 GitHub Release
+      - name: 发布到 GitHub Release（非阻断）
+        continue-on-error: true
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.${{ github.run_number }}
@@ -183,7 +184,8 @@ HTMLEOF
 EOFJSON
           echo "✅ 下载页和版本信息已创建"
 
-      - name: 部署到 Netlify（含 APK）
+      - name: 部署到 Netlify（非阻断）
+        continue-on-error: true
         env:
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
