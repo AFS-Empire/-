@@ -54,13 +54,6 @@ const proguardRules = `# ===== 奥菲斯帝国档案馆 ProGuard 规则 =====
 -keepattributes EnclosingMethod
 -keepattributes InnerClasses
 
-# 移除日志调用（Release 构建不输出 Log.d/Log.v）
--assume-no-side-effects class android.util.Log {
-    public static *** d(...);
-    public static *** v(...);
-    public static *** i(...);
-}
-
 # 混淆优化
 -repackageclasses ''
 -allowaccessmodification
