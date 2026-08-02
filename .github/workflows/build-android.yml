@@ -39,6 +39,7 @@ jobs:
         run: npx vite build
         env:
           ARCHIVE_RELEASE: '1'
+          VITE_ARCHIVE_SALT: ${{ secrets.ARCHIVE_PRIVATE_SALT }}
           ARCHIVE_PRIVATE_SALT: ${{ secrets.ARCHIVE_PRIVATE_SALT }}
 
       - name: 缓存 Android 工程

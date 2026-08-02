@@ -20,7 +20,10 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
 
   // 盐值仅 App/桌面构建需要注入；Web 构建强制为空（appSecret.web.ts 已兜底）
-  const archiveSalt = isWebBuild ? '' : (env.ARCHIVE_PRIVATE_SALT || '')
+  // 优先级：process.env（CI 注入）> loadEnv（.env.local 本地开发）
+  const archiveSalt = isWebBuild
+    ? ''
+    : (process.env.VITE_ARCHIVE_SALT || process.env.ARCHIVE_PRIVATE_SALT || env.ARCHIVE_PRIVATE_SALT || env.VITE_ARCHIVE_SALT || '')
 
   return {
     plugins: [react(), tailwindcss()],
