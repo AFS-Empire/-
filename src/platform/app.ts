@@ -1,4 +1,5 @@
 import { sha256Hex } from '../lib/hiddenUnlock';
+import { secureStorage } from '../lib/storage';
 
 export interface BindingResult {
   bound: boolean;
@@ -30,7 +31,7 @@ export interface PlatformAPI {
   initPlatform(): Promise<{ platform: 'android' | 'ios'; isMobile: true } | null>;
 }
 
-const STORAGE_KEY = '__machine_binding__';
+const STORAGE_KEY = 'machine_binding';
 const APP_ID = 'com.orpheus.archive';
 
 function getPlugin(name: string): any | undefined {
@@ -66,14 +67,14 @@ async function bindMachineInner(): Promise<BindingResult> {
   }
 
   const bindingCode = await sha256Hex(deviceId + APP_ID + APP_PRIVATE_SALT);
-  localStorage.setItem(STORAGE_KEY, bindingCode);
+  secureStorage.set(STORAGE_KEY, bindingCode);
 
   return { bound: true, deviceId, match: true };
 }
 
 async function verifyBindingInner(): Promise<BindingResult> {
   const APP_PRIVATE_SALT = await getAppPrivateSalt();
-  const stored = localStorage.getItem(STORAGE_KEY);
+  const stored = secureStorage.get(STORAGE_KEY);
 
   if (!stored) {
     return bindMachineInner();
@@ -108,7 +109,7 @@ async function generateMigrateCodeInner(password: string): Promise<MigrateCodeRe
     return { ok: false, error: '管理员密码错误' };
   }
 
-  const stored = localStorage.getItem(STORAGE_KEY);
+  const stored = secureStorage.get(STORAGE_KEY);
   if (!stored) {
     return { ok: false, error: '本机未绑定，无法迁移' };
   }
@@ -131,7 +132,7 @@ async function verifyMigrateAndRebindInner(migrateCode: string): Promise<Binding
     return { bound: false, deviceId: null, match: false, reason: '无法获取新设备ID' };
   }
 
-  const stored = localStorage.getItem(STORAGE_KEY);
+  const stored = secureStorage.get(STORAGE_KEY);
   if (!stored) {
     return { bound: false, deviceId: null, match: false, reason: '未检测到旧设备绑定信息' };
   }
@@ -145,7 +146,7 @@ async function verifyMigrateAndRebindInner(migrateCode: string): Promise<Binding
   }
 
   const newBindingCode = await sha256Hex(newDeviceId + APP_ID + APP_PRIVATE_SALT);
-  localStorage.setItem(STORAGE_KEY, newBindingCode);
+  secureStorage.set(STORAGE_KEY, newBindingCode);
 
   return { bound: true, deviceId: newDeviceId, match: true };
 }
@@ -275,7 +276,7 @@ export const app: PlatformAPI = {
   verifyMigrateAndRebind: verifyMigrateAndRebindInner,
 
   unbindMachine() {
-    localStorage.removeItem(STORAGE_KEY);
+    secureStorage.remove(STORAGE_KEY);
   },
 
   async initPlatform() {

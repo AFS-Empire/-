@@ -12,6 +12,9 @@ import { exportAll, importAll } from '../data/db';
 import { useDataStore } from '../store/dataStore';
 import { useCommentStore } from '../store/commentStore';
 import { useAuthStore } from '../store/authStore';
+import { useBindingStore } from '../store/bindingStore';
+import { usePinSessionStore } from '../store/pinSessionStore';
+import { useRequirePin } from '../hooks/useRequirePin';
 import { IS_WEB_BUILD } from '../lib/buildTarget';
 import { useHiddenUnlock } from '../lib/hiddenUnlock';
 import { platform } from '../platform';
@@ -62,6 +65,11 @@ export default function BackupBar() {
   // 网页端验签失败警告卡片
   const [showReject, setShowReject] = useState(false);
 
+  // 机器码绑定状态（App 端写操作总闸门；Web 端恒为 true）
+  const isBound = useBindingStore(s => s.isBound);
+  // App 端 PIN 会话守卫（密钥校验弹窗）
+  const { requirePin, PinGuard } = useRequirePin();
+
   // 自定义确认弹窗（替代原生 confirm，避免 Android WebView 黑屏崩溃）
   const [confirmState, setConfirmState] = useState<{
     open: boolean;
@@ -77,9 +85,10 @@ export default function BackupBar() {
   const [cleanupLastResult, setCleanupLastResult] = useState<any>(null);
 
   /**
-   * 操作授权 + 执行
-   * - Web 版：检查隐藏解锁状态，已解锁直接执行
-   * - App 版：检查管理员身份，已绑定机器码 + 管理员登录即可执行（不再需要动态PIN）
+   * 操作授权 + 执行（统一守卫）
+   * - Web 版：检查隐藏解锁状态，已解锁直接执行（Web 无机器绑定/PIN）
+   * - App 版：管理员身份 → 机器码绑定校验 → PIN 会话校验 → 执行
+   *   未绑定机器码时锁死导出/导入，仅允许查看
    */
   const requireAuth = (action: () => void) => {
     if (IS_WEB_BUILD) {
@@ -92,6 +101,10 @@ export default function BackupBar() {
     }
     if (!isAdmin) {
       showToast('err', '仅管理员可执行此操作');
+      return;
+    }
+    if (!isBound) {
+      showToast('err', '设备未绑定机器码，无法执行此操作');
       return;
     }
     action();
@@ -125,10 +138,13 @@ export default function BackupBar() {
     refreshAutoBackups();
   }, [refreshAutoBackups]);
 
-  /** 备份：导出整个 IndexedDB 全部内容到文件（需 PIN 校验） */
+  /** 备份：导出整个 IndexedDB 全部内容到文件（需机器绑定 + PIN 校验） */
   const handleBackup = () => {
     if (busy) return;
-    requireAuth(doBackup);
+    requireAuth(() => {
+      if (IS_WEB_BUILD) { doBackup(); return; }
+      requirePin('导出档案', doBackup);
+    });
   };
 
   const doBackup = async () => {
@@ -199,7 +215,8 @@ export default function BackupBar() {
           const json = result.content;
           const fileData = JSON.parse(json);
 
-          // 网页端：签名校验（App端跳过，App有自己的PIN+管理员权限体系）
+          // 网页端：用隐藏解锁的会话密钥验签
+          // App 端走 handleRestoreDesktop/Mobile，用 pinSessionStore 验签
           if (IS_WEB_BUILD) {
             const verifyImport = useHiddenUnlock.getState().verifyImport;
             const ok = await verifyImport(fileData);
@@ -224,48 +241,68 @@ export default function BackupBar() {
     });
   };
 
-  /** 桌面 App：点击恢复 直接走 IPC 打开文件对话框（需 PIN） */
+  /** 桌面 App：点击恢复 直接走 IPC 打开文件对话框（需机器绑定 + PIN + 签名校验） */
   const handleRestoreDesktop = () => {
     const app = window.archiveApp;
     if (!app || busy) return;
-    requirePin('导入档案', async () => {
-      setBusy(true);
-      try {
-        const r = await app.loadBackup();
-        if (!r.ok) {
-          if ((r as any).canceled) { setBusy(false); return; }
-          showToast('err', (r as any).error || '读取失败');
-        } else {
-          await importAll(r.json);
-          await Promise.all([refresh(), refreshComments()]);
-          showToast('ok', `已从 ${r.path} 导入完成`);
+    requireAuth(() => {
+      requirePin('导入档案', async () => {
+        setBusy(true);
+        try {
+          const r = await app.loadBackup();
+          if (!r.ok) {
+            if ((r as any).canceled) { setBusy(false); return; }
+            showToast('err', (r as any).error || '读取失败');
+          } else {
+            // App/桌面端签名校验：用 PIN 会话私钥验签，失败则拒绝载入
+            const fileData = JSON.parse(r.json);
+            const ok = await usePinSessionStore.getState().verifyImport(fileData);
+            if (!ok) {
+              setBusy(false);
+              setShowReject(true);
+              return;
+            }
+            await importAll(r.json);
+            await Promise.all([refresh(), refreshComments()]);
+            showToast('ok', `已从 ${r.path} 导入完成`);
+          }
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          showToast('err', `导入失败：${msg}`);
+        } finally {
+          setBusy(false);
         }
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
-        showToast('err', `导入失败：${msg}`);
-      } finally {
-        setBusy(false);
-      }
+      });
     });
   };
 
-  /** 移动 App：点击恢复 走系统文件选择器（需 PIN） */
+  /** 移动 App：点击恢复 走系统文件选择器（需机器绑定 + PIN + 签名校验） */
   const handleRestoreMobile = () => {
     if (!isMobile || busy) return;
-    requirePin('导入档案', async () => {
-      setBusy(true);
-      try {
-        const r = await platform.pickTextFile();
-        if (!r) { setBusy(false); return; }
-        await importAll(r.content);
-        await Promise.all([refresh(), refreshComments()]);
-        showToast('ok', `已从 ${r.name} 导入`);
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
-        showToast('err', `导入失败：${msg}`);
-      } finally {
-        setBusy(false);
-      }
+    requireAuth(() => {
+      requirePin('导入档案', async () => {
+        setBusy(true);
+        try {
+          const r = await platform.pickTextFile();
+          if (!r) { setBusy(false); return; }
+          // App 端签名校验
+          const fileData = JSON.parse(r.content);
+          const ok = await usePinSessionStore.getState().verifyImport(fileData);
+          if (!ok) {
+            setBusy(false);
+            setShowReject(true);
+            return;
+          }
+          await importAll(r.content);
+          await Promise.all([refresh(), refreshComments()]);
+          showToast('ok', `已从 ${r.name} 导入`);
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          showToast('err', `导入失败：${msg}`);
+        } finally {
+          setBusy(false);
+        }
+      });
     });
   };
 
@@ -663,6 +700,9 @@ export default function BackupBar() {
         variant="danger"
         onConfirm={() => { confirmState.action?.(); }}
       />
+
+      {/* App 端 PIN 密钥校验弹窗（导出/导入/敏感操作前） */}
+      {PinGuard}
     </div>
   );
 }

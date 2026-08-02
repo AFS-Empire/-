@@ -1,12 +1,13 @@
 import { openDB, type IDBPDatabase } from 'idb';
 import type { AnyEntry, Era, CustomSection, User, Comment } from '../types';
 import { SECTION_PREFIX } from '../types';
+import { backupStorage } from '../lib/storage';
 
 const DB_NAME = 'worldarchive';
 const DB_VERSION = 3;
 
-// localStorage 兜底备份键 —— IndexedDB 被意外清空时从此恢复
-const BACKUP_KEY = 'worldarchive_backup_v1';
+// 档案备份存储键（走 backupStorage 独立分区）
+const BACKUP_KEY = 'snapshot_v1';
 // 备份最大体积（localStorage 单 key 通常 5MB，留 1MB 余量给其它数据）
 const BACKUP_MAX_BYTES = 4_000_000;
 // 备份写入节流：避免每次 save 都写满 localStorage
@@ -354,7 +355,7 @@ export function scheduleBackup(): void {
         console.warn('[backup] 快照体积超限，跳过写入 localStorage，请尽快导出 JSON 备份');
         return;
       }
-      localStorage.setItem(BACKUP_KEY, snapshot);
+      backupStorage.set(BACKUP_KEY, snapshot);
     } catch (e) {
       console.error('[backup] 写入 localStorage 失败', e);
     }
@@ -372,7 +373,7 @@ export async function restoreFromBackupIfNeeded(): Promise<boolean> {
     // IndexedDB 有数据，不需要恢复
     if (entryCount > 0 || eraCount > 0) return false;
 
-    const raw = localStorage.getItem(BACKUP_KEY);
+    const raw = backupStorage.get(BACKUP_KEY);
     if (!raw) return false;
 
     const data = JSON.parse(raw) as {

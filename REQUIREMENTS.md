@@ -45,7 +45,7 @@
 #### 三层目录：
 | 层级 | 路径 | 职责 | 允许的 API |
 |---|---|---|---|
-| 公共通用层 | `src/types` `src/data` `src/store` `src/components` `src/lib`(不含`filePicker.ts`/`mobile.ts`/`machineBinding.ts`) | 双端完全通用逻辑 | 纯 TS、React、Zustand、idb — 禁止 Capacitor 引用；禁止平台 if-else |
+| 公共通用层 | `src/types` `src/data` `src/store` `src/components` `src/lib` `src/hooks` | 双端完全通用逻辑 | 纯 TS、React、Zustand、idb — 禁止 Capacitor 引用；禁止平台 if-else |
 | 网页专属层 | `src/platform/web.ts` | 浏览器端能力实现 | 纯 DOM/BOM API（Blob、FileReader、a.click()、navigator.share） — 禁止 Capacitor |
 | App 专属层 | `src/platform/app.ts` | 安卓 App 能力实现 | 仅 Capacitor 插件（Camera/Filesystem/Share/Device/StatusBar/NavigationBar 等） — 禁止浏览器独有下载逻辑 |
 | 统一入口 | `src/platform/index.ts` | 平台选择与导出 | 业务代码**唯一**的平台调用入口 |
@@ -69,11 +69,43 @@ platform.pickImage();     // App 端走 Camera，Web 端走 input
 | `npm run build:android` | `android/app/build/outputs/apk/release/` APK | 本地 Capacitor 打包（App 端） |
 | `npm run build` | Electron 产物 | 桌面端（保留） |
 
-#### 旧库文件处理（过渡期注意）：
-以下旧文件目前保留但不再被业务层直接引用。如需彻底删除，请先确认 grep 显示 0 结果后再执行：
-- `src/lib/filePicker.ts` — 已由 `platform` 合并
-- `src/lib/mobile.ts` — 已由 `platform/app.ts` + `platform/web.ts` 合并
-- `src/lib/machineBinding.ts` — 已由 `platform/app.ts`（真实实现）+ `platform/web.ts`（NO-OP）合并
+#### 旧库文件清理（已完成）：
+以下旧文件已删除，能力全部由 `platform/` 统一层接管，业务代码禁止再引用：
+- ~~`src/lib/filePicker.ts`~~ — 已删除，由 `platform.web` / `platform.app` 合并
+- ~~`src/lib/mobile.ts`~~ — 已删除，由 `platform/app.ts` + `platform/web.ts` 合并
+- ~~`src/lib/machineBinding.ts`~~ — 已删除，由 `platform/app.ts`（真实实现）+ `platform/web.ts`（NO-OP）合并
+
+### 7. 三类独立存储（强制规定）
+**禁止**业务代码直接写 `localStorage`。所有本地存储必须通过 `src/lib/storage.ts` 的三个分区模块：
+| 模块 | 前缀 | 用途 | 示例 |
+|---|---|---|---|
+| `cacheStorage` | `wa:cache:` | 网页临时缓存（UI 状态、非敏感偏好） | 侧边栏折叠状态 |
+| `secureStorage` | `wa:secure:` | App 私密密钥/机器码绑定（敏感数据） | 机器绑定码 |
+| `backupStorage` | `wa:backup:` | 档案备份文件（IndexedDB 快照兜底） | `snapshot_v1` |
+
+三类存储键名前缀隔离，禁止混写，避免备份/缓存操作误覆盖敏感绑定信息。
+
+### 8. 数据安全与密钥体系（强制规定）
+**私有密钥**= App 专有盐值 `AFSEmpire@2026#08zCLMJfL0o8X2eE`（仅 App/桌面构建包含，网页构建经 vite alias 替换为空字符串，产物中不存在）。
+
+#### 安全分层（App 端写操作必须依次通过）：
+1. **登录态（authStore）** — 使用 `sessionStorage` 持久化
+   - 冷启动（App 进程被杀 / 标签重开）→ session 清空 → 强制重新登录
+   - 热恢复（切后台回前台 / 标签刷新）→ session 保留 → 免登录
+2. **机器码绑定（bindingStore）** — 设备级总闸门
+   - `isBound = bound && match`；未绑定 / 设备不匹配 → 锁死编辑/导出/导入，仅允许查看
+   - 仅 Capacitor App 启用；Web / 桌面端放行（Web 由 hiddenUnlock 把关）
+3. **PIN 会话（pinSessionStore）** — 操作级密钥校验，纯内存态（不落盘）
+   - 用户输入私有密钥 → 校验通过 → 会话解锁；杀后台 / 冷启动即清空，需重新输入
+   - 通过 `useRequirePin` hook + `PinDialog` 组件触发（统一黑底鎏金弹窗，禁止原生 prompt）
+4. **签名校验** — 数据完整性
+   - 导出：`sign = SHA256(JSON.stringify(dataPayload) + 私有密钥)`
+   - 导入：Web 用 hiddenUnlock 会话密钥验签；App 用 pinSessionStore 会话密钥验签；验签失败拒绝载入任何内容
+
+#### 已覆盖的敏感操作：
+- 档案编辑保存（`EntryEditor`）：机器绑定 + PIN 双校验
+- 档案导出（`BackupBar`）：机器绑定 + PIN 双校验
+- 档案导入（`BackupBar`）：机器绑定 + PIN + 签名校验三重校验（App/桌面/浏览器全路径）
 
 ### 6. APK 分发
 - GitHub Releases 自动构建（主渠道）
@@ -104,6 +136,12 @@ platform.pickImage();     // App 端走 Camera，Web 端走 input
 | 2026-08-02 | 导入文件栏空白 | 移除 accept 限制，添加存储权限 |
 | 2026-08-02 | input[type=file] 触发老弹窗 | 改用 Capacitor Camera/Filesystem 插件 |
 | 2026-08-02 | 网页端/App 端代码耦合混杂 | 三层架构拆分 common/platform.web/platform.app + 统一 platform/index.ts 入口 |
+| 2026-08-02 | 存储混写（缓存/密钥/备份共写 localStorage） | 拆分 cacheStorage / secureStorage / backupStorage 三类独立分区 |
+| 2026-08-02 | 登录态长期驻留 localStorage | authStore 改用 sessionStorage，冷启动强制登录、热恢复保留 |
+| 2026-08-02 | 机器码未绑定仍可编辑/导出/导入 | bindingStore 设备级闸门，未绑定锁死写操作仅允许查看 |
+| 2026-08-02 | App 端导入无签名校验、requirePin 未定义 | pinSessionStore + useRequirePin + PinDialog，App/桌面端导入强制 PIN + 签名校验 |
+| 2026-08-02 | 档案编辑保存无二次校验 | EntryEditor 保存前机器绑定 + PIN 双校验 |
+| 2026-08-02 | 废弃旧库文件残留 | 删除 filePicker.ts / mobile.ts / machineBinding.ts |
 
 ## 五、待办/已知问题
 

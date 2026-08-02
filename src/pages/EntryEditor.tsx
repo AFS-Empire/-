@@ -3,6 +3,9 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Save, Upload, X, Search, Trash2 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
+import { useBindingStore } from '../store/bindingStore';
+import { useRequirePin } from '../hooks/useRequirePin';
+import { IS_WEB_BUILD } from '../lib/buildTarget';
 import { genId } from '../data/db';
 import { AlertDialog } from '../components/Dialog';
 import { platform } from '../platform';
@@ -110,6 +113,10 @@ export default function EntryEditor() {
 
   const existing = id ? getById(id) : undefined;
   const initialForm = useMemo(() => initForm(existing, searchParams.get('sectionId')), [existing, searchParams]);
+
+  // 写操作守卫：机器码绑定（设备级）+ PIN 会话（操作级，App/桌面端）
+  const isBound = useBindingStore(s => s.isBound);
+  const { requirePin, PinGuard } = useRequirePin();
 
   // 非受控文本字段 —— 不触发重新渲染，光标不会跳
   const titleField = useTextField(initialForm.title);
@@ -284,7 +291,20 @@ export default function EntryEditor() {
     }
   };
 
-  const handleSave = async () => {
+  const doSave = async () => {
+    setSaving(true);
+    try {
+      const entry = buildEntry();
+      await saveEntry(entry);
+      navigate(`/entry/${entry.id}`);
+    } catch (err) {
+      setAlertMsg('保存失败：' + (err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSave = () => {
     const title = titleField.getValue().trim();
     if (!title) {
       setAlertMsg('请填写标题');
@@ -298,16 +318,14 @@ export default function EntryEditor() {
       setAlertMsg('请选择所属分类');
       return;
     }
-    setSaving(true);
-    try {
-      const entry = buildEntry();
-      await saveEntry(entry);
-      navigate(`/entry/${entry.id}`);
-    } catch (err) {
-      setAlertMsg('保存失败：' + (err as Error).message);
-    } finally {
-      setSaving(false);
+    // 机器码绑定校验：未绑定设备禁止保存（只允许查看）
+    if (!isBound) {
+      setAlertMsg('设备未绑定机器码，无法保存编辑');
+      return;
     }
+    // App/桌面端：保存前需 PIN 密钥校验（会话内有效，杀后台清）
+    if (IS_WEB_BUILD) { void doSave(); return; }
+    requirePin('保存档案', doSave);
   };
 
   return (
@@ -568,6 +586,9 @@ export default function EntryEditor() {
       </div>
 
       <AlertDialog open={!!alertMsg} onClose={() => setAlertMsg('')} title="提示" message={alertMsg} />
+
+      {/* App 端 PIN 密钥校验弹窗（保存档案前） */}
+      {PinGuard}
     </div>
   );
 }

@@ -1,8 +1,16 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type { User } from '../types';
 import { getUser, saveUser } from '../data/db';
 import { verifyPassword, hashPassword, isLegacyHash } from '../lib/crypto';
+
+/**
+ * 登录态持久化策略：
+ * 使用 sessionStorage 而非 localStorage。
+ * - 冷启动（App 进程被杀 / 浏览器标签关闭后重开）：session 清空 → 强制重新登录
+ * - 热恢复（App 切后台再回前台 / 浏览器标签刷新）：session 保留 → 免登录
+ * sessionKey 与进程生命周期绑定，杀后台即清，避免长期驻留登录态。
+ */
 
 interface AuthState {
   currentUser: User | null;
@@ -63,6 +71,9 @@ export const useAuthStore = create<AuthState>()(
         return u?.role === 'admin';
       },
     }),
-    { name: 'worldarchive-auth' },
+    {
+      name: 'worldarchive-auth',
+      storage: createJSONStorage(() => sessionStorage),
+    },
   ),
 );

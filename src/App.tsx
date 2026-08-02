@@ -1,18 +1,16 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { useEffect, useRef, useState, Suspense, lazy } from 'react';
+import { useEffect, useRef, Suspense, lazy } from 'react';
 import { useAuthStore } from './store/authStore';
 import { useDataStore } from './store/dataStore';
 import { useCommentStore } from './store/commentStore';
 import { useNovelStore } from './store/novelStore';
+import { useBindingStore } from './store/bindingStore';
 import { seedData } from './data/seed';
 import { exportAll, restoreFromBackupIfNeeded } from './data/db';
 import { useRipple } from './hooks/useRipple';
 import Layout from './components/Layout';
 import { FullScreenLoader } from './components/Skeleton';
 import { IS_WEB_BUILD } from './lib/buildTarget';
-import { platform } from './platform';
-
-type BindingResult = Awaited<ReturnType<typeof platform.verifyBinding>>;
 
 // 路由懒加载：首屏只加载必要代码，其余按需加载
 // 把 importer 抽出来复用：lazy() 用一次，首屏后预加载再用一次（Vite 会去重，已加载的立即 resolve）
@@ -94,8 +92,9 @@ export default function App() {
   const refreshNovel = useNovelStore(s => s.refresh);
   const location = useLocation();
 
-  // 机器码绑定校验（仅 App 端）
-  const [bindingResult, setBindingResult] = useState<BindingResult | null>(null);
+  // 机器码绑定校验（仅 App 端）— 统一走 bindingStore，写操作守卫共用
+  const bindingResult = useBindingStore(s => s.result);
+  const refreshBinding = useBindingStore(s => s.refresh);
 
   // 启用按钮金粉涟漪（全局事件委托，挂载一次）
   useRipple();
@@ -107,10 +106,9 @@ export default function App() {
 
   useEffect(() => {
     (async () => {
-      // App 端：机器码绑定校验（网页端跳过）
+      // App 端：机器码绑定校验（网页端跳过）— 结果写入 bindingStore，写操作守卫共用
       if (!IS_WEB_BUILD) {
-        const result = await platform.verifyBinding();
-        setBindingResult(result);
+        const result = await refreshBinding();
         if (!result.match && result.bound) {
           // 设备不匹配，不继续加载
           return;
