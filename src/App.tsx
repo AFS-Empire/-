@@ -157,7 +157,8 @@ export default function App() {
   }, []);
 
   // 路由切换时给主内容加 page-enter 类（触发淡入动画）
-  // 用 key 强制重渲染，确保每次切换都重新播放动画
+  // 注意：不能给 Suspense 加 key，否则会卸载重挂载 → 白屏闪烁
+  // 动画 key 绑定到 pathname，保证每次切换都重放过渡（放在 div 上而非 Suspense）
   const pageKey = location.pathname;
 
   if (!loaded) {
@@ -189,8 +190,8 @@ export default function App() {
   }
 
   return (
-    <Suspense key={pageKey} fallback={routeFallback(location.pathname)}>
-      <div className="page-enter">
+    <Suspense fallback={routeFallback(location.pathname)}>
+      <div key={pageKey} className="page-enter">
         <Routes location={location}>
           <Route path="/" element={<Layout />}>
             <Route index element={<Home />} />

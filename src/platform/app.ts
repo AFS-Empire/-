@@ -41,13 +41,55 @@ function getPlugin(name: string): any | undefined {
 }
 
 async function getDeviceId(): Promise<string | null> {
+  // 1. 优先走 @capacitor/device 官方插件（Capacitor 6 自动注册）
   try {
     const { Device } = await import('@capacitor/device');
     const info = await Device.getId();
-    return info.uuid;
-  } catch {
-    return null;
+    if (info?.uuid) return info.uuid;
+  } catch (e) {
+    console.warn('[app:getDeviceId] Capacitor Device 插件不可用，降级', e);
   }
+
+  // 2. 兜底：直接访问 window.Capacitor.Plugins.Device（插件已加载但 import 解析失败时）
+  try {
+    const cap = (window as any).Capacitor;
+    const DevicePlugin = cap?.Plugins?.Device;
+    if (DevicePlugin && typeof DevicePlugin.getId === 'function') {
+      const info = await DevicePlugin.getId();
+      if (info?.uuid) return info.uuid;
+    }
+  } catch (e) {
+    console.warn('[app:getDeviceId] 直接访问 Device 插件失败', e);
+  }
+
+  // 3. App 环境最终兜底：基于 WebView 指纹（navigator.userAgent + hardwareConcurrency + devicePixelRatio 等）
+  //    仅在 Capacitor 环境使用，保证非 App 环境不返回假 ID
+  try {
+    const cap = (window as any).Capacitor;
+    const isNativeApp = cap?.Platform === 'android' || cap?.Platform === 'ios' ||
+      (typeof cap?.isNativePlatform === 'function' ? cap.isNativePlatform() : cap?.isNative);
+    if (isNativeApp) {
+      const ua = navigator.userAgent || '';
+      const hw = navigator.hardwareConcurrency || 0;
+      const dpr = window.devicePixelRatio || 0;
+      const screen = `${window.screen?.width || 0}x${window.screen?.height || 0}`;
+      const fp = `orpheus-fp:${ua}:${hw}:${dpr}:${screen}`;
+      // 用轻量 hash 转 32 位十六进制（不依赖 sha256，避免循环依赖）
+      let hash = 0x811c9dc5;
+      for (let i = 0; i < fp.length; i++) {
+        hash ^= fp.charCodeAt(i);
+        hash = Math.imul(hash, 0x01000193);
+      }
+      const hex = (hash >>> 0).toString(16).padStart(8, '0');
+      const uuid = `${hex}-0000-4000-8000-${hex}${hex}`;
+      console.info('[app:getDeviceId] 使用设备指纹兜底 ID');
+      return uuid;
+    }
+  } catch (e) {
+    console.warn('[app:getDeviceId] 指纹兜底失败', e);
+  }
+
+  return null;
 }
 
 async function getAppPrivateSalt(): Promise<string> {

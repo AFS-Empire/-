@@ -203,10 +203,10 @@
     animation: pageEnter 0.35s ease-out;
   }
   .panel {
-    @apply bg-ink-900/60 border border-ink-800 rounded-xl backdrop-blur-sm;
+    @apply bg-ink-900/60 border border-ink-800 rounded-xl backdrop-blur-sm relative overflow-hidden;
   }
   .panel-gold {
-    @apply bg-ink-900/60 border border-gold-900/40 rounded-xl backdrop-blur-sm;
+    @apply bg-ink-900/60 border border-gold-900/40 rounded-xl backdrop-blur-sm relative overflow-hidden;
   }
   .input-field {
     @apply w-full px-4 py-2.5 rounded-lg bg-ink-850 border border-ink-700 text-ink-100 placeholder:text-ink-500 focus:outline-none focus:border-gold-700 focus:ring-1 focus:ring-gold-700/50 transition-all;
@@ -258,7 +258,7 @@
     @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gold-900/30 text-gold-400/90 border border-gold-800/40;
   }
   .card-entry {
-    @apply bg-ink-900/60 border border-ink-800 rounded-xl backdrop-blur-sm p-4 hover:border-gold-800/60 hover:bg-ink-850/60 cursor-pointer transition-all duration-300;
+    @apply bg-ink-900/60 border border-ink-800 rounded-xl backdrop-blur-sm p-4 hover:border-gold-800/60 hover:bg-ink-850/60 cursor-pointer transition-all duration-300 relative overflow-hidden;
   }
   /* 暗金边框装饰 */
   .gold-border {

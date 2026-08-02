@@ -96,8 +96,9 @@ export default function About() {
     <div className="max-w-2xl mx-auto space-y-6">
       {/* 标题区 */}
       <div className="text-center">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gold-900/30 border border-gold-700 mb-4">
-          <BookOpen size={28} className="text-gold-400" />
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full overflow-hidden border-2 border-gold-700 mb-4 shadow-lg"
+             style={{ boxShadow: '0 0 12px rgba(200,144,42,0.25)' }}>
+          <img src="/logo.jpg" alt="Logo" className="w-full h-full object-cover" />
         </div>
         <h1
           onClick={handleTitleClick}
