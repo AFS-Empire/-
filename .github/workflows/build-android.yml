@@ -21,11 +21,11 @@ jobs:
         with:
           node-version: 22
 
-      - name: 安装 Java
+      - name: 安装 Java 17（Capacitor 6 要求）
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 21
+          java-version: 17
 
       - name: 安装 Android SDK
         uses: android-actions/setup-android@v3
@@ -46,7 +46,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: android
-          key: android-project-v4-${{ hashFiles('capacitor.config.json') }}
+          key: android-project-v5-${{ hashFiles('capacitor.config.json') }}
 
       - name: 首次生成 Android 工程
         if: steps.cache-android.outputs.cache-hit != 'true'
@@ -55,8 +55,45 @@ jobs:
       - name: 同步 Capacitor
         run: npx cap sync android
 
-      - name: 配置 Android 工程
+      - name: 配置 Android 工程（仅 proguard + manifest，不改 build.gradle）
         run: node scripts/setup-android.mjs
+
+      - name: 注入签名配置（gradle.properties + build.gradle 追加）
+        run: |
+          echo "=== 步骤 1/2: 创建 gradle.properties ==="
+          cat > android/app/gradle.properties << 'EOF'
+          RELEASE_STORE_FILE=release.keystore
+          RELEASE_STORE_PASSWORD=OrpheusArchive2026
+          RELEASE_KEY_ALIAS=orpheus
+          RELEASE_KEY_PASSWORD=OrpheusArchive2026
+          EOF
+          echo "gradle.properties 已创建"
+          cat android/app/gradle.properties
+
+          echo ""
+          echo "=== 步骤 2/2: 追加 signingConfigs 到 build.gradle ==="
+          if ! grep -q "ORPHEUS_SIGNING_CONFIGURED" android/app/build.gradle; then
+            cat >> android/app/build.gradle << 'GRADLE_EOF'
+
+          // ORPHEUS_SIGNING_CONFIGURED - CI 自动注入，勿手动编辑
+          android {
+              signingConfigs {
+                  release {
+                      storeFile file(RELEASE_STORE_FILE)
+                      storePassword RELEASE_STORE_PASSWORD
+                      keyAlias RELEASE_KEY_ALIAS
+                      keyPassword RELEASE_KEY_PASSWORD
+                  }
+              }
+          }
+          GRADLE_EOF
+            echo "✅ 签名配置已追加到 build.gradle"
+          else
+            echo "⏭️ build.gradle 已有签名配置，跳过追加"
+          fi
+          echo ""
+          echo "build.gradle 末尾内容："
+          tail -20 android/app/build.gradle
 
       - name: 缓存签名密钥
         id: keystore
@@ -79,6 +116,7 @@ jobs:
 
       - name: 构建 Release APK
         run: |
+          echo "=== 开始构建 APK ==="
           cd android
           ./gradlew assembleRelease \
             -PRELEASE_STORE_FILE=release.keystore \
@@ -86,12 +124,25 @@ jobs:
             -PRELEASE_KEY_ALIAS=orpheus \
             -PRELEASE_KEY_PASSWORD=OrpheusArchive2026
           cd ..
+          echo "=== 构建完成 ==="
+          echo "APK 文件列表："
+          find android/app/build/outputs/apk/release -name "*.apk" -ls
 
       - name: 重命名 APK
         run: |
-          APK="$(find android/app/build/outputs/apk/release -name "*.apk" | head -1)"
+          APK="$(find android/app/build/outputs/apk/release -name "*.apk" -not -name "*unsigned*" | head -1)"
+          if [ -z "$APK" ]; then
+            APK="$(find android/app/build/outputs/apk/release -name "*.apk" | head -1)"
+          fi
+          if [ -z "$APK" ]; then
+            echo "❌ 找不到 APK 文件！"
+            find android/app/build/outputs/apk/ -name "*.apk" 2>/dev/null || echo "release 目录下无 APK"
+            exit 1
+          fi
+          echo "找到 APK: $APK"
           cp "${APK}" "orpheus-archive.apk"
           echo "APK_PATH=orpheus-archive.apk" >> "${GITHUB_ENV}"
+          ls -la orpheus-archive.apk
 
       - name: 上传 APK 产物（90 天保留）
         uses: actions/upload-artifact@v4
@@ -103,9 +154,9 @@ jobs:
       - name: 验证 APK 签名
         run: |
           if grep -c "APK Sig Block 42" "${{ env.APK_PATH }}" > /dev/null 2>&1; then
-            echo "APK V2 签名验证通过"
+            echo "✅ APK V2 签名验证通过"
           else
-            echo "警告：APK 未检测到 V2 签名"
+            echo "⚠️ APK 未检测到 V2 签名（可能使用 debug 签名）"
           fi
 
       - name: 准备发布目录
