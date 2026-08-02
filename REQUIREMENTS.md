@@ -167,6 +167,7 @@ platform.pickImage();     // App 端走 Camera，Web 端走 input
 | 2026-08-02 | App 端导入无签名校验、requirePin 未定义 | pinSessionStore + useRequirePin + PinDialog，App/桌面端导入强制 PIN + 签名校验 |
 | 2026-08-02 | 档案编辑保存无二次校验 | EntryEditor 保存前机器绑定 + PIN 双校验 |
 | 2026-08-02 | 废弃旧库文件残留 | 删除 filePicker.ts / mobile.ts / machineBinding.ts |
+| 2026-08-02 | 删除示例角色后刷新数据又恢复 | seedData 旧逻辑用 `getEntriesByType('character').length === 0` 判断 reseed，删空 character 类即触发重新插入。改为 settings 表 `seeded` 一次性标记：已 seed 永不 reseed；老用户已有数据只补标记不 reseed |
 
 ## 五、待办/已知问题
 

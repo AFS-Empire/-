@@ -1,13 +1,38 @@
 import type { AnyEntry, Era } from '../types';
-import { genId, getUser, saveUser } from './db';
+import { genId, getUser, saveUser, getSetting, setSetting, getAllEntries, getAllEras, getAllUsers } from './db';
 import { hashPassword } from '../lib/crypto';
 
-/** 初始化默认管理员账号 + 示例数据 */
+/**
+ * 初始化默认管理员账号 + 示例数据
+ *
+ * 一次性 seed 策略（修复"删除示例数据后刷新又恢复"bug）：
+ * - 用 settings 表的 `seeded` 布尔 flag 标记是否已 seed 过，一旦置 true 永不 reseed。
+ * - 老用户升级（已有数据但无 seeded 标记）：检测到 entries/eras/users 任一非空 → 只补写 seeded=true，不 reseed。
+ * - 仅当 settings.seeded 不存在且全库为空时，才真正写入示例数据并置 seeded=true。
+ * - 这样用户删除任何示例条目都不会被重新插入。
+ */
 export async function seedData(): Promise<void> {
-  const { getAllEras, saveEra, getEntriesByType, saveEntry } = await import('./db');
+  const { saveEra, saveEntry } = await import('./db');
 
-  // 1. 默认管理员：仅当不存在时才创建（不覆盖已有用户/已改密码）
-  //    若存在但哈希是旧格式，也跳过（由 authStore 在登录时自动升级）
+  // 1. 已 seed 标记检查：已置 true 则直接返回，绝不 reseed
+  const alreadySeeded = await getSetting('seeded');
+  if (alreadySeeded === true) return;
+
+  // 2. 老用户保护：库中已有任何数据（entries/eras/users）→ 只补标记，不 reseed
+  //    避免老用户升级到本版本后被强行插入示例数据
+  const [existingEntries, existingEras, existingUsers] = await Promise.all([
+    getAllEntries(),
+    getAllEras(),
+    getAllUsers(),
+  ]);
+  if (existingEntries.length > 0 || existingEras.length > 0 || existingUsers.length > 0) {
+    await setSetting('seeded', true);
+    return;
+  }
+
+  // 3. 全新库：写入示例数据
+  // 3.1 默认管理员：仅当不存在时才创建（不覆盖已有用户/已改密码）
+  //     若存在但哈希是旧格式，也跳过（由 authStore 在登录时自动升级）
   const existingAdmin = await getUser('AFS');
   if (!existingAdmin) {
     await saveUser({
@@ -17,7 +42,7 @@ export async function seedData(): Promise<void> {
     });
   }
 
-  // 2. 默认游客（同理，不存在才创建）
+  // 3.2 默认游客（同理，不存在才创建）
   const existingGuest = await getUser('youke');
   if (!existingGuest) {
     await saveUser({
@@ -27,21 +52,15 @@ export async function seedData(): Promise<void> {
     });
   }
 
-  // 3. 示例纪元
-  const eras = await getAllEras();
-  if (eras.length === 0) {
-    const sampleEras: Era[] = [
-      { id: genId(), name: '混沌纪元', startYear: '远古', endYear: '约万年前', description: '天地未开，万物初生。', order: 0 },
-      { id: genId(), name: '帝国纪元', startYear: '元年', endYear: '约三千年', description: '第一帝国建立，文明鼎盛。', order: 1 },
-      { id: genId(), name: '星航纪元', startYear: '三千年', endYear: '至今', description: '星际航行时代，各族文明交汇。', order: 2 },
-    ];
-    for (const e of sampleEras) await saveEra(e);
-  }
+  // 3.3 示例纪元
+  const sampleEras: Era[] = [
+    { id: genId(), name: '混沌纪元', startYear: '远古', endYear: '约万年前', description: '天地未开，万物初生。', order: 0 },
+    { id: genId(), name: '帝国纪元', startYear: '元年', endYear: '约三千年', description: '第一帝国建立，文明鼎盛。', order: 1 },
+    { id: genId(), name: '星航纪元', startYear: '三千年', endYear: '至今', description: '星际航行时代，各族文明交汇。', order: 2 },
+  ];
+  for (const e of sampleEras) await saveEra(e);
 
-  // 4. 示例条目（仅当库为空时）
-  const existing = await getEntriesByType('character');
-  if (existing.length > 0) return;
-
+  // 3.4 示例条目
   const now = Date.now();
   const allEras = await getAllEras();
 
@@ -123,4 +142,7 @@ export async function seedData(): Promise<void> {
   ];
 
   for (const e of sampleEntries) await saveEntry(e);
+
+  // 3.5 标记已 seed，后续启动永不 reseed
+  await setSetting('seeded', true);
 }
