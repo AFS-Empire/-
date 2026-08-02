@@ -16,7 +16,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
 
       - name: 安装 Java
         uses: actions/setup-java@v4
@@ -32,21 +31,26 @@ jobs:
       - name: 安装 npm 依赖
         run: npm ci
 
-      - name: 构建 Web 资源（App 版，含盐值）
-        run: npm run build
+      - name: 构建 Web 资源（跳过 Electron）
+        run: npx vite build
         env:
           ARCHIVE_RELEASE: '1'
+
+      - name: 缓存 Android 工程
+        id: cache-android
+        uses: actions/cache@v4
+        with:
+          path: android
+          key: android-project-v4-${{ hashFiles('capacitor.config.json') }}
+
+      - name: 首次生成 Android 工程
+        if: steps.cache-android.outputs.cache-hit != 'true'
+        run: npx cap add android
 
       - name: 同步 Capacitor
         run: npx cap sync android
 
-      - name: 生成 Android 工程（首次）
-        run: |
-          if [ ! -d android ]; then
-            npx cap add android
-          fi
-
-      - name: 配置 Android 工程（ProGuard + 签名 + 权限）
+      - name: 配置 Android 工程
         run: node scripts/setup-android.mjs
 
       - name: 生成签名密钥（缓存复用）
@@ -76,43 +80,31 @@ jobs:
             -PRELEASE_STORE_PASSWORD=OrpheusArchive2026 \
             -PRELEASE_KEY_ALIAS=orpheus \
             -PRELEASE_KEY_PASSWORD=OrpheusArchive2026
+          cd ..
 
       - name: 重命名 APK
         run: |
           APK=$(find android/app/build/outputs/apk/release -name "*.apk" | head -1)
-          VERSION=${GITHUB_REF_NAME:-dev}
-          cp "$APK" "orpheus-archive-v${VERSION}.apk"
-          echo "APK_PATH=orpheus-archive-v${VERSION}.apk" >> $GITHUB_ENV
-          echo "APK_VERSION=$VERSION" >> $GITHUB_ENV
+          cp "$APK" "orpheus-archive.apk"
+          echo "APK_PATH=orpheus-archive.apk" >> $GITHUB_ENV
 
       - name: 上传 APK 到 Actions 产物
         uses: actions/upload-artifact@v4
         with:
           name: orpheus-archive-apk
-          path: ${{ env.APK_PATH }}
+          path: orpheus-archive.apk
           retention-days: 90
 
-      - name: 发布到 GitHub Release（仅 tag 触发）
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: ${{ env.APK_PATH }}
-          generate_release_notes: true
-
-      - name: 部署 APK 到 Netlify（服务器端密码保护）
-        env:
-          NETLIFY_AUTH_TOKEN: nfp_aKhDSDkMAjcyK5eMa9KeyYPP5WrE7H7652d9
-          NETLIFY_APK_SITE_ID: 731c2022-9424-44e8-8cec-b455f01af8ab
+      - name: 部署到 Netlify（不阻塞主流程）
+        continue-on-error: true
         run: |
-          PASSWORD="Orpheus2026apk"
+          SITE_ID="731c2022-9424-44e8-8cec-b455f01af8ab"
+          TOKEN="nfp_aKhDSDkMAjcyK5eMa9KeyYPP5WrE7H7652d9"
           mkdir -p apk-deploy
-          APK_HASH=$(echo "${{ github.sha }}" | cut -c1-8)
-          APK_FILE="archive-${APK_HASH}.apk"
-          cp "${{ env.APK_PATH }}" "apk-deploy/${APK_FILE}"
-          cp "${{ env.APK_PATH }}" "apk-deploy/orpheus-archive-latest.apk"
+          cp "${{ env.APK_PATH }}" "apk-deploy/archive-latest.apk"
 
-          # 生成简洁下载页面（不含密码，密码由服务器端保护）
-          cat > apk-deploy/index.html << HTMLEOF
+          # 生成下载页
+          cat > apk-deploy/index.html << 'HTMLEOF'
           <!DOCTYPE html>
           <html lang="zh-CN">
           <head>
@@ -133,25 +125,14 @@ jobs:
           <body>
           <div class="card">
             <h1>奥菲斯帝国档案馆</h1>
-            <p class="ver">v${{ env.APK_VERSION }} · Android 安装包</p>
-            <a href="${APK_FILE}" class="btn" download>下载 APK</a>
-            <p class="hint">安装前请在手机设置中开启「允许安装未知来源应用」<br>安装覆盖更新不会丢失档案数据</p>
+            <p class="ver">Android 安装包</p>
+            <a href="archive-latest.apk" class="btn" download>下载 APK</a>
+            <p class="hint">开启「允许安装未知来源应用」后安装<br>覆盖更新不会丢失档案数据</p>
           </div>
           </body>
           </html>
           HTMLEOF
 
-          # 1. 先部署文件
-          npx netlify-cli deploy \
-            --dir=apk-deploy \
-            --site="$NETLIFY_APK_SITE_ID" \
-            --auth="$NETLIFY_AUTH_TOKEN" \
-            --prod
-
-          # 2. 启用 Netlify 服务器端密码保护（比前端 JS 安全100倍）
-          # 任何人访问此站点都会看到浏览器原生密码框，前端代码完全被隐藏
-          echo "启用服务器端密码保护..."
-          curl -s -X PATCH "https://api.netlify.com/api/v1/sites/$NETLIFY_APK_SITE_ID" \
-            -H "Authorization: Bearer $NETLIFY_AUTH_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "{\"password\": \"$PASSWORD\", \"password_protection\": \"all\"}" | python3 -c "import json,sys; d=json.load(sys.stdin); print('✅ 密码保护已启用' if d.get('password') else '❌ 失败: '+str(d))"
+          npm install -g netlify-cli
+          netlify deploy --dir=apk-deploy --site="$SITE_ID" --auth="$TOKEN" --prod
+          echo "✅ Netlify 部署成功"
