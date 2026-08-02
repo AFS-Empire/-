@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BookOpen, Plus, Trash2, Eye, EyeOff } from 'lucide-react';
 import { useNovelStore } from '../store/novelStore';
 import { IS_WEB_BUILD } from '../lib/buildTarget';
+import { ConfirmDialog, PromptDialog, ModeSelectDialog } from '../components/Dialog';
 
 export default function NovelShelf() {
   const navigate = useNavigate();
@@ -11,19 +13,38 @@ export default function NovelShelf() {
   const chapters = useNovelStore(s => s.chapters);
   const progress = useNovelStore(s => s.progress);
 
-  const handleCreate = async () => {
-    const title = prompt('请输入小说名称：');
-    if (!title) return;
-    const mode = confirm('点击确定 = 开放模式（角色名直接高亮）\n点击取消 = 解锁模式（读完后才显示角色关联）')
-      ? 'open' as const
-      : 'unlock' as const;
-    const book = await createBook(title, mode);
-    navigate(`/novel/${book.id}`);
+  const [showNameDialog, setShowNameDialog] = useState(false);
+  const [pendingName, setPendingName] = useState('');
+  const [showModeDialog, setShowModeDialog] = useState(false);
+  const [pendingMode, setPendingMode] = useState<'open' | 'unlock'>('open');
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
+
+  const handleCreateClick = () => {
+    setPendingName('');
+    setShowNameDialog(true);
   };
 
-  const handleDelete = async (id: string, title: string) => {
-    if (!confirm(`确定删除「${title}」？所有章节和阅读进度将一并删除，此操作不可恢复。`)) return;
-    await deleteBook(id);
+  const handleNameConfirm = (value: string) => {
+    if (!value.trim()) {
+      setShowNameDialog(false);
+      return;
+    }
+    setPendingName(value.trim());
+    setShowModeDialog(true);
+  };
+
+  const handleModeSelect = async (mode: 'open' | 'unlock') => {
+    setPendingMode(mode);
+    if (pendingName) {
+      const book = await createBook(pendingName, mode);
+      navigate(`/novel/${book.id}`);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    await deleteBook(deleteTarget.id);
+    setDeleteTarget(null);
   };
 
   return (
@@ -35,7 +56,7 @@ export default function NovelShelf() {
           <span className="text-xs text-ink-500">共 {books.length} 本</span>
         </div>
         {!IS_WEB_BUILD && (
-          <button onClick={handleCreate} className="btn-gold">
+          <button onClick={handleCreateClick} className="btn-gold">
             <Plus size={16} />
             新建小说
           </button>
@@ -90,7 +111,7 @@ export default function NovelShelf() {
                 )}
                 {!IS_WEB_BUILD && (
                   <button
-                    onClick={e => { e.stopPropagation(); handleDelete(book.id, book.title); }}
+                    onClick={e => { e.stopPropagation(); setDeleteTarget({ id: book.id, title: book.title }); }}
                     className="absolute top-1 right-1 p-1 rounded text-ink-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
                     title="删除"
                   >
@@ -102,6 +123,35 @@ export default function NovelShelf() {
           })}
         </div>
       )}
+
+      {/* 输入小说名称 */}
+      <PromptDialog
+        open={showNameDialog}
+        onClose={() => setShowNameDialog(false)}
+        title="新建小说"
+        message="请输入小说名称："
+        placeholder="如：星辰之书"
+        defaultValue={pendingName}
+        onConfirm={handleNameConfirm}
+      />
+
+      {/* 选择模式 */}
+      <ModeSelectDialog
+        open={showModeDialog}
+        onClose={() => setShowModeDialog(false)}
+        onSelect={handleModeSelect}
+      />
+
+      {/* 删除确认 */}
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        title="删除小说"
+        message={deleteTarget ? `确定删除「${deleteTarget.title}」？所有章节和阅读进度将一并删除，此操作不可恢复。` : ''}
+        confirmText="删除"
+        variant="danger"
+        onConfirm={handleDelete}
+      />
     </div>
   );
 }

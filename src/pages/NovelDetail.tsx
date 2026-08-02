@@ -4,6 +4,7 @@ import { ChevronRight, ChevronDown, Plus, Trash2, Edit3, FileText, Eye, EyeOff, 
 import { useNovelStore } from '../store/novelStore';
 import { useDataStore } from '../store/dataStore';
 import { IS_WEB_BUILD } from '../lib/buildTarget';
+import { ConfirmDialog, PromptDialog, AlertDialog } from '../components/Dialog';
 
 export default function NovelDetail() {
   const { bookId } = useParams<{ bookId: string }>();
@@ -29,6 +30,45 @@ export default function NovelDetail() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [editingTitle, setEditingTitle] = useState(false);
 
+  // Dialog state
+  const [promptState, setPromptState] = useState<{
+    open: boolean;
+    title: string;
+    message: string;
+    placeholder?: string;
+    defaultValue?: string;
+    multiline?: boolean;
+    onConfirm: (value: string) => void;
+  } | null>(null);
+
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  } | null>(null);
+
+  const [alertState, setAlertState] = useState<{
+    open: boolean;
+    title: string;
+    message: string;
+  } | null>(null);
+
+  const openPrompt = (
+    title: string, message: string, placeholder: string,
+    defaultValue: string, onConfirm: (value: string) => void, multiline = false
+  ) => {
+    setPromptState({ open: true, title, message, placeholder, defaultValue, onConfirm, multiline });
+  };
+
+  const openConfirm = (title: string, message: string, onConfirm: () => void) => {
+    setConfirmState({ open: true, title, message, onConfirm });
+  };
+
+  const openAlert = (title: string, message: string) => {
+    setAlertState({ open: true, title, message });
+  };
+
   if (!book) {
     return (
       <div className="max-w-2xl mx-auto text-center py-20">
@@ -42,25 +82,26 @@ export default function NovelDetail() {
     setExpanded(prev => ({ ...prev, [volId]: !prev[volId] }));
   };
 
-  const handleCreateVolume = async () => {
-    const title = prompt('请输入分卷名称（如"夏"）：');
-    if (!title) return;
-    await createVolume(bookId!, title);
+  const handleCreateVolumeClick = () => {
+    openPrompt('新建分卷', '请输入分卷名称（如"夏"）：', '分卷名称', '', async (name) => {
+      if (!name.trim()) return;
+      await createVolume(bookId!, name.trim());
+    });
   };
 
   const handleImportTXT = async (file: File) => {
     if (!file || !bookId) return;
     if (bookVolumes.length === 0) {
-      alert('请先创建至少一个分卷，然后再导入章节');
+      openAlert('提示', '请先创建至少一个分卷，然后再导入章节');
       return;
     }
-    const targetVolumeId = bookVolumes[0].id; // 默认导入到第一个卷
+    const targetVolumeId = bookVolumes[0].id;
     const text = await file.text();
     const count = await importChapters(bookId, targetVolumeId, text, characters);
     if (count > 0) {
-      alert(`成功导入 ${count} 章`);
+      openAlert('导入成功', `成功导入 ${count} 章`);
     } else {
-      alert('未能解析出任何章节，请检查 TXT 格式');
+      openAlert('导入失败', '未能解析出任何章节，请检查 TXT 格式');
     }
   };
 
@@ -128,7 +169,7 @@ export default function NovelDetail() {
       {/* 操作栏 */}
       {!IS_WEB_BUILD && (
         <div className="flex gap-2 flex-wrap">
-          <button onClick={handleCreateVolume} className="btn-gold text-sm">
+          <button onClick={handleCreateVolumeClick} className="btn-gold text-sm">
             <Plus size={14} /> 新建分卷
           </button>
           <button onClick={() => fileRef.current?.click()} className="btn-ghost text-sm">
@@ -176,17 +217,20 @@ export default function NovelDetail() {
                   {!IS_WEB_BUILD && (
                     <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                       <button
-                        onClick={async () => {
-                          const name = prompt('修改分卷名称：', vol.title);
-                          if (name) await updateVolume(vol.id, name);
+                        onClick={() => {
+                          openPrompt('修改分卷名称', '请输入新的分卷名称：', '分卷名称', vol.title, async (name) => {
+                            if (name.trim()) await updateVolume(vol.id, name.trim());
+                          });
                         }}
                         className="p-1 rounded hover:text-gold-400 text-ink-500"
                       >
                         <Edit3 size={13} />
                       </button>
                       <button
-                        onClick={async () => {
-                          if (confirm(`删除分卷「${vol.title}」及其所有章节？`)) await deleteVolume(vol.id);
+                        onClick={() => {
+                          openConfirm('删除分卷', `删除分卷「${vol.title}」及其所有章节？此操作不可恢复。`, async () => {
+                            await deleteVolume(vol.id);
+                          });
                         }}
                         className="p-1 rounded hover:text-red-400 text-ink-500"
                       >
@@ -219,9 +263,10 @@ export default function NovelDetail() {
                             {!IS_WEB_BUILD && (
                               <div className="hidden group-hover:flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
                                 <button
-                                  onClick={async () => {
-                                    const name = prompt('修改章节标题：', chap.title);
-                                    if (name) await updateChapter(chap.id, { title: name });
+                                  onClick={() => {
+                                    openPrompt('修改章节标题', '请输入新的章节标题：', '章节标题', chap.title, async (name) => {
+                                      if (name.trim()) await updateChapter(chap.id, { title: name.trim() });
+                                    });
                                   }}
                                   className="p-1 rounded hover:text-gold-400 text-ink-500"
                                   title="编辑标题"
@@ -229,8 +274,10 @@ export default function NovelDetail() {
                                   <Edit3 size={12} />
                                 </button>
                                 <button
-                                  onClick={async () => {
-                                    if (confirm(`删除章节「${chap.title}」？`)) await deleteChapter(chap.id);
+                                  onClick={() => {
+                                    openConfirm('删除章节', `删除章节「${chap.title}」？此操作不可恢复。`, async () => {
+                                      await deleteChapter(chap.id);
+                                    });
                                   }}
                                   className="p-1 rounded hover:text-red-400 text-ink-500"
                                   title="删除章节"
@@ -246,11 +293,13 @@ export default function NovelDetail() {
                     {!IS_WEB_BUILD && (
                       <div className="p-2 border-t border-ink-800/30">
                         <button
-                          onClick={async () => {
-                            const title = prompt('请输入章节标题（如：第一章 初遇）：');
-                            if (!title) return;
-                            const content = prompt('章节内容（可之后在阅读页修改）：', '') || '';
-                            await createChapter(bookId!, vol.id, title, content, characters);
+                          onClick={() => {
+                            openPrompt('新建章节', '请输入章节标题（如：第一章 初遇）：', '章节标题', '', async (title) => {
+                              if (!title.trim()) return;
+                              openPrompt('章节内容', '可以之后在阅读页修改。输入章节内容：', '章节内容', '', async (content) => {
+                                await createChapter(bookId!, vol.id, title.trim(), content, characters);
+                              }, true);
+                            });
                           }}
                           className="w-full py-1.5 text-xs text-ink-500 hover:text-gold-400 rounded hover:bg-ink-900/30 flex items-center justify-center gap-1"
                         >
@@ -281,6 +330,43 @@ export default function NovelDetail() {
             </div>
           )}
         </div>
+      )}
+
+      {/* 通用 Prompt Dialog */}
+      {promptState && (
+        <PromptDialog
+          open={promptState.open}
+          onClose={() => setPromptState(null)}
+          title={promptState.title}
+          message={promptState.message}
+          placeholder={promptState.placeholder}
+          defaultValue={promptState.defaultValue}
+          multiline={promptState.multiline}
+          onConfirm={promptState.onConfirm}
+        />
+      )}
+
+      {/* 通用 Confirm Dialog */}
+      {confirmState && (
+        <ConfirmDialog
+          open={confirmState.open}
+          onClose={() => setConfirmState(null)}
+          title={confirmState.title}
+          message={confirmState.message}
+          confirmText="删除"
+          variant="danger"
+          onConfirm={confirmState.onConfirm}
+        />
+      )}
+
+      {/* 通用 Alert Dialog */}
+      {alertState && (
+        <AlertDialog
+          open={alertState.open}
+          onClose={() => setAlertState(null)}
+          title={alertState.title}
+          message={alertState.message}
+        />
       )}
     </div>
   );

@@ -24,6 +24,7 @@ import { SECTION_PREFIX } from '../types';
 import BackupBar from './BackupBar';
 import { IS_WEB_BUILD } from '../lib/buildTarget';
 import { useHiddenUnlock } from '../lib/hiddenUnlock';
+import { ConfirmDialog } from './Dialog';
 
 const navItems = [
   { to: '/', label: '首页', icon: Home },
@@ -49,6 +50,7 @@ const sectionRoutes: Record<string, string> = {
 export default function Layout() {
   const { isAuthenticated, currentUser, logout } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showRefreshConfirm, setShowRefreshConfirm] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const isUnlocked = useHiddenUnlock(s => s.isUnlocked);
@@ -60,9 +62,7 @@ export default function Layout() {
 
   /** 强制刷新页面：卡住或数据不同步时使用 */
   const handleForceRefresh = () => {
-    if (window.confirm('确定强制刷新页面？\n\n未保存的内容可能丢失，但本地已保存的档案不受影响。')) {
-      window.location.reload();
-    }
+    setShowRefreshConfirm(true);
   };
 
   // 根据当前页面智能跳转评论区
@@ -242,6 +242,17 @@ export default function Layout() {
         <MessageCircle size={18} />
         <span className="text-sm">讨论</span>
       </button>
+
+      {/* 强制刷新确认对话框 */}
+      <ConfirmDialog
+        open={showRefreshConfirm}
+        onClose={() => setShowRefreshConfirm(false)}
+        title="强制刷新"
+        message="确定强制刷新页面？\n\n未保存的内容可能丢失，但本地已保存的档案不受影响。"
+        confirmText="刷新"
+        variant="danger"
+        onConfirm={() => window.location.reload()}
+      />
     </div>
   );
 }

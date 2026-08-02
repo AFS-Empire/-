@@ -5,12 +5,12 @@
  * 2. App 版：连续点击标题 6 次触发调试面板（仅 Dev 构建）
  * 3. Web 版：连续点击标题 5 次触发隐藏密码框，解锁后可导入/导出
  */
-import { useState, useRef } from 'react';
-import { BookOpen, Shield, Code, AlertTriangle, X, KeyRound, FlaskConical, Lock, CheckCircle2, Smartphone, ArrowRightLeft, Copy } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { BookOpen, Shield, Code, AlertTriangle, X, KeyRound, FlaskConical, Lock, CheckCircle2, Smartphone, ArrowRightLeft, Copy, Circle, Wifi } from 'lucide-react';
 import { CREATOR, CONTACT, COPYRIGHT } from '../lib/watermark';
 import { IS_WEB_BUILD } from '../lib/buildTarget';
 import { useHiddenUnlock } from '../lib/hiddenUnlock';
-import { generateMigrateCode, verifyMigrateAndRebind } from '../lib/machineBinding';
+import { generateMigrateCode, verifyMigrateAndRebind, verifyBinding, type BindingResult } from '../lib/machineBinding';
 // devTools 在 Release/Web 构建时被 alias 替换为 noop，不会包含真实逻辑
 import {
   unlockDebug, isDebugUnlocked, setBypassPin, setBypassMachineBinding,
@@ -39,6 +39,23 @@ export default function About() {
   const isUnlocked = useHiddenUnlock(s => s.isUnlocked);
   const unlock = useHiddenUnlock(s => s.unlock);
   const lock = useHiddenUnlock(s => s.lock);
+
+  // 机器码绑定状态
+  const [binding, setBinding] = useState<BindingResult | null>(null);
+  const [bindingLoading, setBindingLoading] = useState(true);
+
+  useEffect(() => {
+    if (!IS_WEB_BUILD) {
+      verifyBinding().then(result => {
+        setBinding(result);
+        setBindingLoading(false);
+      }).catch(() => {
+        setBindingLoading(false);
+      });
+    } else {
+      setBindingLoading(false);
+    }
+  }, []);
 
   /** 标题连续点击触发 */
   const handleTitleClick = () => {
@@ -139,6 +156,50 @@ export default function About() {
           数据本地存储 · 无需联网 · 支持 Windows / 安卓 / 浏览器三端
         </p>
       </div>
+
+      {/* 机器码绑定状态 */}
+      {!IS_WEB_BUILD && (
+        <div className="panel p-5 space-y-3">
+          <div className="flex items-center gap-2 text-gold-300">
+            <Wifi size={16} />
+            <h2 className="font-semibold tracking-wide">设备绑定</h2>
+          </div>
+
+          {bindingLoading ? (
+            <p className="text-xs text-ink-500">正在检测绑定状态...</p>
+          ) : binding?.match ? (
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-green-900/30 flex items-center justify-center">
+                <CheckCircle2 size={20} className="text-green-400" />
+              </div>
+              <div>
+                <p className="text-sm text-green-400 font-medium">本设备已绑定</p>
+                <p className="text-xs text-ink-500">数据安全锁定在此设备，换机请使用下方迁移功能</p>
+              </div>
+            </div>
+          ) : binding?.bound ? (
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-900/30 flex items-center justify-center">
+                <AlertTriangle size={20} className="text-red-400" />
+              </div>
+              <div>
+                <p className="text-sm text-red-400 font-medium">{binding.reason || '设备不匹配'}</p>
+                <p className="text-xs text-ink-500">数据可能被拷贝到其他设备，请联系管理员</p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-gold-900/30 flex items-center justify-center">
+                <Circle size={20} className="text-gold-500" />
+              </div>
+              <div>
+                <p className="text-sm text-gold-400 font-medium">绑定状态：未启用</p>
+                <p className="text-xs text-ink-500">{binding?.reason || '首次启动将自动绑定'}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ─── App 版换机迁移 ─── */}
       {!IS_WEB_BUILD && <MigratePanel />}
