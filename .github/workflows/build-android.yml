@@ -80,8 +80,10 @@ jobs:
       - name: 重命名 APK
         run: |
           APK=$(find android/app/build/outputs/apk/release -name "*.apk" | head -1)
-          cp "$APK" "奥菲斯帝国档案馆-v${GITHUB_REF_NAME:-dev}.apk"
-          echo "APK_PATH=奥菲斯帝国档案馆-v${GITHUB_REF_NAME:-dev}.apk" >> $GITHUB_ENV
+          VERSION=${GITHUB_REF_NAME:-dev}
+          cp "$APK" "orpheus-archive-v${VERSION}.apk"
+          echo "APK_PATH=orpheus-archive-v${VERSION}.apk" >> $GITHUB_ENV
+          echo "APK_VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: 上传 APK 到 Actions 产物
         uses: actions/upload-artifact@v4
@@ -96,3 +98,44 @@ jobs:
         with:
           files: ${{ env.APK_PATH }}
           generate_release_notes: true
+
+      - name: 部署 APK 到 Netlify（随时可下载）
+        if: ${{ secrets.NETLIFY_AUTH_TOKEN != '' }}
+        run: |
+          mkdir -p apk-deploy
+          cp "${{ env.APK_PATH }}" apk-deploy/orpheus-archive-latest.apk
+          # 生成下载页面
+          cat > apk-deploy/index.html << 'HTMLEOF'
+          <!DOCTYPE html>
+          <html lang="zh-CN">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>奥菲斯帝国档案馆 - APK 下载</title>
+            <style>
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              body { background: #0d0d0f; color: #e8d5b7; font-family: -apple-system, sans-serif; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+              .card { text-align: center; padding: 2rem; max-width: 400px; }
+              h1 { color: #d4a857; font-size: 1.5rem; margin-bottom: 0.5rem; }
+              .ver { color: #8a8074; font-size: 0.85rem; margin-bottom: 1.5rem; }
+              .btn { display: inline-block; background: linear-gradient(135deg, #d4a857, #b8862e); color: #1a1a1c; text-decoration: none; padding: 0.9rem 2rem; border-radius: 0.75rem; font-weight: bold; font-size: 1.1rem; transition: transform 0.15s; }
+              .btn:active { transform: scale(0.97); }
+              .hint { color: #6a6258; font-size: 0.75rem; margin-top: 1.5rem; line-height: 1.6; }
+            </style>
+          </head>
+          <body>
+            <div class="card">
+              <h1>奥菲斯帝国档案馆</h1>
+              <p class="ver">Android 安装包 · 点击下载</p>
+              <a href="orpheus-archive-latest.apk" class="btn" download>下载 APK</a>
+              <p class="hint">安装前请在手机设置中开启「允许安装未知来源应用」<br>安装覆盖更新不会丢失档案数据</p>
+            </div>
+          </body>
+          </html>
+          HTMLEOF
+          npx netlify-cli deploy \
+            --dir=apk-deploy \
+            --site=$NETLIFY_APK_SITE_ID \
+            --auth=$NETLIFY_AUTH_TOKEN \
+            --prod \
+            --message="APK v${{ env.APK_VERSION }}"
