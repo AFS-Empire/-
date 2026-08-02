@@ -1,0 +1,98 @@
+name: 构建 Android APK
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: 安装 Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: 安装 Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platforms;android-34 build-tools;34.0.0'
+
+      - name: 安装 npm 依赖
+        run: npm ci
+
+      - name: 构建 Web 资源（App 版，含盐值）
+        run: npm run build
+        env:
+          ARCHIVE_RELEASE: '1'
+
+      - name: 同步 Capacitor
+        run: npx cap sync android
+
+      - name: 生成 Android 工程（首次）
+        run: |
+          if [ ! -d android ]; then
+            npx cap add android
+          fi
+
+      - name: 配置 Android 工程（ProGuard + 签名 + 权限）
+        run: node scripts/setup-android.mjs
+
+      - name: 生成签名密钥（缓存复用）
+        id: keystore
+        uses: actions/cache@v4
+        with:
+          path: android/app/release.keystore
+          key: release-keystore-v1
+
+      - name: 创建签名密钥（缓存未命中时）
+        if: steps.keystore.outputs.cache-hit != 'true'
+        run: |
+          keytool -genkey -v \
+            -keystore android/app/release.keystore \
+            -alias orpheus \
+            -keyalg RSA -keysize 2048 \
+            -validity 36500 \
+            -storepass OrpheusArchive2026 \
+            -keypass OrpheusArchive2026 \
+            -dname "CN=AFS-JZY, OU=Archive, O=OrpheusEmpire, L=Unknown, ST=Unknown, C=CN"
+
+      - name: 构建 Release APK
+        run: |
+          cd android
+          ./gradlew assembleRelease \
+            -PRELEASE_STORE_FILE=release.keystore \
+            -PRELEASE_STORE_PASSWORD=OrpheusArchive2026 \
+            -PRELEASE_KEY_ALIAS=orpheus \
+            -PRELEASE_KEY_PASSWORD=OrpheusArchive2026
+
+      - name: 重命名 APK
+        run: |
+          APK=$(find android/app/build/outputs/apk/release -name "*.apk" | head -1)
+          cp "$APK" "奥菲斯帝国档案馆-v${GITHUB_REF_NAME:-dev}.apk"
+          echo "APK_PATH=奥菲斯帝国档案馆-v${GITHUB_REF_NAME:-dev}.apk" >> $GITHUB_ENV
+
+      - name: 上传 APK 到 Actions 产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: orpheus-archive-apk
+          path: ${{ env.APK_PATH }}
+          retention-days: 90
+
+      - name: 发布到 GitHub Release（仅 tag 触发）
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.APK_PATH }}
+          generate_release_notes: true
