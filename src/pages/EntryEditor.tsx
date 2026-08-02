@@ -1,11 +1,11 @@
 import { useMemo, useState, useRef, useCallback } from 'react';
-import type { ChangeEvent } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Save, Upload, X, Search, Trash2 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
 import { genId } from '../data/db';
 import { AlertDialog } from '../components/Dialog';
+import { pickImage, pickImages } from '../lib/filePicker';
 import type { AnyEntry, GeoLevel, LinkRef, TechCategory } from '../types';
 
 interface FormState {
@@ -49,13 +49,6 @@ const TECH_CATEGORIES: TechCategory[] = ['weapon', 'mecha', 'facility', 'system'
 const TECH_CATEGORY_LABEL: Record<TechCategory, string> = {
   weapon: '武器', mecha: '机甲', facility: '设施', system: '制度', creature: '生物', other: '其他',
 };
-
-const readFileAsDataURL = (file: File): Promise<string> => new Promise((resolve, reject) => {
-  const reader = new FileReader();
-  reader.onload = () => resolve(reader.result as string);
-  reader.onerror = reject;
-  reader.readAsDataURL(file);
-});
 
 function initForm(existing: AnyEntry | undefined, presetSectionId: string | null): FormState {
   if (existing) {
@@ -202,18 +195,18 @@ export default function EntryEditor() {
     setLinks(prev => prev.map(l => (l.id === linkId ? { ...l, relation } : l)));
   };
 
-  const handleCoverUpload = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const dataUrl = await readFileAsDataURL(file);
-    setCoverImage(dataUrl);
+  const handleCoverUpload = async () => {
+    const result = await pickImage();
+    if (result) {
+      setCoverImage(result.dataUrl);
+    }
   };
 
-  const handleImagesUpload = async (e: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
-    const urls = await Promise.all(files.map(readFileAsDataURL));
-    setImages(prev => [...prev, ...urls]);
+  const handleImagesUpload = async () => {
+    const results = await pickImages();
+    if (results.length > 0) {
+      setImages(prev => [...prev, ...results.map(r => r.dataUrl)]);
+    }
   };
 
   const removeImage = (idx: number) => {
@@ -473,10 +466,9 @@ export default function EntryEditor() {
       {/* Cover image */}
       <div className="panel-gold p-5 space-y-3">
         <h2 className="section-title">封面图</h2>
-        <label className="btn-outline cursor-pointer inline-flex">
+        <button type="button" className="btn-outline cursor-pointer inline-flex" onClick={handleCoverUpload}>
           <Upload className="w-4 h-4" /> 上传封面
-          <input type="file" accept="image/*" className="hidden" onChange={handleCoverUpload} />
-        </label>
+        </button>
         {coverImage && (
           <div className="relative inline-block">
             <img src={coverImage} alt="封面预览" className="w-full max-h-64 object-cover rounded-lg border border-gold-800/50" />
@@ -494,10 +486,9 @@ export default function EntryEditor() {
       {/* Image gallery */}
       <div className="panel-gold p-5 space-y-3">
         <h2 className="section-title">附加图片</h2>
-        <label className="btn-outline cursor-pointer inline-flex">
+        <button type="button" className="btn-outline cursor-pointer inline-flex" onClick={handleImagesUpload}>
           <Upload className="w-4 h-4" /> 添加图片
-          <input type="file" accept="image/*" multiple className="hidden" onChange={handleImagesUpload} />
-        </label>
+        </button>
         {images.length > 0 && (
           <div className="grid grid-cols-3 gap-2">
             {images.map((img, i) => (

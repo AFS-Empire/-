@@ -1,9 +1,10 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { ChevronRight, ChevronDown, Plus, Trash2, Edit3, FileText, Eye, EyeOff, Upload } from 'lucide-react';
 import { useNovelStore } from '../store/novelStore';
 import { useDataStore } from '../store/dataStore';
 import { IS_WEB_BUILD } from '../lib/buildTarget';
+import { pickTextFile } from '../lib/filePicker';
 import { ConfirmDialog, PromptDialog, AlertDialog } from '../components/Dialog';
 
 export default function NovelDetail() {
@@ -27,7 +28,6 @@ export default function NovelDetail() {
   const bookVolumes = bookId ? (volumes[bookId] || []) : [];
 
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const fileRef = useRef<HTMLInputElement>(null);
   const [editingTitle, setEditingTitle] = useState(false);
 
   // Dialog state
@@ -89,14 +89,16 @@ export default function NovelDetail() {
     });
   };
 
-  const handleImportTXT = async (file: File) => {
-    if (!file || !bookId) return;
+  const handleImportTXT = async () => {
+    if (!bookId) return;
     if (bookVolumes.length === 0) {
       openAlert('提示', '请先创建至少一个分卷，然后再导入章节');
       return;
     }
+    const result = await pickTextFile('.txt');
+    if (!result) return;
     const targetVolumeId = bookVolumes[0].id;
-    const text = await file.text();
+    const text = result.content;
     const count = await importChapters(bookId, targetVolumeId, text, characters);
     if (count > 0) {
       openAlert('导入成功', `成功导入 ${count} 章`);
@@ -172,20 +174,9 @@ export default function NovelDetail() {
           <button onClick={handleCreateVolumeClick} className="btn-gold text-sm">
             <Plus size={14} /> 新建分卷
           </button>
-          <button onClick={() => fileRef.current?.click()} className="btn-ghost text-sm">
+          <button type="button" onClick={handleImportTXT} className="btn-ghost text-sm">
             <Upload size={14} /> 导入 TXT
           </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".txt"
-            className="hidden"
-            onChange={e => {
-              const f = e.target.files?.[0];
-              if (f) handleImportTXT(f);
-              if (fileRef.current) fileRef.current.value = '';
-            }}
-          />
         </div>
       )}
 

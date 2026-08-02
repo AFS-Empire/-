@@ -6,15 +6,16 @@
  * - 移动 App（Capacitor）：系统分享面板发到微信/QQ/网盘 + 文件选择器读
  * - 浏览器：a 标签下载 + FileReader 读
  */
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Download, Upload, HardDrive, CheckCircle2, XCircle, History, RotateCcw, Trash2, RefreshCw, Database, Share2, ShieldAlert, FolderOpen, Sparkles } from 'lucide-react';
 import { exportAll, importAll } from '../data/db';
 import { useDataStore } from '../store/dataStore';
 import { useCommentStore } from '../store/commentStore';
 import { useAuthStore } from '../store/authStore';
-import { isMobileApp, isMobileBrowser, mobileShareBackup, mobilePickBackupFile, webShareFile } from '../lib/mobile';
+import { isMobileApp, isMobileBrowser, mobileShareBackup, webShareFile } from '../lib/mobile';
 import { IS_WEB_BUILD } from '../lib/buildTarget';
 import { useHiddenUnlock } from '../lib/hiddenUnlock';
+import { pickTextFile, saveFile } from '../lib/filePicker';
 import { ConfirmDialog } from './Dialog';
 
 interface AutoBackupItem {
@@ -52,16 +53,12 @@ export default function BackupBar() {
   const isAdmin = currentUser?.role === 'admin';
   // Web 版：隐藏解锁即视为授权（无 PIN/管理员）
   const isUnlocked = useHiddenUnlock(s => s.isUnlocked);
-  const fileRef = useRef<HTMLInputElement>(null);
   const [toast, setToast] = useState<{ type: 'ok' | 'err'; msg: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
   const [appInfo, setAppInfo] = useState<AppInfo | null>(null);
   const [autoBackups, setAutoBackups] = useState<AutoBackupItem[]>([]);
   const [showHistory, setShowHistory] = useState(false);
-
-  // 浏览器下载兜底：显示可手动点击的下载链接
-  const [downloadLink, setDownloadLink] = useState<{ url: string; name: string } | null>(null);
 
   // 网页端验签失败警告卡片
   const [showReject, setShowReject] = useState(false);
@@ -135,25 +132,6 @@ export default function BackupBar() {
     requireAuth(doBackup);
   };
 
-  /** 桌面浏览器下载：Blob + a 标签 + 手动链接兜底 */
-  const triggerBrowserDownload = (json: string, filename: string) => {
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.target = '_blank';
-    a.rel = 'noopener';
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-      URL.revokeObjectURL(url);
-      a.remove();
-    }, 30000);
-    setDownloadLink({ url, name: filename });
-  };
-
   const doBackup = async () => {
     setBusy(true);
     try {
@@ -186,17 +164,17 @@ export default function BackupBar() {
         const blob = new Blob([json], { type: 'application/json' });
         const r = await webShareFile(blob, `${defaultName}.json`);
         if (!r.ok) {
-          // 不支持文件分享，回退到 a.click() 下载
-          triggerBrowserDownload(json, `${defaultName}.json`);
+          // 不支持文件分享，回退到 saveFile 下载
+          await saveFile(`${defaultName}.json`, json, 'application/json');
         } else if (r.shared) {
           showToast('ok', '已通过系统分享发出');
         } else {
           showToast('ok', '已取消分享');
         }
       } else {
-        // 桌面浏览器：用 Blob + a 标签下载 + 手动链接兜底
-        triggerBrowserDownload(json, `${defaultName}.json`);
-        showToast('ok', '已生成下载文件（若未自动下载，请点击下方链接）');
+        // 桌面浏览器：用 saveFile 下载
+        await saveFile(`${defaultName}.json`, json, 'application/json');
+        showToast('ok', '已生成下载文件');
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -207,13 +185,15 @@ export default function BackupBar() {
   };
 
   /** 浏览器环境：从文件读（需解锁 + 签名校验） */
-  const handleRestoreBrowser = (file: File | null) => {
-    if (!file || busy) return;
+  const handleImportBackup = () => {
+    if (busy) return;
     requestAnimationFrame(() => {
       requireAuth(async () => {
         setBusy(true);
         try {
-          const json = await file.text();
+          const result = await pickTextFile();
+          if (!result) { setBusy(false); return; }
+          const json = result.content;
           const fileData = JSON.parse(json);
 
           // 网页端：签名校验（App端跳过，App有自己的PIN+管理员权限体系）
@@ -272,15 +252,11 @@ export default function BackupBar() {
     requirePin('导入档案', async () => {
       setBusy(true);
       try {
-        const r = await mobilePickBackupFile();
-        if (!r.ok) {
-          if ((r as any).canceled) { setBusy(false); return; }
-          showToast('err', (r as any).error || '选择失败');
-        } else {
-          await importAll(r.json);
-          await Promise.all([refresh(), refreshComments()]);
-          showToast('ok', `已从 ${r.name} 导入`);
-        }
+        const r = await pickTextFile();
+        if (!r) { setBusy(false); return; }
+        await importAll(r.content);
+        await Promise.all([refresh(), refreshComments()]);
+        showToast('ok', `已从 ${r.name} 导入`);
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         showToast('err', `导入失败：${msg}`);
@@ -418,28 +394,15 @@ export default function BackupBar() {
             导入
           </button>
         ) : (
-          <>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="application/json,.json"
-              className="hidden"
-              onChange={e => {
-                const f = e.target.files?.[0] || null;
-                handleRestoreBrowser(f);
-                if (fileRef.current) fileRef.current.value = '';
-              }}
-            />
-            <button
-              onClick={() => fileRef.current?.click()}
-              disabled={busy}
-              className="flex-1 min-w-[88px] flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg border border-ink-700 hover:border-gold-700/50 text-ink-200 hover:text-gold-300 hover:bg-ink-800/50 transition-all text-xs disabled:opacity-50"
-              title="选择本地 JSON 文件导入"
-            >
-              <Upload size={14} />
-              导入
-            </button>
-          </>
+          <button
+            onClick={handleImportBackup}
+            disabled={busy}
+            className="flex-1 min-w-[88px] flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg border border-ink-700 hover:border-gold-700/50 text-ink-200 hover:text-gold-300 hover:bg-ink-800/50 transition-all text-xs disabled:opacity-50"
+            title="选择本地 JSON 文件导入"
+          >
+            <Upload size={14} />
+            导入
+          </button>
         )}
       </div>
 
@@ -556,31 +519,6 @@ export default function BackupBar() {
             ? <CheckCircle2 size={12} style={{ color: '#77dd77' }} />
             : <XCircle size={12} style={{ color: '#dd5555' }} />}
           <span className="truncate" style={{ color: toast.type === 'ok' ? '#aaddaa' : '#ddaaaa' }}>{toast.msg}</span>
-        </div>
-      )}
-
-      {/* 浏览器下载兜底链接（自动下载被拦截时手动点） */}
-      {downloadLink && (
-        <div className="animate-fade-in rounded-md px-2 py-2 border border-gold-700/50 bg-gold-900/20">
-          <div className="text-[10px] text-gold-500/80 mb-1 flex items-center gap-1">
-            <Download size={10} />
-            手动下载（若未自动触发）
-          </div>
-          <a
-            href={downloadLink.url}
-            download={downloadLink.name}
-            target="_blank"
-            rel="noopener"
-            className="block text-[11px] text-gold-300 hover:text-gold-100 underline break-all"
-          >
-            {downloadLink.name}
-          </a>
-          <button
-            onClick={() => setDownloadLink(null)}
-            className="mt-1 text-[10px] text-ink-500 hover:text-ink-300"
-          >
-            关闭
-          </button>
         </div>
       )}
 
