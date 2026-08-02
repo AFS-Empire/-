@@ -58,7 +58,7 @@ jobs:
       - name: 配置 Android 工程（仅 proguard + manifest，不改 build.gradle）
         run: node scripts/setup-android.mjs
 
-      - name: 注入签名配置（init.gradle 方案，不碰 build.gradle）
+      - name: 注入签名配置
         run: |
           echo "=== 创建 gradle.properties ==="
           cat > android/app/gradle.properties << 'EOF'
@@ -67,39 +67,15 @@ jobs:
           RELEASE_KEY_ALIAS=orpheus
           RELEASE_KEY_PASSWORD=OrpheusArchive2026
           EOF
+          cat android/app/gradle.properties
 
           echo ""
-          echo "=== 创建 init.gradle（签名注入，不修改 build.gradle） ==="
-          cat > signing-init.gradle << 'INIT_EOF'
-          // ORPHEUS init.gradle - CI 签名注入
-          // 通过 --init-script 参数加载，不修改 build.gradle
-          allprojects {
-              afterEvaluate { project ->
-                  if (project.plugins.hasPlugin('com.android.application')) {
-                      def storeFile = project.findProperty('RELEASE_STORE_FILE')
-                      def storePassword = project.findProperty('RELEASE_STORE_PASSWORD')
-                      def keyAlias = project.findProperty('RELEASE_KEY_ALIAS')
-                      def keyPassword = project.findProperty('RELEASE_KEY_PASSWORD')
+          echo "=== 注入签名配置到 build.gradle ==="
+          python3 scripts/inject-signing.py android/app/build.gradle
 
-                      if (storeFile && storePassword && keyAlias && keyPassword) {
-                          project.android.signingConfigs {
-                              release {
-                                  storeFile project.file(storeFile)
-                                  storePassword storePassword
-                                  keyAlias keyAlias
-                                  keyPassword keyPassword
-                              }
-                          }
-                          project.android.buildTypes.release.signingConfig = project.android.signingConfigs.release
-                          println "[ORPHEUS] ✅ Release signing config injected via init.gradle"
-                      } else {
-                          println "[ORPHEUS] ⚠️ Signing properties not found, using debug signing"
-                      }
-                  }
-              }
-          }
-          INIT_EOF
-          cat signing-init.gradle
+          echo ""
+          echo "=== build.gradle 关键段落 ==="
+          grep -n "signingConfigs\|buildTypes\|signingConfig\|ORPHEUS" android/app/build.gradle
 
       - name: 缓存签名密钥
         id: keystore
@@ -122,10 +98,9 @@ jobs:
 
       - name: 构建 Release APK
         run: |
-          echo "=== 开始构建 APK（init.gradle 注入签名） ==="
+          echo "=== 开始构建 APK ==="
           cd android
           ./gradlew assembleRelease \
-            --init-script ../signing-init.gradle \
             -PRELEASE_STORE_FILE=release.keystore \
             -PRELEASE_STORE_PASSWORD=OrpheusArchive2026 \
             -PRELEASE_KEY_ALIAS=orpheus \
