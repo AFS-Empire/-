@@ -3,21 +3,23 @@ name: 构建 Android APK
 on:
   push:
     branches: [main]
-    tags: ['v*']
   workflow_dispatch:
 
 jobs:
-  build:
+  # ========== JOB 1: 构建 APK（核心，必须成功） ==========
+  build-apk:
+    name: 构建 APK
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout 源码
+        uses: actions/checkout@v4
 
       - name: 安装 Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: 安装 Java
         uses: actions/setup-java@v4
@@ -37,7 +39,6 @@ jobs:
         run: npx vite build
         env:
           ARCHIVE_RELEASE: '1'
-          # 私有盐值从 GitHub Secrets 注入，构建时内联到产物，源码与 git 历史中均不含盐值
           ARCHIVE_PRIVATE_SALT: ${{ secrets.ARCHIVE_PRIVATE_SALT }}
 
       - name: 缓存 Android 工程
@@ -57,14 +58,14 @@ jobs:
       - name: 配置 Android 工程
         run: node scripts/setup-android.mjs
 
-      - name: 生成签名密钥（缓存复用）
+      - name: 缓存签名密钥
         id: keystore
         uses: actions/cache@v4
         with:
           path: android/app/release.keystore
           key: release-keystore-v1
 
-      - name: 创建签名密钥（缓存未命中时）
+      - name: 创建签名密钥
         if: steps.keystore.outputs.cache-hit != 'true'
         run: |
           keytool -genkey -v \
@@ -88,11 +89,11 @@ jobs:
 
       - name: 重命名 APK
         run: |
-          APK=$(find android/app/build/outputs/apk/release -name "*.apk" | head -1)
-          cp "$APK" "orpheus-archive.apk"
-          echo "APK_PATH=orpheus-archive.apk" >> $GITHUB_ENV
+          APK="$(find android/app/build/outputs/apk/release -name "*.apk" | head -1)"
+          cp "${APK}" "orpheus-archive.apk"
+          echo "APK_PATH=orpheus-archive.apk" >> "${GITHUB_ENV}"
 
-      - name: 上传 APK 到 Actions 产物
+      - name: 上传 APK 产物（90 天保留）
         uses: actions/upload-artifact@v4
         with:
           name: orpheus-archive-apk
@@ -101,56 +102,89 @@ jobs:
 
       - name: 验证 APK 签名
         run: |
-          APK="${{ env.APK_PATH }}"
-          if grep -c "APK Sig Block 42" "$APK" > /dev/null 2>&1; then
-            echo "✅ APK V2 签名验证通过"
+          if grep -c "APK Sig Block 42" "${{ env.APK_PATH }}" > /dev/null 2>&1; then
+            echo "APK V2 签名验证通过"
           else
-            echo "⚠️ 警告：APK 未检测到 V2 签名"
+            echo "警告：APK 未检测到 V2 签名"
           fi
 
-      - name: 发布到 GitHub Release（非阻断）
-        continue-on-error: true
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v1.0.${{ github.run_number }}
-          name: 奥菲斯帝国档案馆 v1.0.${{ github.run_number }}
-          files: ${{ env.APK_PATH }}
-          generate_release_notes: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: 将 APK 整合进 Web 部署目录
+      - name: 准备发布目录
         run: |
-          VERSION="v1.0.${{ github.run_number }}"
           mkdir -p dist/apk
           cp "${{ env.APK_PATH }}" "dist/apk/orpheus-archive.apk"
-          echo "✅ APK 已放入 dist/apk/"
+          echo "APK 已放入 dist/apk/"
 
-      - name: 生成 APK 下载页和版本信息
+      - name: 生成下载页和版本信息
         env:
           VERSION: v1.0.${{ github.run_number }}
           BUILD_NUM: ${{ github.run_number }}
           APK_PATH: ${{ env.APK_PATH }}
         run: node scripts/generate-apk-index.mjs
 
-      - name: 部署到 Netlify（非阻断）
-        continue-on-error: true
+      - name: 上传 dist 目录（供 Netlify 部署）
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-output
+          path: dist
+          retention-days: 7
+
+  # ========== JOB 2: 发布到 GitHub Release（尽力而为，不阻断） ==========
+  release:
+    name: 发布到 GitHub Release
+    needs: build-apk
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    continue-on-error: true
+    steps:
+      - name: Checkout 源码
+        uses: actions/checkout@v4
+
+      - name: 下载 APK 产物
+        uses: actions/download-artifact@v4
+        with:
+          name: orpheus-archive-apk
+
+      - name: 发布 Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: 奥菲斯帝国档案馆 v1.0.${{ github.run_number }}
+          files: orpheus-archive.apk
+          generate_release_notes: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ========== JOB 3: 部署到 Netlify（尽力而为，不阻断） ==========
+  deploy-netlify:
+    name: 部署到 Netlify
+    needs: build-apk
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: 下载 dist 目录
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-output
+          path: dist
+
+      - name: 部署到 Netlify
         env:
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
         run: |
-          if [ -z "$NETLIFY_SITE_ID" ] || [ -z "$NETLIFY_AUTH_TOKEN" ]; then
-            echo "⏭️ 未配置 Netlify secrets，跳过部署"
+          if [ -z "${NETLIFY_SITE_ID}" ] || [ -z "${NETLIFY_AUTH_TOKEN}" ]; then
+            echo "未配置 Netlify secrets，跳过部署"
             exit 0
           fi
-          echo "📦 部署目录内容："
+          echo "部署目录内容："
           ls -la dist/
           echo ""
-          echo "📦 APK 目录内容："
+          echo "APK 目录内容："
           ls -la dist/apk/
           npm install -g netlify-cli
-          netlify deploy --dir=dist --site="$NETLIFY_SITE_ID" --auth="$NETLIFY_AUTH_TOKEN" --prod
-          echo "✅ Netlify 部署成功"
-          echo "📥 APK 下载地址: https://afs-jzy-archive.netlify.app/apk/orpheus-archive.apk"
-          echo "📥 下载页面: https://afs-jzy-archive.netlify.app/apk/"
+          netlify deploy --dir=dist --site="${NETLIFY_SITE_ID}" --auth="${NETLIFY_AUTH_TOKEN}" --prod
+          echo "Netlify 部署成功"
+          echo "APK 下载地址: https://afs-jzy-archive.netlify.app/apk/orpheus-archive.apk"
+          echo "下载页面: https://afs-jzy-archive.netlify.app/apk/"

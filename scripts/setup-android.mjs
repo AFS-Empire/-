@@ -216,6 +216,8 @@ try {
 }
 
 if (hasError) {
-  console.warn('\n⚠️ 部分配置步骤失败，但不影响构建');
+  console.warn('\n⚠️ 部分配置步骤失败（非致命，继续构建）');
 }
 console.log('\n🎉 Android 工程配置完成');
+// 确保：无论配置过程中有什么非致命异常，脚本都以 0 退出
+process.exit(0);
