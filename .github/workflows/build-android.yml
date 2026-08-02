@@ -9,6 +9,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -97,12 +99,11 @@ jobs:
 
       - name: 验证 APK 签名
         run: |
-          # 检查 APK 是否包含 V2 签名
           APK="${{ env.APK_PATH }}"
           if grep -c "APK Sig Block 42" "$APK" > /dev/null 2>&1; then
             echo "✅ APK V2 签名验证通过"
           else
-            echo "⚠️  警告：APK 未检测到 V2 签名，部分手机可能无法安装"
+            echo "⚠️ 警告：APK 未检测到 V2 签名"
           fi
 
       - name: 发布到 GitHub Release
@@ -116,12 +117,17 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 部署到 Netlify（需要配置 secrets）
-        if: ${{ secrets.NETLIFY_SITE_ID != '' && secrets.NETLIFY_AUTH_TOKEN != '' }}
+      - name: 部署到 Netlify
+        env:
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
         run: |
+          if [ -z "$NETLIFY_SITE_ID" ] || [ -z "$NETLIFY_AUTH_TOKEN" ]; then
+            echo "⏭️ 未配置 Netlify secrets，跳过部署"
+            exit 0
+          fi
           mkdir -p apk-deploy
           cp "${{ env.APK_PATH }}" "apk-deploy/archive-latest.apk"
-
           cat > apk-deploy/index.html << 'HTMLEOF'
           <!DOCTYPE html>
           <html lang="zh-CN">
@@ -150,10 +156,6 @@ jobs:
           </body>
           </html>
           HTMLEOF
-
           npm install -g netlify-cli
           netlify deploy --dir=apk-deploy --site="$NETLIFY_SITE_ID" --auth="$NETLIFY_AUTH_TOKEN" --prod
           echo "✅ Netlify 部署成功"
-        env:
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
