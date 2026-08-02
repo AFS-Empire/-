@@ -16,9 +16,13 @@
 
 /** 判断当前是否在 Capacitor 移动 App 内 */
 export function isMobileApp(): boolean {
-  return typeof window !== 'undefined'
-    && typeof (window as any).capacitor !== 'undefined'
-    && (window as any).capacitor.isNative === true;
+  if (typeof window === 'undefined') return false;
+  // Capacitor 6+: window.Capacitor.isNativePlatform()
+  const cap = (window as any).Capacitor;
+  if (cap && typeof cap.isNativePlatform === 'function' && cap.isNativePlatform()) return true;
+  // 兜底: window.capacitor.isNative (旧版)
+  const lower = (window as any).capacitor;
+  return typeof lower !== 'undefined' && lower.isNative === true;
 }
 
 /**
@@ -165,7 +169,7 @@ function pickFileViaInput(): Promise<{ ok: true; json: string; name: string } | 
   return new Promise(resolve => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'application/json,.json';
+    // 不限制 accept，让用户能浏览所有文件
     input.style.position = 'fixed';
     input.style.left = '-9999px';
     input.onchange = async () => {

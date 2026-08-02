@@ -145,7 +145,12 @@ if (fs.existsSync(manifestPath)) {
   // 添加必要权限（如果不存在）
   const permissions = [
     '<uses-permission android:name="android.permission.INTERNET" />',
-    // Android ID 不需要额外权限，READ_PHONE_STATE 在 Android 8+ 已废弃
+    // 文件访问权限（让 input[type=file] 能打开系统文件选择器）
+    '<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />',
+    // Android 13+ 媒体访问权限
+    '<uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />',
+    '<uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />',
+    '<uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />',
   ];
   for (const perm of permissions) {
     if (!manifest.includes(perm)) {

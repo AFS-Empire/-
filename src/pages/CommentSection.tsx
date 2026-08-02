@@ -5,6 +5,7 @@ import { useCommentStore } from '../store/commentStore';
 import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
 import { getEntryCode } from '../data/db';
+import { ConfirmDialog } from '../components/Dialog';
 import { SECTION_PREFIX, SECTIONS } from '../types';
 import type { AnyEntry, Comment } from '../types';
 
@@ -77,6 +78,7 @@ export default function CommentSection() {
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyContent, setReplyContent] = useState('');
   const [error, setError] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const resolveCodeInput = (raw: string): ResolveResult => {
     const trimmed = raw.trim().toUpperCase();
@@ -123,8 +125,8 @@ export default function CommentSection() {
     setReplyingTo(null);
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm('确认删除该评论？子回复将一并删除。')) await deleteComment(id);
+  const handleDelete = (id: string) => {
+    setDeleteTarget(id);
   };
 
   const fmtTime = (t: number) =>
@@ -296,6 +298,21 @@ export default function CommentSection() {
         <div className="space-y-3">
           {topLevel.map(c => renderComment(c))}
         </div>
+      )}
+
+      {deleteTarget && (
+        <ConfirmDialog
+          open={true}
+          onClose={() => setDeleteTarget(null)}
+          title="确认删除"
+          message="确认删除该评论？子回复将一并删除。"
+          confirmText="删除"
+          variant="danger"
+          onConfirm={async () => {
+            await deleteComment(deleteTarget);
+            setDeleteTarget(null);
+          }}
+        />
       )}
     </div>
   );

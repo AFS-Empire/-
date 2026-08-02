@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight, Plus, Pencil, Trash2, Scroll, Settings, X, S
 import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
 import { genId } from '../data/db';
+import { ConfirmDialog, AlertDialog } from '../components/Dialog';
 import type { Era, TimelineEvent } from '../types';
 
 const UNCATEGORIZED = '__uncategorized__';
@@ -29,6 +30,8 @@ export default function Timeline() {
   const [showEraPanel, setShowEraPanel] = useState(false);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [editingEra, setEditingEra] = useState<Era | null>(null);
+  const [confirmState, setConfirmState] = useState<{open: boolean; msg: string; action: (() => void) | null}>({open: false, msg: '', action: null});
+  const [alertMsg, setAlertMsg] = useState('');
 
   const events = useMemo(
     () => entries.filter((e): e is TimelineEvent => e.type === 'timeline'),
@@ -49,22 +52,18 @@ export default function Timeline() {
 
   const toggle = (id: string) => setCollapsed(prev => ({ ...prev, [id]: !prev[id] }));
 
-  const handleDeleteEvent = async (id: string) => {
-    if (confirm('确认删除该事件？此操作不可撤销。')) {
-      await deleteEntry(id);
-    }
+  const handleDeleteEvent = (id: string) => {
+    setConfirmState({open: true, msg: '确认删除该事件？此操作不可撤销。', action: () => deleteEntry(id)});
   };
 
-  const handleDeleteEra = async (id: string) => {
-    if (confirm('确认删除该纪元？纪元下的事件将变为"未分类"。')) {
-      await deleteEra(id);
-    }
+  const handleDeleteEra = (id: string) => {
+    setConfirmState({open: true, msg: '确认删除该纪元？纪元下的事件将变为"未分类"。', action: () => deleteEra(id)});
   };
 
   const handleSaveEra = async () => {
     if (!editingEra) return;
     if (!editingEra.name.trim()) {
-      alert('请填写纪元名称');
+      setAlertMsg('请填写纪元名称');
       return;
     }
     await saveEra(editingEra);
@@ -131,29 +130,29 @@ export default function Timeline() {
           </div>
 
           {editingEra && (
-            <div className="p-4 bg-ink-900 rounded-lg border border-gold-800/50 space-y-3">
+            <div key={editingEra.id} className="p-4 bg-ink-900 rounded-lg border border-gold-800/50 space-y-3">
               <h3 className="text-gold-300 font-medium">{editingEra.name ? '编辑纪元' : '新增纪元'}</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label className="label-text">纪元名称</label>
-                  <input className="input-field" value={editingEra.name} onChange={e => setEditingEra({ ...editingEra, name: e.target.value })} placeholder="如：帝国纪元" />
+                  <input className="input-field" defaultValue={editingEra.name} onBlur={e => setEditingEra(prev => prev ? { ...prev, name: e.target.value } : prev)} placeholder="如：帝国纪元" />
                 </div>
                 <div>
                   <label className="label-text">排序</label>
-                  <input type="number" className="input-field" value={editingEra.order} onChange={e => setEditingEra({ ...editingEra, order: Number(e.target.value) })} />
+                  <input type="number" className="input-field" defaultValue={editingEra.order} onBlur={e => setEditingEra(prev => prev ? { ...prev, order: Number(e.target.value) } : prev)} />
                 </div>
                 <div>
                   <label className="label-text">起始时间</label>
-                  <input className="input-field" value={editingEra.startYear} onChange={e => setEditingEra({ ...editingEra, startYear: e.target.value })} placeholder="自由文本" />
+                  <input className="input-field" defaultValue={editingEra.startYear} onBlur={e => setEditingEra(prev => prev ? { ...prev, startYear: e.target.value } : prev)} placeholder="自由文本" />
                 </div>
                 <div>
                   <label className="label-text">结束时间</label>
-                  <input className="input-field" value={editingEra.endYear} onChange={e => setEditingEra({ ...editingEra, endYear: e.target.value })} placeholder="自由文本" />
+                  <input className="input-field" defaultValue={editingEra.endYear} onBlur={e => setEditingEra(prev => prev ? { ...prev, endYear: e.target.value } : prev)} placeholder="自由文本" />
                 </div>
               </div>
               <div>
                 <label className="label-text">描述</label>
-                <textarea className="input-field" rows={2} value={editingEra.description} onChange={e => setEditingEra({ ...editingEra, description: e.target.value })} />
+                <textarea className="input-field" rows={2} defaultValue={editingEra.description} onBlur={e => setEditingEra(prev => prev ? { ...prev, description: e.target.value } : prev)} />
               </div>
               <div className="flex justify-end gap-2">
                 <button className="btn-ghost" onClick={() => setEditingEra(null)}>取消</button>
@@ -267,6 +266,17 @@ export default function Timeline() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirmState.open}
+        onClose={() => setConfirmState({...confirmState, open: false})}
+        title="确认操作"
+        message={confirmState.msg}
+        confirmText="删除"
+        variant="danger"
+        onConfirm={() => { confirmState.action?.(); }}
+      />
+      <AlertDialog open={!!alertMsg} onClose={() => setAlertMsg('')} title="提示" message={alertMsg} />
     </div>
   );
 }

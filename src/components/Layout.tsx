@@ -20,6 +20,7 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
+import { useDataStore } from '../store/dataStore';
 import { SECTION_PREFIX } from '../types';
 import BackupBar from './BackupBar';
 import { IS_WEB_BUILD } from '../lib/buildTarget';
@@ -49,8 +50,10 @@ const sectionRoutes: Record<string, string> = {
 
 export default function Layout() {
   const { isAuthenticated, currentUser, logout } = useAuthStore();
+  const refreshData = useDataStore(s => s.refresh);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showRefreshConfirm, setShowRefreshConfirm] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const isUnlocked = useHiddenUnlock(s => s.isUnlocked);
@@ -247,11 +250,18 @@ export default function Layout() {
       <ConfirmDialog
         open={showRefreshConfirm}
         onClose={() => setShowRefreshConfirm(false)}
-        title="强制刷新"
-        message="确定强制刷新页面？\n\n未保存的内容可能丢失，但本地已保存的档案不受影响。"
+        title="刷新数据"
+        message="重新从本地数据库读取数据，不会丢失已保存的内容。"
         confirmText="刷新"
-        variant="danger"
-        onConfirm={() => window.location.reload()}
+        onConfirm={async () => {
+          setRefreshing(true);
+          try {
+            await refreshData();
+          } catch (e) {
+            console.error('refresh failed', e);
+          }
+          setRefreshing(false);
+        }}
       />
     </div>
   );

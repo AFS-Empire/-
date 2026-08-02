@@ -5,6 +5,7 @@ import { Plus, Pencil, Trash2, Map as MapIcon, ChevronDown, ChevronRight, Globe,
 import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
 import type { Geography as GeoEntry, GeoLevel } from '../types';
+import { ConfirmDialog } from '../components/Dialog';
 
 const LEVEL_LABEL: Record<GeoLevel, string> = {
   galaxy: '星系',
@@ -30,6 +31,7 @@ export default function Geography() {
 
   const [levelFilter, setLevelFilter] = useState<'全部' | GeoLevel>('全部');
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [deleteTarget, setDeleteTarget] = useState<{id: string; msg: string} | null>(null);
 
   const geos = useMemo(
     () => entries.filter((e): e is GeoEntry => e.type === 'geography'),
@@ -50,10 +52,8 @@ export default function Geography() {
 
   const toggle = (id: string) => setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
 
-  const handleDelete = async (id: string) => {
-    if (confirm('确认删除该地点？其下级地点将变为未分类。')) {
-      await deleteEntry(id);
-    }
+  const handleDelete = (id: string) => {
+    setDeleteTarget({id, msg: '确认删除该地点？其下级地点将变为未分类。'});
   };
 
   const renderNode = (node: GeoEntry, depth: number) => {
@@ -165,6 +165,21 @@ export default function Geography() {
         <div className="panel p-12 text-center text-ink-500">所有地点均已挂载到上级，无根节点</div>
       ) : (
         <div>{roots.map(r => renderNode(r, 0))}</div>
+      )}
+
+      {deleteTarget && (
+        <ConfirmDialog
+          open={true}
+          onClose={() => setDeleteTarget(null)}
+          title="确认删除"
+          message={deleteTarget.msg}
+          confirmText="删除"
+          variant="danger"
+          onConfirm={async () => {
+            await deleteEntry(deleteTarget.id);
+            setDeleteTarget(null);
+          }}
+        />
       )}
     </div>
   );

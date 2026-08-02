@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Pencil, Trash2, Cog } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
+import { ConfirmDialog } from '../components/Dialog';
 import type { TechEntry, TechCategory } from '../types';
 
 const CATEGORY_LABEL: Record<TechCategory, string> = {
@@ -21,6 +22,7 @@ export default function Tech() {
   const deleteEntry = useDataStore(s => s.deleteEntry);
 
   const [category, setCategory] = useState<'全部' | TechCategory>('全部');
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const techs = useMemo(
     () => entries.filter((e): e is TechEntry => e.type === 'tech'),
@@ -32,10 +34,8 @@ export default function Tech() {
     return techs.filter(t => t.category === category);
   }, [techs, category]);
 
-  const handleDelete = async (id: string) => {
-    if (confirm('确认删除该条目？此操作不可撤销。')) {
-      await deleteEntry(id);
-    }
+  const handleDelete = (id: string) => {
+    setDeleteTarget(id);
   };
 
   return (
@@ -95,6 +95,21 @@ export default function Tech() {
             </div>
           ))}
         </div>
+      )}
+
+      {deleteTarget && (
+        <ConfirmDialog
+          open={true}
+          onClose={() => setDeleteTarget(null)}
+          title="确认删除"
+          message="确认删除该条目？此操作不可撤销。"
+          confirmText="删除"
+          variant="danger"
+          onConfirm={async () => {
+            await deleteEntry(deleteTarget);
+            setDeleteTarget(null);
+          }}
+        />
       )}
     </div>
   );

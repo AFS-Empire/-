@@ -4,6 +4,7 @@ import { Plus, Pencil, Trash2, Layers, X } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
 import { genId } from '../data/db';
+import { ConfirmDialog, AlertDialog } from '../components/Dialog';
 import type { CustomEntry, CustomSection } from '../types';
 
 export default function Custom() {
@@ -17,6 +18,8 @@ export default function Custom() {
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editing, setEditing] = useState<CustomSection | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ kind: 'section' | 'entry'; id: string; msg: string } | null>(null);
+  const [alertMsg, setAlertMsg] = useState('');
 
   const countBy = useMemo(() => {
     const map = new Map<string, number>();
@@ -37,27 +40,22 @@ export default function Custom() {
 
   const selected = customSections.find(s => s.id === selectedId);
 
-  const handleDeleteSection = async (id: string) => {
-    if (confirm('确认删除该分类？分类下的条目不会被删除但将失去归属。')) {
-      await deleteCustomSection(id);
-      if (selectedId === id) setSelectedId(null);
-    }
+  const handleDeleteSection = (id: string) => {
+    setDeleteTarget({ kind: 'section', id, msg: '确认删除该分类？分类下的条目不会被删除但将失去归属。' });
   };
 
   const handleSaveSection = async () => {
     if (!editing) return;
     if (!editing.name.trim()) {
-      alert('请填写分类名称');
+      setAlertMsg('请填写分类名称');
       return;
     }
     await saveCustomSection(editing);
     setEditing(null);
   };
 
-  const handleDeleteEntry = async (id: string) => {
-    if (confirm('确认删除该条目？')) {
-      await deleteEntry(id);
-    }
+  const handleDeleteEntry = (id: string) => {
+    setDeleteTarget({ kind: 'entry', id, msg: '确认删除该条目？' });
   };
 
   // ---- Section detail view ----
@@ -104,6 +102,27 @@ export default function Custom() {
             ))}
           </div>
         )}
+
+        {deleteTarget && (
+          <ConfirmDialog
+            open={true}
+            onClose={() => setDeleteTarget(null)}
+            title="确认删除"
+            message={deleteTarget.msg}
+            confirmText="删除"
+            variant="danger"
+            onConfirm={async () => {
+              if (deleteTarget.kind === 'section') {
+                await deleteCustomSection(deleteTarget.id);
+                if (selectedId === deleteTarget.id) setSelectedId(null);
+              } else {
+                await deleteEntry(deleteTarget.id);
+              }
+              setDeleteTarget(null);
+            }}
+          />
+        )}
+        <AlertDialog open={!!alertMsg} onClose={() => setAlertMsg('')} title="提示" message={alertMsg} />
       </div>
     );
   }
@@ -132,7 +151,7 @@ export default function Custom() {
       <div className="gold-divider" />
 
       {editing && (
-        <div className="panel-gold p-5 space-y-3 animate-slide-up">
+        <div key={editing.id} className="panel-gold p-5 space-y-3 animate-slide-up">
           <div className="flex items-center justify-between">
             <h2 className="section-title">{editing.createdAt && !editing.name ? '新建分类' : '编辑分类'}</h2>
             <button className="btn-ghost" onClick={() => setEditing(null)}><X className="w-4 h-4" /></button>
@@ -140,16 +159,16 @@ export default function Custom() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
               <label className="label-text">图标（emoji）</label>
-              <input className="input-field" value={editing.icon} onChange={e => setEditing({ ...editing, icon: e.target.value })} placeholder="📁" />
+              <input className="input-field" defaultValue={editing.icon} onBlur={e => setEditing(prev => prev ? { ...prev, icon: e.target.value } : prev)} placeholder="📁" />
             </div>
             <div className="md:col-span-2">
               <label className="label-text">分类名称</label>
-              <input className="input-field" value={editing.name} onChange={e => setEditing({ ...editing, name: e.target.value })} placeholder="如：势力关系" />
+              <input className="input-field" defaultValue={editing.name} onBlur={e => setEditing(prev => prev ? { ...prev, name: e.target.value } : prev)} placeholder="如：势力关系" />
             </div>
           </div>
           <div>
             <label className="label-text">描述</label>
-            <textarea className="input-field" rows={2} value={editing.description} onChange={e => setEditing({ ...editing, description: e.target.value })} />
+            <textarea className="input-field" rows={2} defaultValue={editing.description} onBlur={e => setEditing(prev => prev ? { ...prev, description: e.target.value } : prev)} />
           </div>
           <div className="flex justify-end gap-2">
             <button className="btn-ghost" onClick={() => setEditing(null)}>取消</button>
@@ -184,6 +203,27 @@ export default function Custom() {
           ))}
         </div>
       )}
+
+      {deleteTarget && (
+        <ConfirmDialog
+          open={true}
+          onClose={() => setDeleteTarget(null)}
+          title="确认删除"
+          message={deleteTarget.msg}
+          confirmText="删除"
+          variant="danger"
+          onConfirm={async () => {
+            if (deleteTarget.kind === 'section') {
+              await deleteCustomSection(deleteTarget.id);
+              if (selectedId === deleteTarget.id) setSelectedId(null);
+            } else {
+              await deleteEntry(deleteTarget.id);
+            }
+            setDeleteTarget(null);
+          }}
+        />
+      )}
+      <AlertDialog open={!!alertMsg} onClose={() => setAlertMsg('')} title="提示" message={alertMsg} />
     </div>
   );
 }

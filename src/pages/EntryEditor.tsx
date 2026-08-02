@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef, useCallback } from 'react';
 import type { ChangeEvent } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Save, Upload, X, Search, Trash2 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
 import { genId } from '../data/db';
+import { AlertDialog } from '../components/Dialog';
 import type { AnyEntry, GeoLevel, LinkRef, TechCategory } from '../types';
 
 interface FormState {
@@ -90,6 +91,19 @@ function initForm(existing: AnyEntry | undefined, presetSectionId: string | null
   };
 }
 
+/**
+ * 非受控文本输入 hook —— 解决 Android WebView 中受控输入时光标跳到末尾的问题。
+ * 使用 defaultValue 初始化，ref 读取值，不触发重新渲染。
+ */
+function useTextField(initial: string) {
+  const ref = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+  const setRef = useCallback((el: HTMLInputElement | HTMLTextAreaElement | null) => {
+    ref.current = el;
+  }, []);
+  const getValue = useCallback(() => ref.current?.value ?? initial, [initial]);
+  return { ref: setRef, defaultValue: initial, getValue };
+}
+
 export default function EntryEditor() {
   const { type, id } = useParams<{ type: string; id?: string }>();
   const [searchParams] = useSearchParams();
@@ -102,20 +116,44 @@ export default function EntryEditor() {
   const saveEntry = useDataStore(s => s.saveEntry);
 
   const existing = id ? getById(id) : undefined;
-  const [form, setForm] = useState<FormState>(() => initForm(existing, searchParams.get('sectionId')));
+  const initialForm = useMemo(() => initForm(existing, searchParams.get('sectionId')), [existing, searchParams]);
+
+  // 非受控文本字段 —— 不触发重新渲染，光标不会跳
+  const titleField = useTextField(initialForm.title);
+  const summaryField = useTextField(initialForm.summary);
+  const contentField = useTextField(initialForm.content);
+  const tagsField = useTextField(initialForm.tags);
+  const yearField = useTextField(initialForm.year);
+  const identityField = useTextField(initialForm.identity);
+  const orgField = useTextField(initialForm.organization);
+  const factionField = useTextField(initialForm.faction);
+  const raceField = useTextField(initialForm.race);
+  const statusField = useTextField(initialForm.status);
+  const firstAppearanceField = useTextField(initialForm.firstAppearance);
+
+  // 下拉选择和状态字段 —— 这些不受光标问题影响
+  const [coverImage, setCoverImage] = useState(initialForm.coverImage);
+  const [images, setImages] = useState<string[]>(initialForm.images);
+  const [links, setLinks] = useState<LinkRef[]>(initialForm.links);
+  const [eraId, setEraId] = useState(initialForm.eraId);
+  const [level, setLevel] = useState<GeoLevel>(initialForm.level);
+  const [parentId, setParentId] = useState(initialForm.parentId);
+  const [category, setCategory] = useState<TechCategory>(initialForm.category);
+  const [importance, setImportance] = useState<'low' | 'medium' | 'high'>(initialForm.importance);
+  const [sectionId, setSectionId] = useState(initialForm.sectionId);
+
   const [linkSearch, setLinkSearch] = useState('');
   const [saving, setSaving] = useState(false);
-
-  const update = (patch: Partial<FormState>) => setForm(prev => ({ ...prev, ...patch }));
+  const [alertMsg, setAlertMsg] = useState('');
 
   const linkResults = useMemo(() => {
     const kw = linkSearch.trim().toLowerCase();
     if (!kw) return [];
     return entries
-      .filter(e => e.id !== existing?.id && !form.links.some(l => l.id === e.id))
+      .filter(e => e.id !== existing?.id && !links.some(l => l.id === e.id))
       .filter(e => e.title.toLowerCase().includes(kw) || e.tags.some(t => t.toLowerCase().includes(kw)))
       .slice(0, 10);
-  }, [entries, linkSearch, form.links, existing]);
+  }, [entries, linkSearch, links, existing]);
 
   const geographyOptions = useMemo(
     () => entries.filter(e => e.type === 'geography' && e.id !== existing?.id),
@@ -152,54 +190,51 @@ export default function EntryEditor() {
   const editType = type as EditableType;
 
   const addLink = (e: AnyEntry) => {
-    setForm(prev => ({
-      ...prev,
-      links: [...prev.links, { id: e.id, type: e.type, title: e.title, relation: '' }],
-    }));
+    setLinks(prev => [...prev, { id: e.id, type: e.type, title: e.title, relation: '' }]);
     setLinkSearch('');
   };
 
   const removeLink = (linkId: string) => {
-    setForm(prev => ({ ...prev, links: prev.links.filter(l => l.id !== linkId) }));
+    setLinks(prev => prev.filter(l => l.id !== linkId));
   };
 
   const updateLinkRelation = (linkId: string, relation: string) => {
-    setForm(prev => ({
-      ...prev,
-      links: prev.links.map(l => (l.id === linkId ? { ...l, relation } : l)),
-    }));
+    setLinks(prev => prev.map(l => (l.id === linkId ? { ...l, relation } : l)));
   };
 
   const handleCoverUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const dataUrl = await readFileAsDataURL(file);
-    update({ coverImage: dataUrl });
+    setCoverImage(dataUrl);
   };
 
   const handleImagesUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
     const urls = await Promise.all(files.map(readFileAsDataURL));
-    setForm(prev => ({ ...prev, images: [...prev.images, ...urls] }));
+    setImages(prev => [...prev, ...urls]);
   };
 
   const removeImage = (idx: number) => {
-    setForm(prev => ({ ...prev, images: prev.images.filter((_, i) => i !== idx) }));
+    setImages(prev => prev.filter((_, i) => i !== idx));
   };
 
   const buildEntry = (): AnyEntry => {
     const now = Date.now();
-    const tags = form.tags.split(',').map(t => t.trim()).filter(Boolean);
+    const title = titleField.getValue().trim();
+    const summary = summaryField.getValue().trim();
+    const content = contentField.getValue();
+    const tags = tagsField.getValue().split(',').map(t => t.trim()).filter(Boolean);
     const common = {
       id: existing?.id || genId(),
-      title: form.title.trim(),
-      summary: form.summary.trim(),
-      content: form.content,
-      coverImage: form.coverImage || undefined,
-      images: form.images.length ? form.images : undefined,
+      title,
+      summary,
+      content,
+      coverImage: coverImage || undefined,
+      images: images.length ? images : undefined,
       tags,
-      links: form.links,
+      links,
       customFields: existing?.customFields,
       createdAt: existing?.createdAt || now,
       updatedAt: now,
@@ -210,63 +245,64 @@ export default function EntryEditor() {
         return {
           ...common,
           type: 'timeline',
-          eraId: form.eraId,
-          year: form.year,
-          eraName: eras.find(e => e.id === form.eraId)?.name,
+          eraId,
+          year: yearField.getValue(),
+          eraName: eras.find(e => e.id === eraId)?.name,
         } as AnyEntry;
       case 'character':
         return {
           ...common,
           type: 'character',
-          identity: form.identity,
-          organization: form.organization,
-          faction: form.faction,
-          race: form.race,
-          status: form.status,
+          identity: identityField.getValue(),
+          organization: orgField.getValue(),
+          faction: factionField.getValue(),
+          race: raceField.getValue(),
+          status: statusField.getValue(),
         } as AnyEntry;
       case 'geography':
         return {
           ...common,
           type: 'geography',
-          level: form.level,
-          parentId: form.parentId || undefined,
-          faction: form.faction,
+          level,
+          parentId: parentId || undefined,
+          faction: factionField.getValue(),
         } as AnyEntry;
       case 'tech':
         return {
           ...common,
           type: 'tech',
-          category: form.category,
-          firstAppearance: form.firstAppearance,
-          organization: form.organization,
+          category,
+          firstAppearance: firstAppearanceField.getValue(),
+          organization: orgField.getValue(),
         } as AnyEntry;
       case 'milestone':
         return {
           ...common,
           type: 'milestone',
-          year: form.year,
-          importance: form.importance,
+          year: yearField.getValue(),
+          importance,
         } as AnyEntry;
       case 'custom':
         return {
           ...common,
           type: 'custom',
-          sectionId: form.sectionId,
+          sectionId,
         } as AnyEntry;
     }
   };
 
   const handleSave = async () => {
-    if (!form.title.trim()) {
-      alert('请填写标题');
+    const title = titleField.getValue().trim();
+    if (!title) {
+      setAlertMsg('请填写标题');
       return;
     }
-    if (editType === 'timeline' && !form.eraId) {
-      alert('请选择纪元（或在纪元管理中先创建）');
+    if (editType === 'timeline' && !eraId) {
+      setAlertMsg('请选择纪元（或在纪元管理中先创建）');
       return;
     }
-    if (editType === 'custom' && !form.sectionId) {
-      alert('请选择所属分类');
+    if (editType === 'custom' && !sectionId) {
+      setAlertMsg('请选择所属分类');
       return;
     }
     setSaving(true);
@@ -275,7 +311,7 @@ export default function EntryEditor() {
       await saveEntry(entry);
       navigate(`/entry/${entry.id}`);
     } catch (err) {
-      alert('保存失败：' + (err as Error).message);
+      setAlertMsg('保存失败：' + (err as Error).message);
     } finally {
       setSaving(false);
     }
@@ -300,19 +336,19 @@ export default function EntryEditor() {
         <h2 className="section-title">基础信息</h2>
         <div>
           <label className="label-text">标题 *</label>
-          <input className="input-field" value={form.title} onChange={e => update({ title: e.target.value })} placeholder="条目标题" />
+          <input className="input-field" ref={titleField.ref} defaultValue={titleField.defaultValue} placeholder="条目标题" />
         </div>
         <div>
           <label className="label-text">一句话简介</label>
-          <input className="input-field" value={form.summary} onChange={e => update({ summary: e.target.value })} placeholder="简短描述" />
+          <input className="input-field" ref={summaryField.ref} defaultValue={summaryField.defaultValue} placeholder="简短描述" />
         </div>
         <div>
           <label className="label-text">正文内容</label>
-          <textarea className="input-field" rows={8} value={form.content} onChange={e => update({ content: e.target.value })} placeholder="支持换行的正文..." />
+          <textarea className="input-field" rows={8} ref={contentField.ref as React.RefObject<HTMLTextAreaElement>} defaultValue={contentField.defaultValue} placeholder="支持换行的正文..." />
         </div>
         <div>
           <label className="label-text">标签（逗号分隔）</label>
-          <input className="input-field" value={form.tags} onChange={e => update({ tags: e.target.value })} placeholder="标签1, 标签2" />
+          <input className="input-field" ref={tagsField.ref} defaultValue={tagsField.defaultValue} placeholder="标签1, 标签2" />
         </div>
       </div>
 
@@ -324,14 +360,14 @@ export default function EntryEditor() {
           <>
             <div>
               <label className="label-text">所属纪元 *</label>
-              <select className="input-field" value={form.eraId} onChange={e => update({ eraId: e.target.value })}>
+              <select className="input-field" value={eraId} onChange={e => setEraId(e.target.value)}>
                 <option value="">请选择</option>
                 {eras.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
               </select>
             </div>
             <div>
               <label className="label-text">发生时间</label>
-              <input className="input-field" value={form.year} onChange={e => update({ year: e.target.value })} placeholder="自由文本，如：建元元年" />
+              <input className="input-field" ref={yearField.ref} defaultValue={yearField.defaultValue} placeholder="自由文本，如：建元元年" />
             </div>
           </>
         )}
@@ -340,23 +376,23 @@ export default function EntryEditor() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="label-text">身份/职位</label>
-              <input className="input-field" value={form.identity} onChange={e => update({ identity: e.target.value })} />
+              <input className="input-field" ref={identityField.ref} defaultValue={identityField.defaultValue} />
             </div>
             <div>
               <label className="label-text">所属组织</label>
-              <input className="input-field" value={form.organization} onChange={e => update({ organization: e.target.value })} />
+              <input className="input-field" ref={orgField.ref} defaultValue={orgField.defaultValue} />
             </div>
             <div>
               <label className="label-text">阵营</label>
-              <input className="input-field" value={form.faction} onChange={e => update({ faction: e.target.value })} />
+              <input className="input-field" ref={factionField.ref} defaultValue={factionField.defaultValue} />
             </div>
             <div>
               <label className="label-text">种族</label>
-              <input className="input-field" value={form.race} onChange={e => update({ race: e.target.value })} />
+              <input className="input-field" ref={raceField.ref} defaultValue={raceField.defaultValue} />
             </div>
             <div>
               <label className="label-text">状态</label>
-              <input className="input-field" value={form.status} onChange={e => update({ status: e.target.value })} placeholder="在世/陨落/失踪" />
+              <input className="input-field" ref={statusField.ref} defaultValue={statusField.defaultValue} placeholder="在世/陨落/失踪" />
             </div>
           </div>
         )}
@@ -365,17 +401,17 @@ export default function EntryEditor() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="label-text">层级</label>
-              <select className="input-field" value={form.level} onChange={e => update({ level: e.target.value as GeoLevel })}>
+              <select className="input-field" value={level} onChange={e => setLevel(e.target.value as GeoLevel)}>
                 {GEO_LEVELS.map(lv => <option key={lv} value={lv}>{GEO_LEVEL_LABEL[lv]}</option>)}
               </select>
             </div>
             <div>
               <label className="label-text">关联势力</label>
-              <input className="input-field" value={form.faction} onChange={e => update({ faction: e.target.value })} />
+              <input className="input-field" ref={factionField.ref} defaultValue={factionField.defaultValue} />
             </div>
             <div className="md:col-span-2">
               <label className="label-text">上级地点</label>
-              <select className="input-field" value={form.parentId} onChange={e => update({ parentId: e.target.value })}>
+              <select className="input-field" value={parentId} onChange={e => setParentId(e.target.value)}>
                 <option value="">无（顶级）</option>
                 {geographyOptions.map(g => (
                   <option key={g.id} value={g.id}>
@@ -391,17 +427,17 @@ export default function EntryEditor() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="label-text">分类</label>
-              <select className="input-field" value={form.category} onChange={e => update({ category: e.target.value as TechCategory })}>
+              <select className="input-field" value={category} onChange={e => setCategory(e.target.value as TechCategory)}>
                 {TECH_CATEGORIES.map(c => <option key={c} value={c}>{TECH_CATEGORY_LABEL[c]}</option>)}
               </select>
             </div>
             <div>
               <label className="label-text">首次出现</label>
-              <input className="input-field" value={form.firstAppearance} onChange={e => update({ firstAppearance: e.target.value })} />
+              <input className="input-field" ref={firstAppearanceField.ref} defaultValue={firstAppearanceField.defaultValue} />
             </div>
             <div className="md:col-span-2">
               <label className="label-text">相关组织</label>
-              <input className="input-field" value={form.organization} onChange={e => update({ organization: e.target.value })} />
+              <input className="input-field" ref={orgField.ref} defaultValue={orgField.defaultValue} />
             </div>
           </div>
         )}
@@ -410,11 +446,11 @@ export default function EntryEditor() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="label-text">发生时间</label>
-              <input className="input-field" value={form.year} onChange={e => update({ year: e.target.value })} placeholder="自由文本" />
+              <input className="input-field" ref={yearField.ref} defaultValue={yearField.defaultValue} placeholder="自由文本" />
             </div>
             <div>
               <label className="label-text">重要程度</label>
-              <select className="input-field" value={form.importance} onChange={e => update({ importance: e.target.value as 'low' | 'medium' | 'high' })}>
+              <select className="input-field" value={importance} onChange={e => setImportance(e.target.value as 'low' | 'medium' | 'high')}>
                 <option value="low">低</option>
                 <option value="medium">中</option>
                 <option value="high">高</option>
@@ -426,7 +462,7 @@ export default function EntryEditor() {
         {editType === 'custom' && (
           <div>
             <label className="label-text">所属分类 *</label>
-            <select className="input-field" value={form.sectionId} onChange={e => update({ sectionId: e.target.value })}>
+            <select className="input-field" value={sectionId} onChange={e => setSectionId(e.target.value)}>
               <option value="">请选择</option>
               {customSections.map(s => <option key={s.id} value={s.id}>{s.icon} {s.name}</option>)}
             </select>
@@ -441,13 +477,13 @@ export default function EntryEditor() {
           <Upload className="w-4 h-4" /> 上传封面
           <input type="file" accept="image/*" className="hidden" onChange={handleCoverUpload} />
         </label>
-        {form.coverImage && (
+        {coverImage && (
           <div className="relative inline-block">
-            <img src={form.coverImage} alt="封面预览" className="w-full max-h-64 object-cover rounded-lg border border-gold-800/50" />
+            <img src={coverImage} alt="封面预览" className="w-full max-h-64 object-cover rounded-lg border border-gold-800/50" />
             <button
               type="button"
               className="absolute top-2 right-2 p-1 rounded bg-ink-950/80 text-red-400 hover:text-red-300"
-              onClick={() => update({ coverImage: '' })}
+              onClick={() => setCoverImage('')}
             >
               <X className="w-4 h-4" />
             </button>
@@ -462,9 +498,9 @@ export default function EntryEditor() {
           <Upload className="w-4 h-4" /> 添加图片
           <input type="file" accept="image/*" multiple className="hidden" onChange={handleImagesUpload} />
         </label>
-        {form.images.length > 0 && (
+        {images.length > 0 && (
           <div className="grid grid-cols-3 gap-2">
-            {form.images.map((img, i) => (
+            {images.map((img, i) => (
               <div key={i} className="relative group">
                 <img src={img} alt={`图片 ${i + 1}`} className="w-full h-24 object-cover rounded-lg border border-ink-700" />
                 <button
@@ -510,16 +546,16 @@ export default function EntryEditor() {
         {linkSearch && linkResults.length === 0 && (
           <p className="text-sm text-ink-500">未找到匹配条目</p>
         )}
-        {form.links.length > 0 && (
+        {links.length > 0 && (
           <div className="space-y-2">
-            {form.links.map(link => (
+            {links.map(link => (
               <div key={link.id} className="flex items-center gap-2 p-2 bg-ink-850 rounded-lg border border-ink-700">
                 <div className="flex-1 min-w-0">
                   <div className="text-sm text-gold-100 truncate">{link.title}</div>
                   <input
                     className="w-full bg-transparent text-xs text-ink-400 mt-1 outline-none border-b border-transparent focus:border-gold-700"
                     placeholder="关系描述，如：师父、出生地"
-                    value={link.relation || ''}
+                    defaultValue={link.relation || ''}
                     onChange={e => updateLinkRelation(link.id, e.target.value)}
                   />
                 </div>
@@ -539,6 +575,8 @@ export default function EntryEditor() {
           <Save className="w-4 h-4" /> {saving ? '保存中...' : '保存'}
         </button>
       </div>
+
+      <AlertDialog open={!!alertMsg} onClose={() => setAlertMsg('')} title="提示" message={alertMsg} />
     </div>
   );
 }

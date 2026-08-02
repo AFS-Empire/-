@@ -4,6 +4,7 @@ import { Plus, Pencil, Trash2, Users, Search } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
 import type { Character as CharacterEntry } from '../types';
+import { ConfirmDialog } from '../components/Dialog';
 
 export default function Character() {
   const navigate = useNavigate();
@@ -13,6 +14,7 @@ export default function Character() {
 
   const [keyword, setKeyword] = useState('');
   const [faction, setFaction] = useState('全部');
+  const [deleteTarget, setDeleteTarget] = useState<{id: string; msg: string} | null>(null);
 
   const characters = useMemo(
     () => entries.filter((e): e is CharacterEntry => e.type === 'character'),
@@ -36,10 +38,8 @@ export default function Character() {
     });
   }, [characters, keyword, faction]);
 
-  const handleDelete = async (id: string) => {
-    if (confirm('确认删除该角色？此操作不可撤销。')) {
-      await deleteEntry(id);
-    }
+  const handleDelete = (id: string) => {
+    setDeleteTarget({id, msg: '确认删除该角色？此操作不可撤销。'});
   };
 
   return (
@@ -101,6 +101,21 @@ export default function Character() {
             </div>
           ))}
         </div>
+      )}
+
+      {deleteTarget && (
+        <ConfirmDialog
+          open={true}
+          onClose={() => setDeleteTarget(null)}
+          title="确认删除"
+          message={deleteTarget.msg}
+          confirmText="删除"
+          variant="danger"
+          onConfirm={async () => {
+            await deleteEntry(deleteTarget.id);
+            setDeleteTarget(null);
+          }}
+        />
       )}
     </div>
   );

@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Pencil, Trash2, Flag } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
 import type { Milestone as MilestoneEntry } from '../types';
+import { ConfirmDialog } from '../components/Dialog';
 
 type Importance = 'low' | 'medium' | 'high';
 
@@ -25,6 +26,8 @@ export default function Milestone() {
   const entries = useDataStore(s => s.entries);
   const deleteEntry = useDataStore(s => s.deleteEntry);
 
+  const [deleteTarget, setDeleteTarget] = useState<{id: string; msg: string} | null>(null);
+
   const milestones = useMemo(
     () => entries
       .filter((e): e is MilestoneEntry => e.type === 'milestone')
@@ -32,10 +35,8 @@ export default function Milestone() {
     [entries],
   );
 
-  const handleDelete = async (id: string) => {
-    if (confirm('确认删除该里程碑？此操作不可撤销。')) {
-      await deleteEntry(id);
-    }
+  const handleDelete = (id: string) => {
+    setDeleteTarget({id, msg: '确认删除该里程碑？此操作不可撤销。'});
   };
 
   return (
@@ -83,6 +84,21 @@ export default function Milestone() {
             </div>
           ))}
         </div>
+      )}
+
+      {deleteTarget && (
+        <ConfirmDialog
+          open={true}
+          onClose={() => setDeleteTarget(null)}
+          title="确认删除"
+          message={deleteTarget.msg}
+          confirmText="删除"
+          variant="danger"
+          onConfirm={async () => {
+            await deleteEntry(deleteTarget.id);
+            setDeleteTarget(null);
+          }}
+        />
       )}
     </div>
   );

@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Pencil, Trash2, Link2, MessageCircle } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
 import { getEntryCode } from '../data/db';
+import { ConfirmDialog } from '../components/Dialog';
 import type {
   Character,
   CustomEntry,
@@ -50,6 +52,7 @@ export default function EntryDetail() {
   const entry = useDataStore(s => (id ? s.getById(id) : undefined));
   const allEntries = useDataStore(s => s.entries);
   const deleteEntry = useDataStore(s => s.deleteEntry);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   if (!entry) {
     return (
@@ -60,11 +63,8 @@ export default function EntryDetail() {
     );
   }
 
-  const handleDelete = async () => {
-    if (confirm('确认删除该条目？此操作不可撤销。')) {
-      await deleteEntry(entry.id);
-      navigate(-1);
-    }
+  const handleDelete = () => {
+    setConfirmDelete(true);
   };
 
   const renderExtra = () => {
@@ -220,6 +220,22 @@ export default function EntryDetail() {
             ))}
           </div>
         </div>
+      )}
+
+      {confirmDelete && (
+        <ConfirmDialog
+          open={true}
+          onClose={() => setConfirmDelete(false)}
+          title="确认删除"
+          message="确认删除该条目？此操作不可撤销。"
+          confirmText="删除"
+          variant="danger"
+          onConfirm={async () => {
+            await deleteEntry(entry.id);
+            setConfirmDelete(false);
+            navigate(-1);
+          }}
+        />
       )}
     </div>
   );

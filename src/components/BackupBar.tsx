@@ -15,6 +15,7 @@ import { useAuthStore } from '../store/authStore';
 import { isMobileApp, isMobileBrowser, mobileShareBackup, mobilePickBackupFile, webShareFile } from '../lib/mobile';
 import { IS_WEB_BUILD } from '../lib/buildTarget';
 import { useHiddenUnlock } from '../lib/hiddenUnlock';
+import { ConfirmDialog } from './Dialog';
 
 interface AutoBackupItem {
   name: string;
@@ -64,6 +65,13 @@ export default function BackupBar() {
 
   // 网页端验签失败警告卡片
   const [showReject, setShowReject] = useState(false);
+
+  // 自定义确认弹窗（替代原生 confirm，避免 Android WebView 黑屏崩溃）
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean;
+    msg: string;
+    action: (() => void | Promise<void>) | null;
+  }>({open: false, msg: '', action: null});
 
   // 桌面版：垃圾清理弹窗
   const [cleanupOpen, setCleanupOpen] = useState(false);
@@ -285,45 +293,57 @@ export default function BackupBar() {
   /** 从自动备份恢复 */
   const handleRestoreAuto = async (name: string) => {
     if (!window.archiveApp || busy) return;
-    if (!confirm(`确认从「${name}」恢复？当前所有数据会被该备份覆盖。`)) return;
-    setBusy(true);
-    try {
-      const r = await window.archiveApp.restoreAutoBackup({ name });
-      if (!r.ok) {
-        showToast('err', (r as any).error || '恢复失败');
-      } else {
-        await importAll(r.json);
-        await Promise.all([refresh(), refreshComments()]);
-        showToast('ok', `已从 ${name} 恢复`);
-        await refreshAutoBackups();
+    const app = window.archiveApp;
+    setConfirmState({
+      open: true,
+      msg: `确认从「${name}」恢复？当前所有数据会被该备份覆盖。`,
+      action: async () => {
+        setBusy(true);
+        try {
+          const r = await app.restoreAutoBackup({ name });
+          if (!r.ok) {
+            showToast('err', (r as any).error || '恢复失败');
+          } else {
+            await importAll(r.json);
+            await Promise.all([refresh(), refreshComments()]);
+            showToast('ok', `已从 ${name} 恢复`);
+            await refreshAutoBackups();
+          }
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          showToast('err', `恢复失败：${msg}`);
+        } finally {
+          setBusy(false);
+        }
       }
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      showToast('err', `恢复失败：${msg}`);
-    } finally {
-      setBusy(false);
-    }
+    });
   };
 
   /** 删除某份自动备份 */
   const handleDeleteAuto = async (name: string) => {
     if (!window.archiveApp || busy) return;
-    if (!confirm(`确认删除备份「${name}」？此操作不可撤销。`)) return;
-    setBusy(true);
-    try {
-      const r = await window.archiveApp.deleteAutoBackup({ name });
-      if (!r.ok) {
-        showToast('err', (r as any).error || '删除失败');
-      } else {
-        await refreshAutoBackups();
-        showToast('ok', `已删除 ${name}`);
+    const app = window.archiveApp;
+    setConfirmState({
+      open: true,
+      msg: `确认删除备份「${name}」？此操作不可撤销。`,
+      action: async () => {
+        setBusy(true);
+        try {
+          const r = await app.deleteAutoBackup({ name });
+          if (!r.ok) {
+            showToast('err', (r as any).error || '删除失败');
+          } else {
+            await refreshAutoBackups();
+            showToast('ok', `已删除 ${name}`);
+          }
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          showToast('err', `删除失败：${msg}`);
+        } finally {
+          setBusy(false);
+        }
       }
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      showToast('err', `删除失败：${msg}`);
-    } finally {
-      setBusy(false);
-    }
+    });
   };
 
   return (
@@ -692,6 +712,16 @@ export default function BackupBar() {
           </div>
         </div>
       )}
+
+      {/* 自定义确认弹窗（替代原生 confirm） */}
+      <ConfirmDialog
+        open={confirmState.open}
+        onClose={() => setConfirmState({...confirmState, open: false})}
+        title="确认操作"
+        message={confirmState.msg}
+        variant="danger"
+        onConfirm={() => { confirmState.action?.(); }}
+      />
     </div>
   );
 }
