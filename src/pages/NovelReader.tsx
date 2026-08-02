@@ -25,6 +25,9 @@ export default function NovelReader() {
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [showToc, setShowToc] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showEditor, setShowEditor] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editContent, setEditContent] = useState('');
   const [activeChar, setActiveChar] = useState<Character | null>(null);
   const [scrollRatio, setScrollRatio] = useState(0);
 
@@ -384,10 +387,9 @@ export default function NovelReader() {
                 <div className="pt-4 border-t border-ink-800/30">
                   <button
                     onClick={() => {
-                      const newContent = prompt('编辑章节正文：', chapter.content);
-                      if (newContent !== null) {
-                        updateChapter(chapter.id, { content: newContent });
-                      }
+                      setEditTitle(chapter.title);
+                      setEditContent(chapter.content);
+                      setShowEditor(true);
                       setShowSettings(false);
                     }}
                     className="btn-gold w-full text-sm"
@@ -396,6 +398,69 @@ export default function NovelReader() {
                   </button>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 章节编辑器弹窗 */}
+      {showEditor && chapter && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setShowEditor(false)}>
+          <div
+            className="panel-gold w-full max-w-4xl max-h-[90vh] flex flex-col"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-4 border-b border-gold-900/30">
+              <h3 className="gold-title font-bold">编辑章节</h3>
+              <button onClick={() => setShowEditor(false)} className="btn-ghost p-1">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-4 space-y-4 overflow-y-auto flex-1">
+              <div>
+                <label className="block text-sm text-ink-400 mb-1.5">章节标题</label>
+                <input
+                  className="input-field w-full"
+                  value={editTitle}
+                  onChange={e => setEditTitle(e.target.value)}
+                  placeholder="如：第一章 初遇"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-ink-400 mb-1.5">章节正文（段落之间空一行）</label>
+                <textarea
+                  className="input-field w-full font-serif leading-relaxed"
+                  value={editContent}
+                  onChange={e => setEditContent(e.target.value)}
+                  rows={20}
+                  placeholder={"写的真实是为了让你看清脚下的路……\n\n离得太近会看不清……"}
+                />
+                <div className="flex justify-between mt-2 text-xs text-ink-600">
+                  <span>{editContent.length} 字</span>
+                  <span>{editContent.split(/\n\n+/).filter(p => p.trim()).length} 段落</span>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 p-4 border-t border-gold-900/30">
+              <button
+                onClick={() => setShowEditor(false)}
+                className="btn-ghost text-sm"
+              >
+                取消
+              </button>
+              <button
+                onClick={async () => {
+                  const charList = allEntries.filter(e => e.type === 'character') as Character[];
+                  await updateChapter(chapter.id, {
+                    title: editTitle.trim(),
+                    content: editContent,
+                  }, charList);
+                  setShowEditor(false);
+                }}
+                className="btn-gold text-sm"
+              >
+                保存并重新扫描角色
+              </button>
             </div>
           </div>
         </div>

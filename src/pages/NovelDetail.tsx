@@ -16,6 +16,9 @@ export default function NovelDetail() {
   const updateVolume = useNovelStore(s => s.updateVolume);
   const importChapters = useNovelStore(s => s.importChapters);
   const updateBook = useNovelStore(s => s.updateBook);
+  const createChapter = useNovelStore(s => s.createChapter);
+  const deleteChapter = useNovelStore(s => s.deleteChapter);
+  const updateChapter = useNovelStore(s => s.updateChapter);
   const characters = useDataStore(s => s.entries.filter(e => e.type === 'character'));
 
   const book = books.find(b => b.id === bookId);
@@ -201,9 +204,9 @@ export default function NovelDetail() {
                         <div
                           key={chap.id}
                           onClick={() => navigate(`/novel/${bookId}/chapter/${chap.id}`)}
-                          className="flex items-center justify-between px-4 py-2.5 hover:bg-ink-900/40 cursor-pointer border-b border-ink-800/30 last:border-0"
+                          className="flex items-center justify-between px-4 py-2.5 hover:bg-ink-900/40 cursor-pointer border-b border-ink-800/30 last:border-0 group"
                         >
-                          <div className="flex items-center gap-2 min-w-0">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
                             {chap.read && (
                               <span className="w-1.5 h-1.5 rounded-full bg-gold-500 shrink-0" />
                             )}
@@ -211,9 +214,49 @@ export default function NovelDetail() {
                               {chap.title}
                             </span>
                           </div>
-                          <span className="text-xs text-ink-600 shrink-0">{chap.content.length}字</span>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-xs text-ink-600">{chap.content.length}字</span>
+                            {!IS_WEB_BUILD && (
+                              <div className="hidden group-hover:flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
+                                <button
+                                  onClick={async () => {
+                                    const name = prompt('修改章节标题：', chap.title);
+                                    if (name) await updateChapter(chap.id, { title: name });
+                                  }}
+                                  className="p-1 rounded hover:text-gold-400 text-ink-500"
+                                  title="编辑标题"
+                                >
+                                  <Edit3 size={12} />
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    if (confirm(`删除章节「${chap.title}」？`)) await deleteChapter(chap.id);
+                                  }}
+                                  className="p-1 rounded hover:text-red-400 text-ink-500"
+                                  title="删除章节"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       ))
+                    )}
+                    {!IS_WEB_BUILD && (
+                      <div className="p-2 border-t border-ink-800/30">
+                        <button
+                          onClick={async () => {
+                            const title = prompt('请输入章节标题（如：第一章 初遇）：');
+                            if (!title) return;
+                            const content = prompt('章节内容（可之后在阅读页修改）：', '') || '';
+                            await createChapter(bookId!, vol.id, title, content, characters);
+                          }}
+                          className="w-full py-1.5 text-xs text-ink-500 hover:text-gold-400 rounded hover:bg-ink-900/30 flex items-center justify-center gap-1"
+                        >
+                          <Plus size={12} /> 新建章节
+                        </button>
+                      </div>
                     )}
                   </div>
                 )}

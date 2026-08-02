@@ -21,7 +21,8 @@ interface NovelState {
   updateVolume: (id: string, title: string) => Promise<void>;
 
   importChapters: (bookId: string, volumeId: string, txt: string, characters: Character[]) => Promise<number>;
-  updateChapter: (id: string, patch: Partial<NovelChapter>) => Promise<void>;
+  createChapter: (bookId: string, volumeId: string, title: string, content: string, characters: Character[]) => Promise<void>;
+  updateChapter: (id: string, patch: Partial<NovelChapter>, characters?: Character[]) => Promise<void>;
   deleteChapter: (id: string) => Promise<void>;
   markChapterRead: (bookId: string, chapterId: string) => Promise<void>;
 
@@ -103,6 +104,33 @@ export const useNovelStore = create<NovelState>((set, get) => ({
     await get().refresh();
   },
 
+  createChapter: async (bookId, volumeId, title, content, characters) => {
+    const existing = get().chapters[bookId] || [];
+    const existingOrders = new Set(existing.map(c => c.order));
+    let order = 1;
+    while (existingOrders.has(order)) order++;
+
+    const chapter: NovelChapter = {
+      id: novelDb.makeNovelId('chap'),
+      bookId,
+      volumeId,
+      order,
+      title,
+      content,
+      mentions: scanMentions(content, characters.map(c => ({ id: c.id, name: c.title }))),
+      read: false,
+      updatedAt: Date.now(),
+    };
+    await novelDb.saveNovelChapter(chapter);
+
+    const book = await novelDb.getNovelBook(bookId);
+    if (book) {
+      const allChapters = await novelDb.getNovelChapters(bookId);
+      await novelDb.saveNovelBook({ ...book, totalChapters: allChapters.length, updatedAt: Date.now() });
+    }
+    await get().refresh();
+  },
+
   importChapters: async (bookId, volumeId, txt, characters) => {
     const parsed: ParsedChapter[] = parseNovelTxt(txt);
     if (parsed.length === 0) return 0;
@@ -141,18 +169,16 @@ export const useNovelStore = create<NovelState>((set, get) => ({
     return chapters.length;
   },
 
-  updateChapter: async (id, patch) => {
+  updateChapter: async (id, patch, characters) => {
     const db = await import('../data/db').then(m => m.getDB());
     const chap = await db.get('novelChapters', id) as NovelChapter | undefined;
     if (!chap) return;
-    if (patch.content) {
-      // 重新扫描 mentions
-      const characters = get().books.length > 0
-        ? [] // 需要外部传入，简化处理：保持原 mentions 不变
-        : [];
-      // 简化：只更新 content，不重扫 mentions（用户编辑后可手动重扫）
+    const updated = { ...chap, ...patch };
+    if (patch.content !== undefined && characters) {
+      updated.mentions = scanMentions(patch.content, characters.map(c => ({ id: c.id, name: c.title })));
     }
-    await novelDb.saveNovelChapter({ ...chap, ...patch });
+    updated.updatedAt = Date.now();
+    await novelDb.saveNovelChapter(updated);
     await get().refresh();
   },
 
