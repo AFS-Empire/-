@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { useEffect, useRef, Suspense, lazy } from 'react';
+import { useEffect, useRef, useState, Suspense, lazy } from 'react';
 import { useAuthStore } from './store/authStore';
 import { useDataStore } from './store/dataStore';
 import { useCommentStore } from './store/commentStore';
@@ -10,6 +10,7 @@ import { useRipple } from './hooks/useRipple';
 import Layout from './components/Layout';
 import { FullScreenLoader } from './components/Skeleton';
 import { IS_WEB_BUILD } from './lib/buildTarget';
+import { verifyBinding, type BindingResult } from './lib/machineBinding';
 
 // 路由懒加载：首屏只加载必要代码，其余按需加载
 // 把 importer 抽出来复用：lazy() 用一次，首屏后预加载再用一次（Vite 会去重，已加载的立即 resolve）
@@ -91,6 +92,9 @@ export default function App() {
   const refreshNovel = useNovelStore(s => s.refresh);
   const location = useLocation();
 
+  // 机器码绑定校验（仅 App 端）
+  const [bindingResult, setBindingResult] = useState<BindingResult | null>(null);
+
   // 启用按钮金粉涟漪（全局事件委托，挂载一次）
   useRipple();
 
@@ -101,6 +105,15 @@ export default function App() {
 
   useEffect(() => {
     (async () => {
+      // App 端：机器码绑定校验（网页端跳过）
+      if (!IS_WEB_BUILD) {
+        const result = await verifyBinding();
+        setBindingResult(result);
+        if (!result.match && result.bound) {
+          // 设备不匹配，不继续加载
+          return;
+        }
+      }
       // 启动时优先从 localStorage 兜底备份恢复（IndexedDB 空才触发）
       // 必须在 seedData 之前，否则 seedData 会因 IndexedDB 空而写入示例数据，把恢复机会挤掉
       await restoreFromBackupIfNeeded();
@@ -148,6 +161,30 @@ export default function App() {
   const pageKey = location.pathname;
 
   if (!loaded) {
+    // App 端设备绑定校验失败 → 锁定界面
+    if (bindingResult && bindingResult.bound && !bindingResult.match) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-ink-950 p-6">
+          <div className="max-w-sm text-center space-y-4">
+            <div className="text-6xl">🔒</div>
+            <h1 className="text-xl font-bold text-red-400">设备未授权</h1>
+            <p className="text-sm text-ink-400 leading-relaxed">
+              检测到当前设备与本机绑定不匹配。
+              <br />
+              档案数据可能被拷贝到其他设备。
+              <br />
+              请在本机重新激活，或联系管理员。
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="btn-ghost w-full text-sm"
+            >
+              重新检测
+            </button>
+          </div>
+        </div>
+      );
+    }
     return <FullScreenLoader />;
   }
 

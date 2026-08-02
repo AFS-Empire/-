@@ -29,6 +29,7 @@
     "@capacitor/android": "^6.1.2",
     "@capacitor/app": "^6.0.1",
     "@capacitor/core": "^6.1.2",
+    "@capacitor/device": "^6.0.3",
     "@capacitor/filesystem": "^6.0.1",
     "@capacitor/haptics": "^6.0.1",
     "@capacitor/keyboard": "^6.0.2",
@@ -81,7 +82,10 @@
       }
     ],
     "win": {
-      "target": ["nsis", "portable"],
+      "target": [
+        "nsis",
+        "portable"
+      ],
       "artifactName": "${productName}-${version}-win-${arch}.${ext}"
     },
     "nsis": {
@@ -92,12 +96,18 @@
       "shortcutName": "奥菲斯帝国档案馆"
     },
     "mac": {
-      "target": ["dmg", "zip"],
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "category": "public.app-category.productivity",
       "artifactName": "${productName}-${version}-mac-${arch}.${ext}"
     },
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "category": "Office",
       "artifactName": "${productName}-${version}-linux-${arch}.${ext}"
     }

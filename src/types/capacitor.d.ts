@@ -62,6 +62,21 @@ declare module '@capacitor/share' {
   };
 }
 
+declare module '@capacitor/device' {
+  export interface DeviceInfo {
+    uuid: string;          // Android ID，设备唯一标识
+    model: string;         // 设备型号
+    platform: string;      // 'android' | 'ios' | 'web'
+    osVersion: string;
+    manufacturer: string;
+    isVirtual: boolean;
+  }
+  export const Device: {
+    getId(): Promise<{ uuid: string }>;
+    getInfo(): Promise<DeviceInfo>;
+  };
+}
+
 declare module '@capacitor/core' {
   export interface CapacitorGlobal {
     isNative: boolean;
