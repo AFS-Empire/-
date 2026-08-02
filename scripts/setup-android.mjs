@@ -73,13 +73,37 @@ console.log('✅ proguard-rules.pro 已写入');
 const gradlePath = path.join(androidAppDir, 'build.gradle');
 let gradle = fs.readFileSync(gradlePath, 'utf-8');
 
-// 移除已存在的 signingConfigs 块（避免重复）
-gradle = gradle.replace(/signingConfigs\s*\{[\s\S]*?\n\s*\}/g, '');
+// 找到 android { 块，通过大括号深度计算确定结束位置
+function findBlockEnd(text, startIdx) {
+  let depth = 0;
+  let i = startIdx;
+  while (i < text.length) {
+    if (text[i] === '{') depth++;
+    else if (text[i] === '}') {
+      depth--;
+      if (depth === 0) return i + 1;
+    }
+    i++;
+  }
+  return -1;
+}
 
-// 移除已存在的 buildTypes 块
-gradle = gradle.replace(/buildTypes\s*\{[\s\S]*?\n\s*\}/g, '');
+// 移除 android { } 块内的 signingConfigs 和 buildTypes（通过深度计算）
+function removeBlock(text, blockName) {
+  const regex = new RegExp(`(\\s+)${blockName}\\s*\\{`);
+  const match = text.match(regex);
+  if (!match) return text;
+  const start = match.index + match[1].length;
+  const end = findBlockEnd(text, start);
+  if (end === -1) return text;
+  // 移除该块（包括前导空白）
+  return text.substring(0, match.index) + text.substring(end);
+}
 
-// 在 android { 块内插入正确的 signingConfigs + buildTypes
+gradle = removeBlock(gradle, 'signingConfigs');
+gradle = removeBlock(gradle, 'buildTypes');
+
+// 在 android { 块末尾（最后一个 } 之前）插入新的配置
 const signingAndBuildTypes = `
     signingConfigs {
         release {
@@ -108,8 +132,15 @@ const signingAndBuildTypes = `
     }
 `;
 
-// 在 android { 块的末尾（最后一个 } 之前）插入
-gradle = gradle.replace(/\n\s*\}\s*$/, '\n' + signingAndBuildTypes + '    }\n');
+// 找到 android { 块的最后一个 } 并在其前面插入
+const androidIdx = gradle.indexOf('android {');
+if (androidIdx !== -1) {
+  const androidEnd = findBlockEnd(gradle, androidIdx);
+  if (androidEnd !== -1) {
+    // 在 android 块的最后一个 } 之前插入
+    gradle = gradle.substring(0, androidEnd - 1) + signingAndBuildTypes + '\n' + gradle.substring(androidEnd - 1);
+  }
+}
 
 fs.writeFileSync(gradlePath, gradle);
 console.log('✅ build.gradle 已配置 ProGuard + 签名');
