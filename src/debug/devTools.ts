@@ -11,7 +11,7 @@
  * 开启旁路需要输入独立调试密钥，密钥哈希见 DEBUG_KEY_HASH
  */
 
-import { hashPassword, verifyPassword } from '../lib/crypto';
+import { verifyPassword } from '../lib/crypto';
 
 /** 调试密钥哈希（PBKDF2）—— 密钥本身不存代码里，只存哈希 */
 // 调试密钥：afs-debug-2026（仅开发用，Release 会被整个模块移除）
@@ -24,11 +24,9 @@ let debugUnlocked = false;
 
 /** 校验调试密钥，通过后解锁旁路开关 */
 export async function unlockDebug(key: string): Promise<boolean> {
-  // 首次未初始化哈希时，自动用输入密钥生成并打印到控制台（方便首次设置）
+  // 安全规则：禁止将哈希/密钥类敏感变量打印到控制台，防止打包后运行时意外泄露
+  // 若 DEBUG_KEY_HASH 仍为占位零串，说明未初始化，直接拒绝（首次设置请改用本地一次性脚本生成哈希后填入）
   if (DEBUG_KEY_HASH.endsWith('0000000000000000000000000000000000000000000000000000000000000000')) {
-    const realHash = await hashPassword(key);
-    console.info('[debug] 首次设置调试密钥，请将以下哈希填入 devTools.ts 的 DEBUG_KEY_HASH：');
-    console.info(realHash);
     return false;
   }
   const ok = await verifyPassword(key, DEBUG_KEY_HASH);

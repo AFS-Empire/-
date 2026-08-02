@@ -94,7 +94,8 @@ const files = [];
 walk(DIST_DIR, files);
 
 console.log(`[verify-web-secrets] 🔍 扫描 dist/ 产物：${files.length} 个文件，${patternList.length} 个匹配模式`);
-console.log(`[verify-web-secrets] 🔒 保护目标：${SECRET.length} 字符盐值（前6后4: ${SECRET.slice(0, 6)}...${SECRET.slice(-4)}）`);
+// 安全规则：禁止在日志中打印盐值任何片段（含前缀/后缀截断），仅打印长度用于诊断
+console.log(`[verify-web-secrets] 🔒 保护目标：${SECRET.length} 字符私有盐值（内容已脱敏）`);
 
 let hitCount = 0;
 for (const file of files) {

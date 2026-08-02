@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 /**
  * 签名-验签端到端测试：
- *   App端：用 AFSEmpire@2026#08zCLMJfL0o8X2eE 生成签名字段
+ *   App端：用私有盐值（环境变量注入）生成签名字段
  *   Web端：用户输入相同密码 → 验签通过
  *   密码错误 → 验签失败（exit=1）
  *   篡改数据 → 验签失败（exit=1）
+ *
+ * 盐值来源：环境变量 ARCHIVE_PRIVATE_SALT（与构建注入路径一致，严禁明文写死源码）
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -12,10 +14,15 @@ import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const appSecret = fs.readFileSync(
-  path.join(__dirname, '..', 'src', 'lib', 'appSecret.ts'),
-  'utf-8',
-).match(/APP_PRIVATE_SALT\s*=\s*'([^']+)'/)?.[1] || '';
+let appSecret = process.env.ARCHIVE_PRIVATE_SALT || '';
+// 本地兜底：从 .env.local 读取（.gitignore 已忽略，不进仓库）
+if (!appSecret) {
+  try {
+    const envContent = fs.readFileSync(path.join(__dirname, '..', '.env.local'), 'utf-8');
+    const m = envContent.match(/^ARCHIVE_PRIVATE_SALT\s*=\s*(.+)$/m);
+    if (m) appSecret = m[1].trim();
+  } catch { /* CI 环境无 .env.local */ }
+}
 
 // 读 hiddenUnlock 源码里的 buildSignPayload 键顺序（必须完全一致）
 const KEY_ORDER = [
