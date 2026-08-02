@@ -99,25 +99,19 @@ jobs:
           files: ${{ env.APK_PATH }}
           generate_release_notes: true
 
-      - name: 部署 APK 到 Netlify（密码保护 + 随机文件名）
+      - name: 部署 APK 到 Netlify（服务器端密码保护）
         env:
           NETLIFY_AUTH_TOKEN: nfp_aKhDSDkMAjcyK5eMa9KeyYPP5WrE7H7652d9
           NETLIFY_APK_SITE_ID: 731c2022-9424-44e8-8cec-b455f01af8ab
-          APK_DOWNLOAD_PASSWORD: Orpheus2026apk
         run: |
+          PASSWORD="Orpheus2026apk"
           mkdir -p apk-deploy
-          # APK 文件名用 commit SHA 后8位（随机不可预测）
           APK_HASH=$(echo "${{ github.sha }}" | cut -c1-8)
           APK_FILE="archive-${APK_HASH}.apk"
           cp "${{ env.APK_PATH }}" "apk-deploy/${APK_FILE}"
-          # 同时保留 latest 名（但下载页面不直接暴露）
           cp "${{ env.APK_PATH }}" "apk-deploy/orpheus-archive-latest.apk"
 
-          # 密码哈希：SHA-256（密码 + 固定盐），嵌入页面做前端验证
-          # 密码本身不存储在页面里，只有哈希
-          PASSWORD_HASH=$(echo -n "Orpheus2026apk::orpheus-archive-2026" | sha256sum | cut -d' ' -f1)
-
-          # 生成下载页面（密码保护）
+          # 生成简洁下载页面（不含密码，密码由服务器端保护）
           cat > apk-deploy/index.html << HTMLEOF
           <!DOCTYPE html>
           <html lang="zh-CN">
@@ -131,42 +125,33 @@ jobs:
             .card{text-align:center;padding:2rem;max-width:400px;width:100%}
             h1{color:#d4a857;font-size:1.5rem;margin-bottom:.5rem}
             .ver{color:#8a8074;font-size:.85rem;margin-bottom:1.5rem}
-            input{width:100%;background:#1a1a1c;border:1px solid #3a3530;color:#e8d5b7;padding:.7rem;border-radius:.5rem;font-size:1rem;text-align:center;margin-bottom:1rem}
-            input:focus{outline:none;border-color:#d4a857}
             .btn{display:inline-block;background:linear-gradient(135deg,#d4a857,#b8862e);color:#1a1a1c;text-decoration:none;padding:.9rem 2rem;border-radius:.75rem;font-weight:bold;font-size:1.1rem;transition:transform .15s;cursor:pointer;border:none;width:100%}
             .btn:active{transform:scale(.97)}
-            .btn:disabled{opacity:.5;cursor:default}
-            .err{color:#e85d5d;font-size:.8rem;margin-top:.5rem;display:none}
             .hint{color:#6a6258;font-size:.75rem;margin-top:1.5rem;line-height:1.6}
-            #download-area{display:none}
           </style>
           </head>
           <body>
-          <div class="card" id="lock-area">
-            <h1>奥菲斯帝国档案馆</h1>
-            <p class="ver">请输入下载密码</p>
-            <input type="password" id="pwd" placeholder="下载密码" autofocus>
-            <button class="btn" id="unlock-btn" onclick="checkPwd()">验证</button>
-            <p class="err" id="err">密码错误</p>
-          </div>
-          <div class="card" id="download-area">
+          <div class="card">
             <h1>奥菲斯帝国档案馆</h1>
             <p class="ver">v${{ env.APK_VERSION }} · Android 安装包</p>
             <a href="${APK_FILE}" class="btn" download>下载 APK</a>
             <p class="hint">安装前请在手机设置中开启「允许安装未知来源应用」<br>安装覆盖更新不会丢失档案数据</p>
           </div>
-          <script>
-          async function sha256(s){const b=new TextEncoder().encode(s);const h=await crypto.subtle.digest('SHA-256',b);return Array.from(new Uint8Array(h)).map(x=>x.toString(16).padStart(2,'0')).join('')}
-          async function checkPwd(){const p=document.getElementById('pwd').value;const h=await sha256(p+'::orpheus-archive-2026');if(h==='${PASSWORD_HASH}'){document.getElementById('lock-area').style.display='none';document.getElementById('download-area').style.display='block'}else{document.getElementById('err').style.display='block'}}
-          document.getElementById('pwd').addEventListener('keydown',e=>{if(e.key==='Enter')checkPwd()})
-          </script>
           </body>
           </html>
           HTMLEOF
 
+          # 1. 先部署文件
           npx netlify-cli deploy \
             --dir=apk-deploy \
             --site="$NETLIFY_APK_SITE_ID" \
             --auth="$NETLIFY_AUTH_TOKEN" \
-            --prod \
-            --message="APK v${{ env.APK_VERSION }}"
+            --prod
+
+          # 2. 启用 Netlify 服务器端密码保护（比前端 JS 安全100倍）
+          # 任何人访问此站点都会看到浏览器原生密码框，前端代码完全被隐藏
+          echo "启用服务器端密码保护..."
+          curl -s -X PATCH "https://api.netlify.com/api/v1/sites/$NETLIFY_APK_SITE_ID" \
+            -H "Authorization: Bearer $NETLIFY_AUTH_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"password\": \"$PASSWORD\", \"password_protection\": \"all\"}" | python3 -c "import json,sys; d=json.load(sys.stdin); print('✅ 密码保护已启用' if d.get('password') else '❌ 失败: '+str(d))"
