@@ -8,7 +8,7 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import { Download, Upload, HardDrive, CheckCircle2, XCircle, History, RotateCcw, Trash2, RefreshCw, Database, Share2, ShieldAlert, FolderOpen, Sparkles } from 'lucide-react';
-import { exportAll, importAll } from '../data/db';
+import { exportAll, importAll, verifyAndDecrypt } from '../data/db';
 import { useDataStore } from '../store/dataStore';
 import { useCommentStore } from '../store/commentStore';
 import { useAuthStore } from '../store/authStore';
@@ -203,7 +203,7 @@ export default function BackupBar() {
     }
   };
 
-  /** 浏览器环境：从文件读（需解锁 + 签名校验） */
+  /** 浏览器环境：从文件读（需解锁 + 解密验签） */
   const handleImportBackup = () => {
     if (busy) return;
     requestAnimationFrame(() => {
@@ -213,27 +213,25 @@ export default function BackupBar() {
           const result = await platform.pickTextFile();
           if (!result) { setBusy(false); return; }
           const json = result.content;
-          const fileData = JSON.parse(json);
 
-          // 网页端：用隐藏解锁的会话密钥验签
-          // App 端走 handleRestoreDesktop/Mobile，用 pinSessionStore 验签
-          if (IS_WEB_BUILD) {
-            const verifyImport = useHiddenUnlock.getState().verifyImport;
-            const ok = await verifyImport(fileData);
-            if (!ok) {
-              // 不加载文件的任何内容，直接拒绝并弹出警告卡片
-              setBusy(false);
-              setShowReject(true);
-              return;
-            }
+          // 统一解密 + 验签（自动识别 v1 明文 / v2 加密格式）
+          // 任何失败（解密失败/验签不一致/盐值错误）统一展示「文件无效」
+          const sessionKey = useHiddenUnlock.getState().sessionKey;
+          let payload: Record<string, unknown>;
+          try {
+            payload = await verifyAndDecrypt(json, sessionKey || '');
+          } catch {
+            // 不加载文件的任何内容，直接拒绝并弹出警告卡片
+            setBusy(false);
+            setShowReject(true);
+            return;
           }
 
-          await importAll(json);
+          await importAll(payload);
           await Promise.all([refresh(), refreshComments()]);
           showToast('ok', '档案已导入，请刷新页面以查看');
         } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
-          showToast('err', `导入失败：${msg}`);
+          showToast('err', '文件无效');
         } finally {
           setBusy(false);
         }
@@ -241,7 +239,7 @@ export default function BackupBar() {
     });
   };
 
-  /** 桌面 App：点击恢复 直接走 IPC 打开文件对话框（需机器绑定 + PIN + 签名校验） */
+  /** 桌面 App：点击恢复 直接走 IPC 打开文件对话框（需机器绑定 + PIN + 解密验签） */
   const handleRestoreDesktop = () => {
     const app = window.archiveApp;
     if (!app || busy) return;
@@ -252,23 +250,24 @@ export default function BackupBar() {
           const r = await app.loadBackup();
           if (!r.ok) {
             if ((r as any).canceled) { setBusy(false); return; }
-            showToast('err', (r as any).error || '读取失败');
+            showToast('err', '文件无效');
           } else {
-            // App/桌面端签名校验：用 PIN 会话私钥验签，失败则拒绝载入
-            const fileData = JSON.parse(r.json);
-            const ok = await usePinSessionStore.getState().verifyImport(fileData);
-            if (!ok) {
+            // 统一解密 + 验签（PIN 会话私钥作密钥，失败统一「文件无效」）
+            const sessionKey = usePinSessionStore.getState().sessionKey;
+            let payload: Record<string, unknown>;
+            try {
+              payload = await verifyAndDecrypt(r.json, sessionKey || '');
+            } catch {
               setBusy(false);
               setShowReject(true);
               return;
             }
-            await importAll(r.json);
+            await importAll(payload);
             await Promise.all([refresh(), refreshComments()]);
             showToast('ok', `已从 ${r.path} 导入完成`);
           }
         } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
-          showToast('err', `导入失败：${msg}`);
+          showToast('err', '文件无效');
         } finally {
           setBusy(false);
         }
@@ -276,7 +275,7 @@ export default function BackupBar() {
     });
   };
 
-  /** 移动 App：点击恢复 走系统文件选择器（需机器绑定 + PIN + 签名校验） */
+  /** 移动 App：点击恢复 走系统文件选择器（需机器绑定 + PIN + 解密验签） */
   const handleRestoreMobile = () => {
     if (!isMobile || busy) return;
     requireAuth(() => {
@@ -285,20 +284,21 @@ export default function BackupBar() {
         try {
           const r = await platform.pickTextFile();
           if (!r) { setBusy(false); return; }
-          // App 端签名校验
-          const fileData = JSON.parse(r.content);
-          const ok = await usePinSessionStore.getState().verifyImport(fileData);
-          if (!ok) {
+          // 统一解密 + 验签（PIN 会话私钥作密钥，失败统一「文件无效」）
+          const sessionKey = usePinSessionStore.getState().sessionKey;
+          let payload: Record<string, unknown>;
+          try {
+            payload = await verifyAndDecrypt(r.content, sessionKey || '');
+          } catch {
             setBusy(false);
             setShowReject(true);
             return;
           }
-          await importAll(r.content);
+          await importAll(payload);
           await Promise.all([refresh(), refreshComments()]);
           showToast('ok', `已从 ${r.name} 导入`);
         } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
-          showToast('err', `导入失败：${msg}`);
+          showToast('err', '文件无效');
         } finally {
           setBusy(false);
         }
@@ -306,7 +306,7 @@ export default function BackupBar() {
     });
   };
 
-  /** 从自动备份恢复 */
+  /** 从自动备份恢复（桌面 App 本机自动备份，用内置盐值解密，无需 PIN） */
   const handleRestoreAuto = async (name: string) => {
     if (!window.archiveApp || busy) return;
     const app = window.archiveApp;
@@ -318,16 +318,25 @@ export default function BackupBar() {
         try {
           const r = await app.restoreAutoBackup({ name });
           if (!r.ok) {
-            showToast('err', (r as any).error || '恢复失败');
+            showToast('err', '文件无效');
           } else {
-            await importAll(r.json);
+            // 自动备份是本机自己导出的 v2 加密文件，用 App 内置盐值解密
+            const { APP_PRIVATE_SALT } = await import('../lib/appSecret');
+            let payload: Record<string, unknown>;
+            try {
+              payload = await verifyAndDecrypt(r.json, APP_PRIVATE_SALT);
+            } catch {
+              setBusy(false);
+              setShowReject(true);
+              return;
+            }
+            await importAll(payload);
             await Promise.all([refresh(), refreshComments()]);
             showToast('ok', `已从 ${name} 恢复`);
             await refreshAutoBackups();
           }
         } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
-          showToast('err', `恢复失败：${msg}`);
+          showToast('err', '文件无效');
         } finally {
           setBusy(false);
         }

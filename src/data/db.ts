@@ -191,9 +191,17 @@ export async function setSetting(key: string, value: any): Promise<void> {
 // ============ 导入导出 ============
 
 /**
- * 导出全部数据（含小说）为带签名的 JSON
- * 盐值从 appSecret.ts 导入（App构建有真实值，Web构建为空字符串）
- * 网页端不调用此函数（导出按钮已被移除）
+ * 导出全部数据（含小说）为 v2 加密 JSON
+ *
+ * 格式（v2）：
+ * {
+ *   v: 2, encrypted: true,
+ *   iv, ciphertext, sign,           // 加密主体 + 签名（角色/时间线/小说正文全部在内）
+ *   exportDate, ...watermark        // 外层明文：导出时间 + 创作者署名
+ * }
+ *
+ * 盐值从环境变量经 appSecret.ts 注入（App/桌面构建有真实值，Web 构建为空）。
+ * 网页端不调用此函数（导出按钮已被移除）。
  */
 export async function exportAll(): Promise<string> {
   const db = await getDB();
@@ -212,30 +220,78 @@ export async function exportAll(): Promise<string> {
   const novelChapters = await db.getAll('novelChapters');
   const novelProgress = await db.getAll('novelProgress');
 
-  // 构建签名（盐值从 appSecret 导入，Web 构建时为空 → sign 也为空，但网页端不会调用导出）
-  const { buildSignPayload, sha256Hex } = await import('../lib/hiddenUnlock');
-  const { APP_PRIVATE_SALT } = await import('../lib/appSecret');
-  const payload = buildSignPayload({ entries, eras, customSections, users, settings, novelBooks, novelVolumes, novelChapters, novelProgress });
-  const sign = APP_PRIVATE_SALT ? await sha256Hex(payload + APP_PRIVATE_SALT) : '';
+  // 明文 payload（主体数据，全部进入加密）
+  const payload = {
+    entries, eras, customSections, users, settings,
+    novelBooks, novelVolumes, novelChapters, novelProgress,
+  };
 
-  // 嵌入隐形数字水印（创作者署名），永久写入备份文件
+  // 私有盐值：App/桌面构建注入真实值；Web 构建为空（但网页端不调用导出）
+  const { APP_PRIVATE_SALT } = await import('../lib/appSecret');
+  // 加密主体 + 签名（AES-GCM 认证加密 + HMAC 双保险）
+  const { encryptPayload } = await import('../lib/cryptoVault');
+  const vault = await encryptPayload(payload, APP_PRIVATE_SALT);
+
+  // 外层明文：导出时间 + 创作者署名水印
   const { buildExportWatermark } = await import('../lib/watermark');
   const watermark = buildExportWatermark();
   return JSON.stringify({
-    entries, eras, customSections, users, settings,
-    novelBooks, novelVolumes, novelChapters, novelProgress,
-    sign,
+    ...vault,
     exportDate: new Date().toISOString(),
     ...watermark,
   }, null, 2);
 }
 
 /**
- * 导入全部数据（含小说）
- * 注意：签名校验由调用方（BackupBar）在调用前完成
+ * 解密 + 验签导入文件，返回可直接写入的明文 payload
+ *
+ * 自动识别格式：
+ * - v2（encrypted:true）：AES-GCM 解密 + 验签（双重校验）
+ * - v1（旧明文，无 encrypted 字段）：仅验签（向后兼容旧备份）
+ *
+ * 任何失败（解密失败 / 验签不一致 / 格式错误 / 盐值错误）
+ * 一律抛出 VaultError，外层展示「文件无效」并丢弃详细错误，防试探攻击。
+ *
+ * @param rawJson 文件原始文本
+ * @param privateKey 会话密钥（= 私有盐值）
  */
-export async function importAll(json: string): Promise<void> {
-  const data = JSON.parse(json);
+export async function verifyAndDecrypt(
+  rawJson: string,
+  privateKey: string,
+): Promise<Record<string, unknown>> {
+  const { VaultError, decryptPayload } = await import('../lib/cryptoVault');
+  let data: Record<string, unknown>;
+  try {
+    data = JSON.parse(rawJson);
+  } catch {
+    throw new VaultError();
+  }
+
+  // v2 加密格式
+  if (data.v === 2 && data.encrypted === true) {
+    // decryptPayload 内部完成 AES-GCM 解密 + 验签，任何失败统一抛 VaultError
+    return decryptPayload(data, privateKey);
+  }
+
+  // v1 旧明文格式（向后兼容）
+  // 用 hiddenUnlock.verifySign 做签名校验
+  const { verifySign } = await import('../lib/hiddenUnlock');
+  let ok: boolean;
+  try {
+    ok = await verifySign(data, privateKey);
+  } catch {
+    throw new VaultError();
+  }
+  if (!ok) throw new VaultError();
+  return data;
+}
+
+/**
+ * 导入全部数据（含小说）
+ * 接收已解密验签的 payload 对象（由 verifyAndDecrypt 产出）
+ */
+export async function importAll(payload: Record<string, unknown>): Promise<void> {
+  const data = payload;
   // 校验水印（仅记录日志，不阻断导入）
   const { verifyImportWatermark } = await import('../lib/watermark');
   const wm = verifyImportWatermark(data);
@@ -258,15 +314,15 @@ export async function importAll(json: string): Promise<void> {
     tx.objectStore('novelProgress').clear(),
   ]);
   // 写入新数据
-  if (data.entries) for (const e of data.entries) await tx.objectStore('entries').put(e);
-  if (data.eras) for (const e of data.eras) await tx.objectStore('eras').put(e);
-  if (data.customSections) for (const s of data.customSections) await tx.objectStore('customSections').put(s);
-  if (data.users) for (const u of data.users) await tx.objectStore('users').put(u);
-  if (data.settings) for (const [k, v] of Object.entries(data.settings)) await tx.objectStore('settings').put(v, k);
-  if (data.novelBooks) for (const b of data.novelBooks) await tx.objectStore('novelBooks').put(b);
-  if (data.novelVolumes) for (const v of data.novelVolumes) await tx.objectStore('novelVolumes').put(v);
-  if (data.novelChapters) for (const c of data.novelChapters) await tx.objectStore('novelChapters').put(c);
-  if (data.novelProgress) for (const p of data.novelProgress) await tx.objectStore('novelProgress').put(p);
+  if (data.entries) for (const e of data.entries as unknown[]) await tx.objectStore('entries').put(e);
+  if (data.eras) for (const e of data.eras as unknown[]) await tx.objectStore('eras').put(e);
+  if (data.customSections) for (const s of data.customSections as unknown[]) await tx.objectStore('customSections').put(s);
+  if (data.users) for (const u of data.users as unknown[]) await tx.objectStore('users').put(u);
+  if (data.settings) for (const [k, v] of Object.entries(data.settings as Record<string, unknown>)) await tx.objectStore('settings').put(v, k);
+  if (data.novelBooks) for (const b of data.novelBooks as unknown[]) await tx.objectStore('novelBooks').put(b);
+  if (data.novelVolumes) for (const v of data.novelVolumes as unknown[]) await tx.objectStore('novelVolumes').put(v);
+  if (data.novelChapters) for (const c of data.novelChapters as unknown[]) await tx.objectStore('novelChapters').put(c);
+  if (data.novelProgress) for (const p of data.novelProgress as unknown[]) await tx.objectStore('novelProgress').put(p);
   await tx.done;
 }
 

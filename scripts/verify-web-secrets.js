@@ -9,26 +9,31 @@
  *   1. 明文原文匹配
  *   2. Base64 编码匹配（防止打包时被 base64 后塞进代码）
  *   3. 拆分片段匹配（盐值按 N 字符滑窗，片段长度 10，防止拆分藏匿）
+ *
+ * 盐值来源：从环境变量 ARCHIVE_PRIVATE_SALT 读取（与构建时注入路径一致）
+ *           不再从源码文件读取，因为源码已不含盐值。
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// —— 需保护的敏感字符串（从 appSecret.ts 读取一次真实值）——
-// 注意：此脚本仅在构建机器上运行，不进入任何网页产物
+// —— 需保护的敏感字符串（从环境变量读取，构建机器上运行，不进入任何网页产物）——
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const appSecretTs = fs.readFileSync(
-  path.join(__dirname, '..', 'src', 'lib', 'appSecret.ts'),
-  'utf-8',
-);
-const match = appSecretTs.match(/APP_PRIVATE_SALT\s*=\s*'([^']+)'/);
-if (!match) {
-  console.error('[verify-web-secrets] ❌ 无法从 appSecret.ts 读取盐值，脚本异常');
-  process.exit(2);
+let SECRET = process.env.ARCHIVE_PRIVATE_SALT || '';
+
+// 本地构建兜底：环境变量未设置时从 .env.local 读取（CI 已通过 Secrets 注入环境变量）
+if (!SECRET) {
+  const envLocalPath = path.join(__dirname, '..', '.env.local');
+  try {
+    const envContent = fs.readFileSync(envLocalPath, 'utf-8');
+    const m = envContent.match(/^ARCHIVE_PRIVATE_SALT\s*=\s*(.+)$/m);
+    if (m) SECRET = m[1].trim();
+  } catch { /* .env.local 不存在，CI 环境 */ }
 }
-const SECRET = match[1];
+
 if (!SECRET || SECRET.length < 12) {
-  console.error('[verify-web-secrets] ❌ 盐值读取失败或过短，疑似误读：', SECRET);
+  console.error('[verify-web-secrets] ❌ 环境变量 ARCHIVE_PRIVATE_SALT 未配置或过短');
+  console.error('    本地构建请在 .env.local 配置；CI 构建请配置 GitHub Actions Secrets');
   process.exit(2);
 }
 

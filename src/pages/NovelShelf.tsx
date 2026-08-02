@@ -1,12 +1,16 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, Plus, Trash2, Eye, EyeOff } from 'lucide-react';
+import { BookOpen, Plus, Trash2, EyeOff } from 'lucide-react';
 import { useNovelStore } from '../store/novelStore';
+import { useBindingStore } from '../store/bindingStore';
+import { useRequirePin } from '../hooks/useRequirePin';
 import { IS_WEB_BUILD } from '../lib/buildTarget';
-import { ConfirmDialog, PromptDialog, ModeSelectDialog } from '../components/Dialog';
+import { ConfirmDialog, PromptDialog, ModeSelectDialog, AlertDialog } from '../components/Dialog';
 
 export default function NovelShelf() {
   const navigate = useNavigate();
+  const isBound = useBindingStore(s => s.isBound);
+  const { requirePin, PinGuard } = useRequirePin();
   const books = useNovelStore(s => s.books);
   const createBook = useNovelStore(s => s.createBook);
   const deleteBook = useNovelStore(s => s.deleteBook);
@@ -16,10 +20,11 @@ export default function NovelShelf() {
   const [showNameDialog, setShowNameDialog] = useState(false);
   const [pendingName, setPendingName] = useState('');
   const [showModeDialog, setShowModeDialog] = useState(false);
-  const [pendingMode, setPendingMode] = useState<'open' | 'unlock'>('open');
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
+  const [alertMsg, setAlertMsg] = useState('');
 
   const handleCreateClick = () => {
+    if (!isBound) { setAlertMsg('设备未绑定，无法新建小说'); return; }
     setPendingName('');
     setShowNameDialog(true);
   };
@@ -33,18 +38,24 @@ export default function NovelShelf() {
     setShowModeDialog(true);
   };
 
-  const handleModeSelect = async (mode: 'open' | 'unlock') => {
-    setPendingMode(mode);
-    if (pendingName) {
-      const book = await createBook(pendingName, mode);
+  // 创建小说：弹 PIN 校验通过后执行
+  const handleModeSelect = (mode: 'open' | 'unlock') => {
+    if (!pendingName) return;
+    const name = pendingName;
+    requirePin('新建小说', async () => {
+      const book = await createBook(name, mode);
       navigate(`/novel/${book.id}`);
-    }
+    });
   };
 
-  const handleDelete = async () => {
+  // 删除小说：确认通过后弹 PIN 校验
+  const handleDelete = () => {
     if (!deleteTarget) return;
-    await deleteBook(deleteTarget.id);
+    const target = deleteTarget;
     setDeleteTarget(null);
+    requirePin('删除小说', async () => {
+      await deleteBook(target.id);
+    });
   };
 
   return (
@@ -111,7 +122,11 @@ export default function NovelShelf() {
                 )}
                 {!IS_WEB_BUILD && (
                   <button
-                    onClick={e => { e.stopPropagation(); setDeleteTarget({ id: book.id, title: book.title }); }}
+                    onClick={e => {
+                      e.stopPropagation();
+                      if (!isBound) { setAlertMsg('设备未绑定，无法删除'); return; }
+                      setDeleteTarget({ id: book.id, title: book.title });
+                    }}
                     className="absolute top-1 right-1 p-1 rounded text-ink-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
                     title="删除"
                   >
@@ -152,6 +167,8 @@ export default function NovelShelf() {
         variant="danger"
         onConfirm={handleDelete}
       />
+      <AlertDialog open={!!alertMsg} onClose={() => setAlertMsg('')} title="提示" message={alertMsg} />
+      {PinGuard}
     </div>
   );
 }

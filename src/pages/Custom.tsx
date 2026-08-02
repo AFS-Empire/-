@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Pencil, Trash2, Layers, X } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
+import { useBindingStore } from '../store/bindingStore';
+import { useRequirePin } from '../hooks/useRequirePin';
 import { genId } from '../data/db';
 import { ConfirmDialog, AlertDialog } from '../components/Dialog';
 import type { CustomEntry, CustomSection } from '../types';
@@ -10,6 +12,8 @@ import type { CustomEntry, CustomSection } from '../types';
 export default function Custom() {
   const navigate = useNavigate();
   const isAdmin = useAuthStore(s => s.currentUser?.role === 'admin');
+  const isBound = useBindingStore(s => s.isBound);
+  const { requirePin, PinGuard } = useRequirePin();
   const entries = useDataStore(s => s.entries);
   const customSections = useDataStore(s => s.customSections);
   const saveCustomSection = useDataStore(s => s.saveCustomSection);
@@ -40,7 +44,9 @@ export default function Custom() {
 
   const selected = customSections.find(s => s.id === selectedId);
 
+  // 写操作守卫：机器未绑定 → 拒绝；已绑定 → 弹 PIN 校验通过后执行
   const handleDeleteSection = (id: string) => {
+    if (!isBound) { setAlertMsg('设备未绑定，无法删除'); return; }
     setDeleteTarget({ kind: 'section', id, msg: '确认删除该分类？分类下的条目不会被删除但将失去归属。' });
   };
 
@@ -50,12 +56,32 @@ export default function Custom() {
       setAlertMsg('请填写分类名称');
       return;
     }
-    await saveCustomSection(editing);
-    setEditing(null);
+    if (!isBound) { setAlertMsg('设备未绑定，无法保存'); return; }
+    const sectionToSave = editing;
+    requirePin('保存分类', async () => {
+      await saveCustomSection(sectionToSave);
+      setEditing(null);
+    });
   };
 
   const handleDeleteEntry = (id: string) => {
+    if (!isBound) { setAlertMsg('设备未绑定，无法删除'); return; }
     setDeleteTarget({ kind: 'entry', id, msg: '确认删除该条目？' });
+  };
+
+  // 删除确认通过后，包一层 PIN 守卫再执行实际删除
+  const confirmDelete = () => {
+    if (!deleteTarget) return;
+    const target = deleteTarget;
+    setDeleteTarget(null);
+    requirePin(target.kind === 'section' ? '删除分类' : '删除条目', async () => {
+      if (target.kind === 'section') {
+        await deleteCustomSection(target.id);
+        if (selectedId === target.id) setSelectedId(null);
+      } else {
+        await deleteEntry(target.id);
+      }
+    });
   };
 
   // ---- Section detail view ----
@@ -111,18 +137,11 @@ export default function Custom() {
             message={deleteTarget.msg}
             confirmText="删除"
             variant="danger"
-            onConfirm={async () => {
-              if (deleteTarget.kind === 'section') {
-                await deleteCustomSection(deleteTarget.id);
-                if (selectedId === deleteTarget.id) setSelectedId(null);
-              } else {
-                await deleteEntry(deleteTarget.id);
-              }
-              setDeleteTarget(null);
-            }}
+            onConfirm={confirmDelete}
           />
         )}
         <AlertDialog open={!!alertMsg} onClose={() => setAlertMsg('')} title="提示" message={alertMsg} />
+        {PinGuard}
       </div>
     );
   }
@@ -212,18 +231,11 @@ export default function Custom() {
           message={deleteTarget.msg}
           confirmText="删除"
           variant="danger"
-          onConfirm={async () => {
-            if (deleteTarget.kind === 'section') {
-              await deleteCustomSection(deleteTarget.id);
-              if (selectedId === deleteTarget.id) setSelectedId(null);
-            } else {
-              await deleteEntry(deleteTarget.id);
-            }
-            setDeleteTarget(null);
-          }}
+          onConfirm={confirmDelete}
         />
       )}
       <AlertDialog open={!!alertMsg} onClose={() => setAlertMsg('')} title="提示" message={alertMsg} />
+      {PinGuard}
     </div>
   );
 }

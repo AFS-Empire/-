@@ -11,6 +11,9 @@ node_modules
 dist
 dist-ssr
 *.local
+# 盐值环境变量严禁提交（双保险）
+.env.local
+.env.*.local
 
 # Editor directories and files
 .vscode/*

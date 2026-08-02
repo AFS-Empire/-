@@ -98,14 +98,21 @@ platform.pickImage();     // App 端走 Camera，Web 端走 input
 3. **PIN 会话（pinSessionStore）** — 操作级密钥校验，纯内存态（不落盘）
    - 用户输入私有密钥 → 校验通过 → 会话解锁；杀后台 / 冷启动即清空，需重新输入
    - 通过 `useRequirePin` hook + `PinDialog` 组件触发（统一黑底鎏金弹窗，禁止原生 prompt）
-4. **签名校验** — 数据完整性
-   - 导出：`sign = SHA256(JSON.stringify(dataPayload) + 私有密钥)`
-   - 导入：Web 用 hiddenUnlock 会话密钥验签；App 用 pinSessionStore 会话密钥验签；验签失败拒绝载入任何内容
+4. **签名校验 + 加密导出** — 数据完整性 + 机密性
+   - 导出（仅 App/桌面）：v2 加密格式，主体 AES-256-GCM 加密 + PBKDF2 派生密钥 + SHA256 签名双重保险；watermark/exportDate 外层明文，主体全部加密
+   - 导入（Web / App）：统一走 `verifyAndDecrypt`，自动识别 v2 加密 / v1 旧明文格式；解密失败 / 验签不一致 / 盐值错误 → 统一展示「文件无效」，不返回详细错误日志（防试探攻击）
+   - 私有盐值通过环境变量 `ARCHIVE_PRIVATE_SALT` 注入，严禁明文写死源码、严禁上传 GitHub；本地 `.env.local`（gitignore 忽略），CI 走 GitHub Secrets
+   - 网页端无导出功能（防抓包泄露明文），抓包只能看到 base64 密文乱码
 
-#### 已覆盖的敏感操作：
-- 档案编辑保存（`EntryEditor`）：机器绑定 + PIN 双校验
-- 档案导出（`BackupBar`）：机器绑定 + PIN 双校验
-- 档案导入（`BackupBar`）：机器绑定 + PIN + 签名校验三重校验（App/桌面/浏览器全路径）
+#### 已覆盖的敏感操作（机器绑定 + PIN 双校验）：
+- 档案编辑保存（`EntryEditor`）
+- 档案导出 / 导入（`BackupBar`，含签名+解密校验）
+- 时间轴：纪元增删改 + 事件删除（`Timeline`）
+- 自定义分类：分类增删 + 条目删除（`Custom`）
+- 小说馆：新建/删除小说（`NovelShelf`）
+- 小说详情：分卷/章节增删改 + 导入TXT + 书名/剧透模式切换（`NovelDetail`）
+- 小说阅读：章节内容编辑保存（`NovelReader`）
+- 评论相关：不加守卫（衍生数据）
 
 ### 6. APK 分发
 - GitHub Releases 自动构建（主渠道）

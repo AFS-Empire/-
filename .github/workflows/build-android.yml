@@ -37,6 +37,8 @@ jobs:
         run: npx vite build
         env:
           ARCHIVE_RELEASE: '1'
+          # 私有盐值从 GitHub Secrets 注入，构建时内联到产物，源码与 git 历史中均不含盐值
+          ARCHIVE_PRIVATE_SALT: ${{ secrets.ARCHIVE_PRIVATE_SALT }}
 
       - name: 缓存 Android 工程
         id: cache-android

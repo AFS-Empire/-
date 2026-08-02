@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ChevronDown, ChevronRight, Plus, Pencil, Trash2, Scroll, Settings, X, Save } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
+import { useBindingStore } from '../store/bindingStore';
+import { useRequirePin } from '../hooks/useRequirePin';
 import { genId } from '../data/db';
 import { ConfirmDialog, AlertDialog } from '../components/Dialog';
 import type { Era, TimelineEvent } from '../types';
@@ -21,6 +23,8 @@ const emptyEra = (): Era => ({
 export default function Timeline() {
   const navigate = useNavigate();
   const isAdmin = useAuthStore(s => s.currentUser?.role === 'admin');
+  const isBound = useBindingStore(s => s.isBound);
+  const { requirePin, PinGuard } = useRequirePin();
   const entries = useDataStore(s => s.entries);
   const eras = useDataStore(s => s.eras);
   const saveEra = useDataStore(s => s.saveEra);
@@ -52,12 +56,15 @@ export default function Timeline() {
 
   const toggle = (id: string) => setCollapsed(prev => ({ ...prev, [id]: !prev[id] }));
 
+  // 写操作守卫：机器未绑定 → 拒绝；已绑定 → 弹 PIN 校验通过后执行
   const handleDeleteEvent = (id: string) => {
-    setConfirmState({open: true, msg: '确认删除该事件？此操作不可撤销。', action: () => deleteEntry(id)});
+    if (!isBound) { setAlertMsg('设备未绑定，无法删除'); return; }
+    setConfirmState({open: true, msg: '确认删除该事件？此操作不可撤销。', action: () => requirePin('删除事件', () => deleteEntry(id))});
   };
 
   const handleDeleteEra = (id: string) => {
-    setConfirmState({open: true, msg: '确认删除该纪元？纪元下的事件将变为"未分类"。', action: () => deleteEra(id)});
+    if (!isBound) { setAlertMsg('设备未绑定，无法删除'); return; }
+    setConfirmState({open: true, msg: '确认删除该纪元？纪元下的事件将变为"未分类"。', action: () => requirePin('删除纪元', () => deleteEra(id))});
   };
 
   const handleSaveEra = async () => {
@@ -66,8 +73,12 @@ export default function Timeline() {
       setAlertMsg('请填写纪元名称');
       return;
     }
-    await saveEra(editingEra);
-    setEditingEra(null);
+    if (!isBound) { setAlertMsg('设备未绑定，无法保存'); return; }
+    const eraToSave = editingEra;
+    requirePin('保存纪元', async () => {
+      await saveEra(eraToSave);
+      setEditingEra(null);
+    });
   };
 
   const uncategorized = grouped.get(UNCATEGORIZED) || [];
@@ -277,6 +288,7 @@ export default function Timeline() {
         onConfirm={() => { confirmState.action?.(); }}
       />
       <AlertDialog open={!!alertMsg} onClose={() => setAlertMsg('')} title="提示" message={alertMsg} />
+      {PinGuard}
     </div>
   );
 }

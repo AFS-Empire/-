@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { ChevronRight, ChevronDown, Plus, Trash2, Edit3, FileText, Eye, EyeOff, Upload } from 'lucide-react';
 import { useNovelStore } from '../store/novelStore';
 import { useDataStore } from '../store/dataStore';
+import { useBindingStore } from '../store/bindingStore';
+import { useRequirePin } from '../hooks/useRequirePin';
 import { IS_WEB_BUILD } from '../lib/buildTarget';
 import { platform } from '../platform';
 import { ConfirmDialog, PromptDialog, AlertDialog } from '../components/Dialog';
@@ -10,6 +12,8 @@ import { ConfirmDialog, PromptDialog, AlertDialog } from '../components/Dialog';
 export default function NovelDetail() {
   const { bookId } = useParams<{ bookId: string }>();
   const navigate = useNavigate();
+  const isBound = useBindingStore(s => s.isBound);
+  const { requirePin, PinGuard } = useRequirePin();
   const chapters = useNovelStore(s => s.chapters);
   const volumes = useNovelStore(s => s.volumes);
   const books = useNovelStore(s => s.books);
@@ -54,15 +58,19 @@ export default function NovelDetail() {
     message: string;
   } | null>(null);
 
+  // 写操作守卫：先检查机器绑定，再在弹窗确认后包 PIN 校验
   const openPrompt = (
     title: string, message: string, placeholder: string,
-    defaultValue: string, onConfirm: (value: string) => void, multiline = false
+    defaultValue: string, onConfirm: (value: string) => void | Promise<void>, multiline = false,
+    pinLabel = '小说写操作'
   ) => {
-    setPromptState({ open: true, title, message, placeholder, defaultValue, onConfirm, multiline });
+    if (!isBound) { openAlert('提示', '设备未绑定，无法操作'); return; }
+    setPromptState({ open: true, title, message, placeholder, defaultValue, onConfirm: (v) => requirePin(pinLabel, () => onConfirm(v)), multiline });
   };
 
-  const openConfirm = (title: string, message: string, onConfirm: () => void) => {
-    setConfirmState({ open: true, title, message, onConfirm });
+  const openConfirm = (title: string, message: string, onConfirm: () => void | Promise<void>, pinLabel = '小说写操作') => {
+    if (!isBound) { openAlert('提示', '设备未绑定，无法操作'); return; }
+    setConfirmState({ open: true, title, message, onConfirm: () => requirePin(pinLabel, () => onConfirm()) });
   };
 
   const openAlert = (title: string, message: string) => {
@@ -86,11 +94,13 @@ export default function NovelDetail() {
     openPrompt('新建分卷', '请输入分卷名称（如"夏"）：', '分卷名称', '', async (name) => {
       if (!name.trim()) return;
       await createVolume(bookId!, name.trim());
-    });
+    }, false, '新建分卷');
   };
 
+  // 导入 TXT：先检查机器绑定 + 选文件，选完后弹 PIN 再执行导入
   const handleImportTXT = async () => {
     if (!bookId) return;
+    if (!isBound) { openAlert('提示', '设备未绑定，无法导入'); return; }
     if (bookVolumes.length === 0) {
       openAlert('提示', '请先创建至少一个分卷，然后再导入章节');
       return;
@@ -99,12 +109,14 @@ export default function NovelDetail() {
     if (!result) return;
     const targetVolumeId = bookVolumes[0].id;
     const text = result.content;
-    const count = await importChapters(bookId, targetVolumeId, text, characters);
-    if (count > 0) {
-      openAlert('导入成功', `成功导入 ${count} 章`);
-    } else {
-      openAlert('导入失败', '未能解析出任何章节，请检查 TXT 格式');
-    }
+    requirePin('导入章节', async () => {
+      const count = await importChapters(bookId, targetVolumeId, text, characters);
+      if (count > 0) {
+        openAlert('导入成功', `成功导入 ${count} 章`);
+      } else {
+        openAlert('导入失败', '未能解析出任何章节，请检查 TXT 格式');
+      }
+    });
   };
 
   const groupedByVolume = (volId: string) =>
@@ -124,14 +136,16 @@ export default function NovelDetail() {
                 defaultValue={book.title}
                 onBlur={async e => {
                   setEditingTitle(false);
-                  await updateBook(bookId!, { title: e.target.value });
+                  if (!isBound) { openAlert('提示', '设备未绑定，无法保存'); return; }
+                  const newTitle = e.target.value;
+                  requirePin('修改书名', () => updateBook(bookId!, { title: newTitle }));
                 }}
                 autoFocus
               />
             ) : (
               <h1
                 className="gold-title text-xl font-bold cursor-pointer hover:text-gold-300"
-                onClick={() => !IS_WEB_BUILD && setEditingTitle(true)}
+                onClick={() => !IS_WEB_BUILD && isBound && setEditingTitle(true)}
               >
                 {book.title}
               </h1>
@@ -157,7 +171,11 @@ export default function NovelDetail() {
           {!IS_WEB_BUILD && (
             <div className="flex gap-2">
               <button
-                onClick={() => updateBook(bookId!, { spoilerMode: book.spoilerMode === 'open' ? 'unlock' : 'open' })}
+                onClick={() => {
+                  if (!isBound) { openAlert('提示', '设备未绑定，无法操作'); return; }
+                  const newMode = book.spoilerMode === 'open' ? 'unlock' : 'open';
+                  requirePin('切换剧透模式', () => updateBook(bookId!, { spoilerMode: newMode }));
+                }}
                 className="btn-ghost p-2"
                 title="切换剧透保护模式"
               >
@@ -171,7 +189,10 @@ export default function NovelDetail() {
       {/* 操作栏 */}
       {!IS_WEB_BUILD && (
         <div className="flex gap-2 flex-wrap">
-          <button onClick={handleCreateVolumeClick} className="btn-gold text-sm">
+          <button
+            onClick={() => { if (!isBound) { openAlert('提示', '设备未绑定，无法操作'); return; } handleCreateVolumeClick(); }}
+            className="btn-gold text-sm"
+          >
             <Plus size={14} /> 新建分卷
           </button>
           <button type="button" onClick={handleImportTXT} className="btn-ghost text-sm">
@@ -211,7 +232,7 @@ export default function NovelDetail() {
                         onClick={() => {
                           openPrompt('修改分卷名称', '请输入新的分卷名称：', '分卷名称', vol.title, async (name) => {
                             if (name.trim()) await updateVolume(vol.id, name.trim());
-                          });
+                          }, false, '修改分卷');
                         }}
                         className="p-1 rounded hover:text-gold-400 text-ink-500"
                       >
@@ -221,7 +242,7 @@ export default function NovelDetail() {
                         onClick={() => {
                           openConfirm('删除分卷', `删除分卷「${vol.title}」及其所有章节？此操作不可恢复。`, async () => {
                             await deleteVolume(vol.id);
-                          });
+                          }, '删除分卷');
                         }}
                         className="p-1 rounded hover:text-red-400 text-ink-500"
                       >
@@ -257,7 +278,7 @@ export default function NovelDetail() {
                                   onClick={() => {
                                     openPrompt('修改章节标题', '请输入新的章节标题：', '章节标题', chap.title, async (name) => {
                                       if (name.trim()) await updateChapter(chap.id, { title: name.trim() });
-                                    });
+                                    }, false, '修改章节标题');
                                   }}
                                   className="p-1 rounded hover:text-gold-400 text-ink-500"
                                   title="编辑标题"
@@ -268,7 +289,7 @@ export default function NovelDetail() {
                                   onClick={() => {
                                     openConfirm('删除章节', `删除章节「${chap.title}」？此操作不可恢复。`, async () => {
                                       await deleteChapter(chap.id);
-                                    });
+                                    }, '删除章节');
                                   }}
                                   className="p-1 rounded hover:text-red-400 text-ink-500"
                                   title="删除章节"
@@ -289,8 +310,8 @@ export default function NovelDetail() {
                               if (!title.trim()) return;
                               openPrompt('章节内容', '可以之后在阅读页修改。输入章节内容：', '章节内容', '', async (content) => {
                                 await createChapter(bookId!, vol.id, title.trim(), content, characters);
-                              }, true);
-                            });
+                              }, true, '新建章节');
+                            }, false, '新建章节');
                           }}
                           className="w-full py-1.5 text-xs text-ink-500 hover:text-gold-400 rounded hover:bg-ink-900/30 flex items-center justify-center gap-1"
                         >
@@ -359,6 +380,7 @@ export default function NovelDetail() {
           message={alertState.message}
         />
       )}
+      {PinGuard}
     </div>
   );
 }

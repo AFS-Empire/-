@@ -1,12 +1,15 @@
 /**
- * App 端私有盐值
+ * App 端私有盐值（环境变量隔离版）
  *
- * ⚠️ 此文件仅 App 构建包含，网页构建时被 alias 替换为 appSecret.web.ts
- * 盐值永远不存在于网页前端 JS 产物中
+ * ⚠️ 盐值严禁明文写死在源码内，严禁上传 GitHub。
+ *    本文件仅从构建时环境变量 ARCHIVE_PRIVATE_SALT 读取真实值。
+ *    Vite 在构建时把 import.meta.env.VITE_* / process.env 注入产物。
  *
- * 用途：导出 JSON 时生成签名
- *   sign = SHA256( JSON.stringify(data) + APP_PRIVATE_SALT )
+ * 注入路径：
+ *  - 本地构建：从 .env.local 读取（.env.local 已被 .gitignore 忽略）
+ *  - CI 构建：从 GitHub Actions Secrets 注入环境变量
+ *  - Web 构建：vite alias 替换为 appSecret.web.ts（空字符串），产物无盐值
  *
- * 网页端导入时：用户输入此盐值 → 验签 → 通过才导入
+ * 用途：导出 JSON 时作为 PBKDF2 派生密钥 + HMAC 签名密钥
  */
-export const APP_PRIVATE_SALT = 'AFSEmpire@2026#08zCLMJfL0o8X2eE';
+export const APP_PRIVATE_SALT: string = import.meta.env.VITE_ARCHIVE_SALT ?? '';

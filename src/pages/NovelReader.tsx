@@ -3,12 +3,16 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, List, Settings2, X } from 'lucide-react';
 import { useNovelStore } from '../store/novelStore';
 import { useDataStore } from '../store/dataStore';
+import { useBindingStore } from '../store/bindingStore';
+import { useRequirePin } from '../hooks/useRequirePin';
 import { IS_WEB_BUILD } from '../lib/buildTarget';
 import type { Character } from '../types';
 
 export default function NovelReader() {
   const { bookId, chapterId } = useParams<{ bookId: string; chapterId: string }>();
   const navigate = useNavigate();
+  const isBound = useBindingStore(s => s.isBound);
+  const { requirePin, PinGuard } = useRequirePin();
   const chapters = useNovelStore(s => s.chapters);
   const books = useNovelStore(s => s.books);
   const markChapterRead = useNovelStore(s => s.markChapterRead);
@@ -387,6 +391,7 @@ export default function NovelReader() {
                 <div className="pt-4 border-t border-ink-800/30">
                   <button
                     onClick={() => {
+                      if (!isBound) return;
                       setEditTitle(chapter.title);
                       setEditContent(chapter.content);
                       setShowEditor(true);
@@ -449,13 +454,17 @@ export default function NovelReader() {
                 取消
               </button>
               <button
-                onClick={async () => {
+                onClick={() => {
                   const charList = allEntries.filter(e => e.type === 'character') as Character[];
-                  await updateChapter(chapter.id, {
-                    title: editTitle.trim(),
-                    content: editContent,
-                  }, charList);
-                  setShowEditor(false);
+                  const titleToSave = editTitle.trim();
+                  const contentToSave = editContent;
+                  requirePin('保存章节', async () => {
+                    await updateChapter(chapter.id, {
+                      title: titleToSave,
+                      content: contentToSave,
+                    }, charList);
+                    setShowEditor(false);
+                  });
                 }}
                 className="btn-gold text-sm"
               >
@@ -516,6 +525,7 @@ export default function NovelReader() {
           opacity: 0.7;
         }
       `}</style>
+      {PinGuard}
     </div>
   );
 }
