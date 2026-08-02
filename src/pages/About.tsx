@@ -5,13 +5,12 @@
  * 2. App 版：连续点击标题 6 次触发调试面板（仅 Dev 构建）
  * 3. Web 版：连续点击标题 5 次触发隐藏密码框，解锁后可导入/导出
  */
-import { useState, useRef, useEffect } from 'react';
-import { BookOpen, Shield, Code, AlertTriangle, X, KeyRound, FlaskConical, Lock, CheckCircle2, Smartphone, ArrowRightLeft, Copy, Clock } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { BookOpen, Shield, Code, AlertTriangle, X, KeyRound, FlaskConical, Lock, CheckCircle2, Smartphone, ArrowRightLeft, Copy } from 'lucide-react';
 import { CREATOR, CONTACT, COPYRIGHT } from '../lib/watermark';
 import { IS_WEB_BUILD } from '../lib/buildTarget';
 import { useHiddenUnlock } from '../lib/hiddenUnlock';
 import { generateMigrateCode, verifyMigrateAndRebind } from '../lib/machineBinding';
-import { getCurrentPin } from '../lib/crypto';
 // devTools 在 Release/Web 构建时被 alias 替换为 noop，不会包含真实逻辑
 import {
   unlockDebug, isDebugUnlocked, setBypassPin, setBypassMachineBinding,
@@ -216,30 +215,22 @@ export default function About() {
 /** App 版换机迁移面板 */
 function MigratePanel() {
   const [mode, setMode] = useState<'idle' | 'generate' | 'receive'>('idle');
-  const [pin, setPin] = useState('');
+  const [password, setPassword] = useState('');
   const [migrateCode, setMigrateCode] = useState('');
   const [result, setResult] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [currentPin, setCurrentPin] = useState('');
-
-  // 获取当前 PIN 码提示
-  useEffect(() => {
-    if (mode === 'generate') {
-      void getCurrentPin().then(p => setCurrentPin(p));
-    }
-  }, [mode]);
 
   // 生成迁移码
   const handleGenerate = async () => {
-    if (!pin) return;
+    if (!password) return;
     setLoading(true);
     setError('');
-    const res = await generateMigrateCode(pin);
+    const res = await generateMigrateCode(password);
     setLoading(false);
     if (res.ok && res.code) {
       setMigrateCode(res.code);
-      setResult(`迁移码已生成，10 分钟内有效`);
+      setResult('迁移码已生成');
     } else {
       setError(res.error || '生成失败');
     }
@@ -276,13 +267,13 @@ function MigratePanel() {
         <h2 className="font-semibold tracking-wide">换机迁移</h2>
       </div>
       <p className="text-xs text-ink-400 leading-relaxed">
-        将档案从旧设备迁移到新设备。迁移码 10 分钟有效，绑定新设备后旧设备自动失效。
+        将档案从旧设备迁移到新设备。迁移码一次性使用，绑定新设备后旧设备自动失效。
       </p>
 
       {mode === 'idle' && (
         <div className="grid grid-cols-2 gap-3">
           <button
-            onClick={() => { setMode('generate'); setResult(''); setError(''); setPin(''); setMigrateCode(''); }}
+            onClick={() => { setMode('generate'); setResult(''); setError(''); setPassword(''); setMigrateCode(''); }}
             className="flex flex-col items-center gap-2 p-4 rounded-lg border border-ink-700 hover:border-gold-600 hover:bg-gold-900/10 transition-all"
           >
             <Smartphone size={24} className="text-gold-400" />
@@ -309,24 +300,21 @@ function MigratePanel() {
           {!migrateCode ? (
             <>
               <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-ink-400">当前 PIN 码</span>
-                  <span className="text-gold-400 font-mono text-lg tracking-widest">{currentPin || '----'}</span>
-                </div>
+                <p className="text-xs text-ink-400">输入管理员密码以验证身份</p>
                 <div className="relative">
                   <KeyRound size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-500" />
                   <input
-                    type="text"
-                    value={pin}
-                    onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    type="password"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') void handleGenerate(); }}
-                    placeholder="输入上方 PIN 码"
-                    className="input-field pl-9 font-mono tracking-widest text-center"
+                    placeholder="管理员密码"
+                    className="input-field pl-9"
                     autoFocus
                   />
                 </div>
               </div>
-              <button onClick={handleGenerate} disabled={loading || !pin} className="btn-gold w-full text-sm">
+              <button onClick={handleGenerate} disabled={loading || !password} className="btn-gold w-full text-sm">
                 {loading ? '生成中...' : '生成迁移码'}
               </button>
             </>
@@ -335,10 +323,6 @@ function MigratePanel() {
               <div className="p-4 rounded-lg bg-gold-900/20 border border-gold-700/50">
                 <p className="text-xs text-ink-400 mb-2">迁移码（8位数字）</p>
                 <p className="font-mono text-2xl tracking-[0.3em] text-gold-300">{migrateCode}</p>
-                <div className="flex items-center justify-center gap-1 mt-2 text-[10px] text-ink-500">
-                  <Clock size={10} />
-                  <span>10 分钟内有效</span>
-                </div>
               </div>
               <button onClick={copyCode} className="btn-ghost w-full text-sm flex items-center justify-center gap-2">
                 <Copy size={14} /> 复制迁移码
@@ -348,7 +332,7 @@ function MigratePanel() {
               </p>
             </div>
           )}
-          <button onClick={() => { setMode('idle'); setMigrateCode(''); setPin(''); }} className="text-xs text-ink-500 hover:text-gold-300 w-full">
+          <button onClick={() => { setMode('idle'); setMigrateCode(''); setPassword(''); }} className="text-xs text-ink-500 hover:text-gold-300 w-full">
             ← 返回
           </button>
         </div>

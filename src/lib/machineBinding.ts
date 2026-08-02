@@ -6,24 +6,21 @@
  *   绑定码存 localStorage，后续启动校验
  *
  * 换机迁移原理：
- *   旧手机 → 在「关于」页点「生成迁移码」→ 输入 PIN → 生成一次性迁移认证码
- *   迁移码 = SHA256(旧deviceId + appId + 私有盐 + "MIGRATE" + 时间窗口)
+ *   旧手机 → 在「关于」页点「生成迁移码」→ 输入管理员密码（私有盐）验证
+ *   → 生成一次性迁移认证码 = SHA256(旧绑定码 + "MIGRATE") 取前8位
  *   新手机 → 导入档案数据 + 输入迁移码 → 验证通过 → 绑定到新设备 → 旧绑定码失效
  *
  * 安全性：
  *   - 私有盐仅 App 构建包含，逆向网页 JS 拿不到
+ *   - 迁移码需验证管理员密码（私有盐）才能生成，防他人操作
  *   - 迁移码是一次性的，绑定到新设备后旧码立即失效
- *   - 迁移码 10 分钟过期
- *   - 需要 PIN 码验证才能生成迁移码（防他人操作）
+ *   - 不依赖网络时间，不依赖动态PIN，纯静态校验
  */
 import { APP_PRIVATE_SALT } from './appSecret';
 import { sha256Hex } from './hiddenUnlock';
-import { verifyPin } from './crypto';
 
 const STORAGE_KEY = '__machine_binding__';
-const MIGRATE_CODE_KEY = '__migrate_pending__';
 const APP_ID = 'com.orpheus.archive';
-const MIGRATE_WINDOW_MS = 10 * 60 * 1000; // 迁移码 10 分钟有效
 
 export interface BindingResult {
   bound: boolean;          // 是否已绑定本机
@@ -36,7 +33,6 @@ export interface BindingResult {
 export interface MigrateCodeResult {
   ok: boolean;
   code?: string;           // 8位迁移认证码
-  expiresAt?: number;      // 过期时间戳
   error?: string;
 }
 
@@ -132,18 +128,20 @@ export async function verifyBinding(): Promise<BindingResult> {
  * 生成迁移认证码（旧手机操作）
  *
  * 流程：
- *   1. 验证 PIN 码（防他人操作）
+ *   1. 验证管理员密码（私有盐）— 防他人操作
  *   2. 确认本机已绑定
- *   3. 生成迁移码 = SHA256(旧绑定码 + "MIGRATE" + 时间窗口) 取前8位
- *   4. 迁移码 10 分钟有效
+ *   3. 生成迁移码 = SHA256(旧绑定码 + "MIGRATE") 取前8位
+ *   4. 迁移码一次性使用，不设过期时间（纯静态，不依赖时间）
  *
- * @param pin 用户输入的动态 PIN 码
+ * @param password 用户输入的管理员密码（即私有盐）
  */
-export async function generateMigrateCode(pin: string): Promise<MigrateCodeResult> {
-  // 验证 PIN
-  const { valid, reason } = await verifyPin(pin);
-  if (!valid) {
-    return { ok: false, error: reason || 'PIN 码错误' };
+export async function generateMigrateCode(password: string): Promise<MigrateCodeResult> {
+  // 验证密码（私有盐）
+  if (!APP_PRIVATE_SALT) {
+    return { ok: false, error: '非 App 环境' };
+  }
+  if (password !== APP_PRIVATE_SALT) {
+    return { ok: false, error: '管理员密码错误' };
   }
 
   const stored = localStorage.getItem(STORAGE_KEY);
@@ -151,29 +149,13 @@ export async function generateMigrateCode(pin: string): Promise<MigrateCodeResul
     return { ok: false, error: '本机未绑定，无法迁移' };
   }
 
-  if (!APP_PRIVATE_SALT) {
-    return { ok: false, error: '非 App 环境' };
-  }
-
-  // 生成迁移码：基于旧绑定码 + 时间窗口
-  const now = Date.now();
-  const window = Math.floor(now / MIGRATE_WINDOW_MS);
-  const raw = await sha256Hex(stored + 'MIGRATE' + window);
+  // 生成迁移码：基于旧绑定码（不含时间窗口，纯静态）
+  const raw = await sha256Hex(stored + 'MIGRATE');
   // 取前8位数字，方便输入
   const num = parseInt(raw.slice(0, 8), 16) % 100000000;
   const code = num.toString().padStart(8, '0');
 
-  // 记录待迁移状态
-  localStorage.setItem(MIGRATE_CODE_KEY, JSON.stringify({
-    code: await sha256Hex(code), // 只存 hash，不存明文
-    generatedAt: now,
-  }));
-
-  return {
-    ok: true,
-    code,
-    expiresAt: now + MIGRATE_WINDOW_MS,
-  };
+  return { ok: true, code };
 }
 
 /**
@@ -182,7 +164,7 @@ export async function generateMigrateCode(pin: string): Promise<MigrateCodeResul
  * 流程：
  *   1. 用户在新手机导入档案数据（含旧绑定码的 localStorage）
  *   2. 输入旧手机生成的迁移码
- *   3. 验证迁移码是否匹配旧绑定码 + 时间窗口
+ *   3. 验证迁移码是否匹配旧绑定码
  *   4. 验证通过 → 绑定到新设备 → 旧绑定码失效
  *
  * @param migrateCode 旧手机生成的8位迁移码
@@ -204,32 +186,18 @@ export async function verifyMigrateAndRebind(migrateCode: string): Promise<Bindi
     return { bound: false, deviceId: null, match: false, reason: '未检测到旧设备绑定信息' };
   }
 
-  // 验证迁移码：检查当前时间窗口和上一个窗口
-  const now = Date.now();
-  const windows = [
-    Math.floor(now / MIGRATE_WINDOW_MS),
-    Math.floor(now / MIGRATE_WINDOW_MS) - 1, // 上一个窗口（跨窗口容差）
-  ];
+  // 验证迁移码（纯静态，不含时间窗口）
+  const raw = await sha256Hex(stored + 'MIGRATE');
+  const num = parseInt(raw.slice(0, 8), 16) % 100000000;
+  const expectedCode = num.toString().padStart(8, '0');
 
-  let matched = false;
-  for (const w of windows) {
-    const raw = await sha256Hex(stored + 'MIGRATE' + w);
-    const num = parseInt(raw.slice(0, 8), 16) % 100000000;
-    const expectedCode = num.toString().padStart(8, '0');
-    if (migrateCode === expectedCode) {
-      matched = true;
-      break;
-    }
-  }
-
-  if (!matched) {
-    return { bound: false, deviceId: null, match: false, reason: '迁移码错误或已过期' };
+  if (migrateCode !== expectedCode) {
+    return { bound: false, deviceId: null, match: false, reason: '迁移码错误' };
   }
 
   // 验证通过 → 绑定到新设备
   const newBindingCode = await sha256Hex(newDeviceId + APP_ID + APP_PRIVATE_SALT);
   localStorage.setItem(STORAGE_KEY, newBindingCode);
-  localStorage.removeItem(MIGRATE_CODE_KEY);
 
   return { bound: true, deviceId: newDeviceId, match: true };
 }
@@ -240,5 +208,4 @@ export async function verifyMigrateAndRebind(migrateCode: string): Promise<Bindi
  */
 export function unbindMachine(): void {
   localStorage.removeItem(STORAGE_KEY);
-  localStorage.removeItem(MIGRATE_CODE_KEY);
 }

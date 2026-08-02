@@ -15,7 +15,6 @@ import { useAuthStore } from '../store/authStore';
 import { isMobileApp, isMobileBrowser, mobileShareBackup, mobilePickBackupFile, webShareFile } from '../lib/mobile';
 import { IS_WEB_BUILD } from '../lib/buildTarget';
 import { useHiddenUnlock } from '../lib/hiddenUnlock';
-import PinDialog from './PinDialog';
 
 interface AutoBackupItem {
   name: string;
@@ -60,12 +59,6 @@ export default function BackupBar() {
   const [autoBackups, setAutoBackups] = useState<AutoBackupItem[]>([]);
   const [showHistory, setShowHistory] = useState(false);
 
-  // PIN 二次校验：备份/恢复前必须通过（App 版专用）
-  // 待执行的操作（PIN 通过后执行）
-  const [pinOpen, setPinOpen] = useState(false);
-  const [pinTitle, setPinTitle] = useState('');
-  const pendingAction = useRef<(() => void) | null>(null);
-
   // 浏览器下载兜底：显示可手动点击的下载链接
   const [downloadLink, setDownloadLink] = useState<{ url: string; name: string } | null>(null);
 
@@ -81,10 +74,10 @@ export default function BackupBar() {
 
   /**
    * 操作授权 + 执行
-   * - Web 版：检查隐藏解锁状态，已解锁直接执行 action（不要求 PIN）
-   * - App 版：检查管理员身份，再走 PIN 二次校验
+   * - Web 版：检查隐藏解锁状态，已解锁直接执行
+   * - App 版：检查管理员身份，已绑定机器码 + 管理员登录即可执行（不再需要动态PIN）
    */
-  const requirePin = (title: string, action: () => void) => {
+  const requireAuth = (action: () => void) => {
     if (IS_WEB_BUILD) {
       if (!isUnlocked) {
         showToast('err', '请先在「关于」页面解锁数据同步');
@@ -97,9 +90,7 @@ export default function BackupBar() {
       showToast('err', '仅管理员可执行此操作');
       return;
     }
-    setPinTitle(title);
-    pendingAction.current = action;
-    setPinOpen(true);
+    action();
   };
 
   const isDesktop = Boolean(window.archiveApp);
@@ -133,7 +124,7 @@ export default function BackupBar() {
   /** 备份：导出整个 IndexedDB 全部内容到文件（需 PIN 校验） */
   const handleBackup = () => {
     if (busy) return;
-    requirePin('导出档案', doBackup);
+    requireAuth(doBackup);
   };
 
   /** 桌面浏览器下载：Blob + a 标签 + 手动链接兜底 */
@@ -211,7 +202,7 @@ export default function BackupBar() {
   const handleRestoreBrowser = (file: File | null) => {
     if (!file || busy) return;
     requestAnimationFrame(() => {
-      requirePin('导入档案', async () => {
+      requireAuth(async () => {
         setBusy(true);
         try {
           const json = await file.text();
@@ -572,19 +563,6 @@ export default function BackupBar() {
           </button>
         </div>
       )}
-
-      {/* PIN 二次校验弹窗 */}
-      <PinDialog
-        open={pinOpen}
-        title={pinTitle}
-        onClose={() => { setPinOpen(false); pendingAction.current = null; }}
-        onSuccess={() => {
-          setPinOpen(false);
-          const action = pendingAction.current;
-          pendingAction.current = null;
-          if (action) action();
-        }}
-      />
 
       {/* 网页端验签失败警告卡片 */}
       {showReject && (
