@@ -10,7 +10,9 @@ import { useRipple } from './hooks/useRipple';
 import Layout from './components/Layout';
 import { FullScreenLoader } from './components/Skeleton';
 import { IS_WEB_BUILD } from './lib/buildTarget';
-import { verifyBinding, type BindingResult } from './lib/machineBinding';
+import { platform } from './platform';
+
+type BindingResult = Awaited<ReturnType<typeof platform.verifyBinding>>;
 
 // 路由懒加载：首屏只加载必要代码，其余按需加载
 // 把 importer 抽出来复用：lazy() 用一次，首屏后预加载再用一次（Vite 会去重，已加载的立即 resolve）
@@ -107,7 +109,7 @@ export default function App() {
     (async () => {
       // App 端：机器码绑定校验（网页端跳过）
       if (!IS_WEB_BUILD) {
-        const result = await verifyBinding();
+        const result = await platform.verifyBinding();
         setBindingResult(result);
         if (!result.match && result.bound) {
           // 设备不匹配，不继续加载

@@ -5,7 +5,7 @@ import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
 import { genId } from '../data/db';
 import { AlertDialog } from '../components/Dialog';
-import { pickImage, pickImages } from '../lib/filePicker';
+import { platform } from '../platform';
 import type { AnyEntry, GeoLevel, LinkRef, TechCategory } from '../types';
 
 interface FormState {
@@ -196,14 +196,14 @@ export default function EntryEditor() {
   };
 
   const handleCoverUpload = async () => {
-    const result = await pickImage();
+    const result = await platform.pickImage();
     if (result) {
       setCoverImage(result.dataUrl);
     }
   };
 
   const handleImagesUpload = async () => {
-    const results = await pickImages();
+    const results = await platform.pickImages();
     if (results.length > 0) {
       setImages(prev => [...prev, ...results.map(r => r.dataUrl)]);
     }

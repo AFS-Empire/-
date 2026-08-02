@@ -12,10 +12,9 @@ import { exportAll, importAll } from '../data/db';
 import { useDataStore } from '../store/dataStore';
 import { useCommentStore } from '../store/commentStore';
 import { useAuthStore } from '../store/authStore';
-import { isMobileApp, isMobileBrowser, mobileShareBackup, webShareFile } from '../lib/mobile';
 import { IS_WEB_BUILD } from '../lib/buildTarget';
 import { useHiddenUnlock } from '../lib/hiddenUnlock';
-import { pickTextFile, saveFile } from '../lib/filePicker';
+import { platform } from '../platform';
 import { ConfirmDialog } from './Dialog';
 
 interface AutoBackupItem {
@@ -99,7 +98,7 @@ export default function BackupBar() {
   };
 
   const isDesktop = Boolean(window.archiveApp);
-  const isMobile = isMobileApp();
+  const isMobile = platform.isApp();
 
   const showToast = useCallback((type: 'ok' | 'err', msg: string) => {
     setToast({ type, msg });
@@ -156,16 +155,20 @@ export default function BackupBar() {
         }
       } else if (isMobile) {
         // 移动 App：写入 Cache + 系统分享面板（发微信文件传输助手/QQ/网盘）
-        const r = await mobileShareBackup(json, `${defaultName}.json`);
-        if (!r.ok) showToast('err', r.error || '分享失败');
-        else showToast('ok', '已通过系统分享发出');
-      } else if (isMobileBrowser() && typeof navigator.share === 'function') {
+        try {
+          await platform.saveFile(`${defaultName}.json`, json, 'application/json');
+          showToast('ok', '已通过系统分享发出');
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          showToast('err', msg || '分享失败');
+        }
+      } else if (!platform.isApp() && /Android|iPhone|iPad|iPod|Mobile|Windows Phone/i.test(navigator.userAgent || '') && typeof navigator.share === 'function') {
         // 手机浏览器：优先用 Web Share API（系统分享面板，比 a.click() 下载可靠）
         const blob = new Blob([json], { type: 'application/json' });
-        const r = await webShareFile(blob, `${defaultName}.json`);
+        const r = await platform.shareFile(blob, `${defaultName}.json`);
         if (!r.ok) {
           // 不支持文件分享，回退到 saveFile 下载
-          await saveFile(`${defaultName}.json`, json, 'application/json');
+          await platform.saveFile(`${defaultName}.json`, json, 'application/json');
         } else if (r.shared) {
           showToast('ok', '已通过系统分享发出');
         } else {
@@ -173,7 +176,7 @@ export default function BackupBar() {
         }
       } else {
         // 桌面浏览器：用 saveFile 下载
-        await saveFile(`${defaultName}.json`, json, 'application/json');
+        await platform.saveFile(`${defaultName}.json`, json, 'application/json');
         showToast('ok', '已生成下载文件');
       }
     } catch (e) {
@@ -191,7 +194,7 @@ export default function BackupBar() {
       requireAuth(async () => {
         setBusy(true);
         try {
-          const result = await pickTextFile();
+          const result = await platform.pickTextFile();
           if (!result) { setBusy(false); return; }
           const json = result.content;
           const fileData = JSON.parse(json);
@@ -252,7 +255,7 @@ export default function BackupBar() {
     requirePin('导入档案', async () => {
       setBusy(true);
       try {
-        const r = await pickTextFile();
+        const r = await platform.pickTextFile();
         if (!r) { setBusy(false); return; }
         await importAll(r.content);
         await Promise.all([refresh(), refreshComments()]);

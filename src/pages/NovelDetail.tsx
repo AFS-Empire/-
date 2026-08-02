@@ -4,7 +4,7 @@ import { ChevronRight, ChevronDown, Plus, Trash2, Edit3, FileText, Eye, EyeOff, 
 import { useNovelStore } from '../store/novelStore';
 import { useDataStore } from '../store/dataStore';
 import { IS_WEB_BUILD } from '../lib/buildTarget';
-import { pickTextFile } from '../lib/filePicker';
+import { platform } from '../platform';
 import { ConfirmDialog, PromptDialog, AlertDialog } from '../components/Dialog';
 
 export default function NovelDetail() {
@@ -95,7 +95,7 @@ export default function NovelDetail() {
       openAlert('提示', '请先创建至少一个分卷，然后再导入章节');
       return;
     }
-    const result = await pickTextFile('.txt');
+    const result = await platform.pickTextFile();
     if (!result) return;
     const targetVolumeId = bookVolumes[0].id;
     const text = result.content;

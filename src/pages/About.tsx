@@ -10,12 +10,14 @@ import { BookOpen, Shield, Code, AlertTriangle, X, KeyRound, FlaskConical, Lock,
 import { CREATOR, CONTACT, COPYRIGHT } from '../lib/watermark';
 import { IS_WEB_BUILD } from '../lib/buildTarget';
 import { useHiddenUnlock } from '../lib/hiddenUnlock';
-import { generateMigrateCode, verifyMigrateAndRebind, verifyBinding, type BindingResult } from '../lib/machineBinding';
+import { platform } from '../platform';
 // devTools 在 Release/Web 构建时被 alias 替换为 noop，不会包含真实逻辑
 import {
   unlockDebug, isDebugUnlocked, setBypassPin, setBypassMachineBinding,
   isPinBypassed, isMachineBindingBypassed, resetDebug,
 } from '../debug/devTools';
+
+type BindingResult = Awaited<ReturnType<typeof platform.verifyBinding>>;
 
 // App 版调试面板：6 次点击
 const DEBUG_TRIGGER_COUNT = 6;
@@ -46,7 +48,7 @@ export default function About() {
 
   useEffect(() => {
     if (!IS_WEB_BUILD) {
-      verifyBinding().then(result => {
+      platform.verifyBinding().then(result => {
         setBinding(result);
         setBindingLoading(false);
       }).catch(() => {
@@ -287,7 +289,7 @@ function MigratePanel() {
     if (!password) return;
     setLoading(true);
     setError('');
-    const res = await generateMigrateCode(password);
+    const res = await platform.generateMigrateCode(password);
     setLoading(false);
     if (res.ok && res.code) {
       setMigrateCode(res.code);
@@ -302,7 +304,7 @@ function MigratePanel() {
     if (!migrateCode) return;
     setLoading(true);
     setError('');
-    const res = await verifyMigrateAndRebind(migrateCode);
+    const res = await platform.verifyMigrateAndRebind(migrateCode);
     setLoading(false);
     if (res.match) {
       setResult('迁移成功！本设备已绑定，旧设备绑定已失效。');
