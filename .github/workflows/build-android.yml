@@ -41,13 +41,14 @@ jobs:
           ARCHIVE_RELEASE: '1'
           VITE_ARCHIVE_SALT: ${{ secrets.ARCHIVE_PRIVATE_SALT }}
           ARCHIVE_PRIVATE_SALT: ${{ secrets.ARCHIVE_PRIVATE_SALT }}
+          VITE_INSTALL_KEY_A: ${{ secrets.INSTALL_KEY_A }}
 
       - name: 缓存 Android 工程
         id: cache-android
         uses: actions/cache@v4
         with:
           path: android
-          key: android-project-v6-${{ hashFiles('capacitor.config.json') }}
+          key: android-project-v7-${{ hashFiles('capacitor.config.json') }}
 
       - name: 首次生成 Android 工程
         if: steps.cache-android.outputs.cache-hit != 'true'
@@ -94,6 +95,30 @@ jobs:
           mkdir -p "$RES_DIR/drawable"
           convert "$SRC" -resize 432x432 -gravity center -extent 432x432 "$RES_DIR/drawable/ic_launcher_foreground.png"
           echo "✅ drawable/ic_launcher_foreground.png 生成"
+
+          # 自适应图标 XML（Android 8+ 必须有，否则用默认 Capacitor 图标）
+          echo ""
+          echo "=== 创建自适应图标配置 ==="
+          mkdir -p "$RES_DIR/mipmap-anydpi-v26"
+          cat > "$RES_DIR/mipmap-anydpi-v26/ic_launcher.xml" << 'XMLEOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@color/ic_launcher_background"/>
+              <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+          </adaptive-icon>
+          XMLEOF
+          cp "$RES_DIR/mipmap-anydpi-v26/ic_launcher.xml" "$RES_DIR/mipmap-anydpi-v26/ic_launcher_round.xml"
+          echo "✅ mipmap-anydpi-v26/ic_launcher.xml 创建"
+
+          # 背景色（深黑金主题）
+          mkdir -p "$RES_DIR/values"
+          cat > "$RES_DIR/values/ic_launcher_background.xml" << 'XMLEOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <color name="ic_launcher_background">#0d0d0f</color>
+          </resources>
+          XMLEOF
+          echo "✅ ic_launcher_background.xml 创建（#0d0d0f）"
 
           echo ""
           echo "=== 验证图标文件 ==="
@@ -239,35 +264,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # ========== JOB 3: 部署到 Netlify（尽力而为，不阻断） ==========
-  deploy-netlify:
-    name: 部署到 Netlify
-    needs: build-apk
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    steps:
-      - name: 下载 dist 目录
-        uses: actions/download-artifact@v4
-        with:
-          name: dist-output
-          path: dist
-
-      - name: 部署到 Netlify
-        env:
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-        run: |
-          if [ -z "${NETLIFY_SITE_ID}" ] || [ -z "${NETLIFY_AUTH_TOKEN}" ]; then
-            echo "未配置 Netlify secrets，跳过部署"
-            exit 0
-          fi
-          echo "部署目录内容："
-          ls -la dist/
-          echo ""
-          echo "APK 目录内容："
-          ls -la dist/apk/
-          npm install -g netlify-cli
-          netlify deploy --dir=dist --site="${NETLIFY_SITE_ID}" --auth="${NETLIFY_AUTH_TOKEN}" --prod
-          echo "Netlify 部署成功"
-          echo "APK 下载地址: https://afs-jzy-archive.netlify.app/apk/orpheus-archive.apk"
-          echo "下载页面: https://afs-jzy-archive.netlify.app/apk/"
+  # ========== JOB 3: 已移除 Netlify 部署（停止 APK 分发） ==========

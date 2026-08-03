@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { AnyEntry, Era, CustomSection } from '../types';
 import * as db from '../data/db';
+import { needVerify } from '../lib/operationKeyGuard';
 
 interface DataState {
   entries: AnyEntry[];
@@ -8,12 +9,12 @@ interface DataState {
   customSections: CustomSection[];
   loaded: boolean;
   refresh: () => Promise<void>;
-  saveEntry: (entry: AnyEntry) => Promise<void>;
-  deleteEntry: (id: string) => Promise<void>;
-  saveEra: (era: Era) => Promise<void>;
-  deleteEra: (id: string) => Promise<void>;
-  saveCustomSection: (s: CustomSection) => Promise<void>;
-  deleteCustomSection: (id: string) => Promise<void>;
+  saveEntry: (entry: AnyEntry) => Promise<boolean>;
+  deleteEntry: (id: string) => Promise<boolean>;
+  saveEra: (era: Era) => Promise<boolean>;
+  deleteEra: (id: string) => Promise<boolean>;
+  saveCustomSection: (s: CustomSection) => Promise<boolean>;
+  deleteCustomSection: (id: string) => Promise<boolean>;
   getById: (id: string) => AnyEntry | undefined;
   getByType: (type: string) => AnyEntry[];
 }
@@ -34,39 +35,75 @@ export const useDataStore = create<DataState>((set, get) => ({
   },
 
   saveEntry: async (entry) => {
-    await db.saveEntry(entry);
-    db.scheduleBackup();
-    await get().refresh();
+    // 密钥B验证：未验证则拦截操作
+    const ok = needVerify(() => {
+      void (async () => {
+        await db.saveEntry(entry);
+        db.scheduleBackup();
+        await get().refresh();
+      })();
+    });
+    return ok;
   },
 
   deleteEntry: async (id) => {
-    await db.deleteEntry(id);
-    db.scheduleBackup();
-    await get().refresh();
+    // 密钥B验证：未验证则拦截操作
+    const ok = needVerify(() => {
+      void (async () => {
+        await db.deleteEntry(id);
+        db.scheduleBackup();
+        await get().refresh();
+      })();
+    });
+    return ok;
   },
 
   saveEra: async (era) => {
-    await db.saveEra(era);
-    db.scheduleBackup();
-    await get().refresh();
+    // 密钥B验证：未验证则拦截操作
+    const ok = needVerify(() => {
+      void (async () => {
+        await db.saveEra(era);
+        db.scheduleBackup();
+        await get().refresh();
+      })();
+    });
+    return ok;
   },
 
   deleteEra: async (id) => {
-    await db.deleteEra(id);
-    db.scheduleBackup();
-    await get().refresh();
+    // 密钥B验证：未验证则拦截操作
+    const ok = needVerify(() => {
+      void (async () => {
+        await db.deleteEra(id);
+        db.scheduleBackup();
+        await get().refresh();
+      })();
+    });
+    return ok;
   },
 
   saveCustomSection: async (s) => {
-    await db.saveCustomSection(s);
-    db.scheduleBackup();
-    await get().refresh();
+    // 密钥B验证：未验证则拦截操作
+    const ok = needVerify(() => {
+      void (async () => {
+        await db.saveCustomSection(s);
+        db.scheduleBackup();
+        await get().refresh();
+      })();
+    });
+    return ok;
   },
 
   deleteCustomSection: async (id) => {
-    await db.deleteCustomSection(id);
-    db.scheduleBackup();
-    await get().refresh();
+    // 密钥B验证：未验证则拦截操作
+    const ok = needVerify(() => {
+      void (async () => {
+        await db.deleteCustomSection(id);
+        db.scheduleBackup();
+        await get().refresh();
+      })();
+    });
+    return ok;
   },
 
   getById: (id) => get().entries.find(e => e.id === id),

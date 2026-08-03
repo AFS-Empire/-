@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { useEffect, useRef, Suspense, lazy } from 'react';
+import { useEffect, useRef, Suspense, useState, lazy } from 'react';
 import { useAuthStore } from './store/authStore';
 import { useDataStore } from './store/dataStore';
 import { useCommentStore } from './store/commentStore';
@@ -10,7 +10,16 @@ import { exportAll, restoreFromBackupIfNeeded } from './data/db';
 import { useRipple } from './hooks/useRipple';
 import Layout from './components/Layout';
 import { FullScreenLoader } from './components/Skeleton';
+import InstallGate from './components/InstallGate';
+import OperationKeyDialog from './components/OperationKeyDialog';
 import { IS_WEB_BUILD } from './lib/buildTarget';
+import { isInstallVerified } from './lib/installKey';
+import {
+  subscribeOperationKeyListener,
+  executePendingActions,
+  cancelPendingActions,
+} from './lib/operationKeyGuard';
+import { verifyOperationKey } from './lib/operationKey';
 
 // 路由懒加载：首屏只加载必要代码，其余按需加载
 // 把 importer 抽出来复用：lazy() 用一次，首屏后预加载再用一次（Vite 会去重，已加载的立即 resolve）
@@ -96,6 +105,24 @@ export default function App() {
   const bindingResult = useBindingStore(s => s.result);
   const refreshBinding = useBindingStore(s => s.refresh);
 
+  // 密钥A：首次安装验证状态（仅 App 端）
+  const [installVerified, setInstallVerified] = useState(() => {
+    if (IS_WEB_BUILD) return true; // Web 版跳过
+    return isInstallVerified();
+  });
+
+  // 密钥B：操作验证对话框状态
+  const [showOperationDialog, setShowOperationDialog] = useState(false);
+
+  // 监听密钥B验证事件（仅 App 端）
+  useEffect(() => {
+    if (IS_WEB_BUILD) return;
+    const unsubscribe = subscribeOperationKeyListener((show) => {
+      setShowOperationDialog(show);
+    });
+    return unsubscribe;
+  }, []);
+
   // 启用按钮金粉涟漪（全局事件委托，挂载一次）
   useRipple();
 
@@ -161,6 +188,15 @@ export default function App() {
   // 动画 key 绑定到 pathname，保证每次切换都重放过渡（放在 div 上而非 Suspense）
   const pageKey = location.pathname;
 
+  // 密钥A：首次安装验证（仅 App 端）
+  if (!IS_WEB_BUILD && !installVerified) {
+    return (
+      <InstallGate
+        onVerified={() => setInstallVerified(true)}
+      />
+    );
+  }
+
   if (!loaded) {
     // App 端设备绑定校验失败 → 锁定界面
     if (bindingResult && bindingResult.bound && !bindingResult.match) {
@@ -190,32 +226,47 @@ export default function App() {
   }
 
   return (
-    <Suspense fallback={routeFallback(location.pathname)}>
-      <div key={pageKey} className="page-enter">
-        <Routes location={location}>
-          <Route path="/" element={<Layout />}>
-            <Route index element={<Home />} />
-            <Route path="login" element={<Login />} />
-            <Route path="timeline" element={<PrivateRoute><Timeline /></PrivateRoute>} />
-            <Route path="character" element={<PrivateRoute><Character /></PrivateRoute>} />
-            <Route path="geography" element={<PrivateRoute><Geography /></PrivateRoute>} />
-            <Route path="tech" element={<PrivateRoute><Tech /></PrivateRoute>} />
-            <Route path="milestone" element={<PrivateRoute><Milestone /></PrivateRoute>} />
-            <Route path="custom" element={<PrivateRoute><Custom /></PrivateRoute>} />
-            <Route path="entry/:id" element={<PrivateRoute><EntryDetail /></PrivateRoute>} />
-            <Route path="editor/:type" element={<AdminRoute><EntryEditor /></AdminRoute>} />
-            <Route path="editor/:type/:id" element={<AdminRoute><EntryEditor /></AdminRoute>} />
-            <Route path="index" element={<PrivateRoute><AllIndex /></PrivateRoute>} />
-            <Route path="comments" element={<PrivateRoute><CommentOverview /></PrivateRoute>} />
-            <Route path="comments/:targetCode" element={<PrivateRoute><CommentSection /></PrivateRoute>} />
-            <Route path="about" element={<PrivateRoute><About /></PrivateRoute>} />
-            <Route path="novel" element={<PrivateRoute><NovelShelf /></PrivateRoute>} />
-            <Route path="novel/:bookId" element={<PrivateRoute><NovelDetail /></PrivateRoute>} />
-            <Route path="novel/:bookId/chapter/:chapterId" element={<PrivateRoute><NovelReader /></PrivateRoute>} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Route>
-        </Routes>
-      </div>
-    </Suspense>
+    <>
+      <Suspense fallback={routeFallback(location.pathname)}>
+        <div key={pageKey} className="page-enter">
+          <Routes location={location}>
+            <Route path="/" element={<Layout />}>
+              <Route index element={<Home />} />
+              <Route path="login" element={<Login />} />
+              <Route path="timeline" element={<PrivateRoute><Timeline /></PrivateRoute>} />
+              <Route path="character" element={<PrivateRoute><Character /></PrivateRoute>} />
+              <Route path="geography" element={<PrivateRoute><Geography /></PrivateRoute>} />
+              <Route path="tech" element={<PrivateRoute><Tech /></PrivateRoute>} />
+              <Route path="milestone" element={<PrivateRoute><Milestone /></PrivateRoute>} />
+              <Route path="custom" element={<PrivateRoute><Custom /></PrivateRoute>} />
+              <Route path="entry/:id" element={<PrivateRoute><EntryDetail /></PrivateRoute>} />
+              <Route path="editor/:type" element={<AdminRoute><EntryEditor /></AdminRoute>} />
+              <Route path="editor/:type/:id" element={<AdminRoute><EntryEditor /></AdminRoute>} />
+              <Route path="index" element={<PrivateRoute><AllIndex /></PrivateRoute>} />
+              <Route path="comments" element={<PrivateRoute><CommentOverview /></PrivateRoute>} />
+              <Route path="comments/:targetCode" element={<PrivateRoute><CommentSection /></PrivateRoute>} />
+              <Route path="about" element={<PrivateRoute><About /></PrivateRoute>} />
+              <Route path="novel" element={<PrivateRoute><NovelShelf /></PrivateRoute>} />
+              <Route path="novel/:bookId" element={<PrivateRoute><NovelDetail /></PrivateRoute>} />
+              <Route path="novel/:bookId/chapter/:chapterId" element={<PrivateRoute><NovelReader /></PrivateRoute>} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Route>
+          </Routes>
+        </div>
+      </Suspense>
+
+      {/* 密钥B：操作验证对话框（全局，不受路由影响） */}
+      {!IS_WEB_BUILD && (
+        <OperationKeyDialog
+          show={showOperationDialog}
+          onVerified={() => {
+            executePendingActions();
+          }}
+          onCancel={() => {
+            cancelPendingActions();
+          }}
+        />
+      )}
+    </>
   );
 }
