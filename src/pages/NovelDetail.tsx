@@ -234,9 +234,10 @@ export default function NovelDetail() {
                             if (name.trim()) await updateVolume(vol.id, name.trim());
                           }, false, '修改分卷');
                         }}
-                        className="p-1 rounded hover:text-gold-400 text-ink-500"
+                        className="p-1.5 rounded hover:text-gold-400 text-ink-500"
+                        aria-label="修改分卷名称"
                       >
-                        <Edit3 size={13} />
+                        <Edit3 size={14} />
                       </button>
                       <button
                         onClick={() => {
@@ -244,9 +245,10 @@ export default function NovelDetail() {
                             await deleteVolume(vol.id);
                           }, '删除分卷');
                         }}
-                        className="p-1 rounded hover:text-red-400 text-ink-500"
+                        className="p-1.5 rounded hover:text-red-400 text-ink-500"
+                        aria-label="删除分卷"
                       >
-                        <Trash2 size={13} />
+                        <Trash2 size={14} />
                       </button>
                     </div>
                   )}
@@ -280,10 +282,11 @@ export default function NovelDetail() {
                                       if (name.trim()) await updateChapter(chap.id, { title: name.trim() });
                                     }, false, '修改章节标题');
                                   }}
-                                  className="p-1 rounded hover:text-gold-400 text-ink-500"
+                                  className="p-1.5 rounded hover:text-gold-400 text-ink-500"
                                   title="编辑标题"
+                                  aria-label="编辑章节标题"
                                 >
-                                  <Edit3 size={12} />
+                                  <Edit3 size={13} />
                                 </button>
                                 <button
                                   onClick={() => {
@@ -291,8 +294,9 @@ export default function NovelDetail() {
                                       await deleteChapter(chap.id);
                                     }, '删除章节');
                                   }}
-                                  className="p-1 rounded hover:text-red-400 text-ink-500"
+                                  className="p-1.5 rounded hover:text-red-400 text-ink-500"
                                   title="删除章节"
+                                  aria-label="删除章节"
                                 >
                                   <Trash2 size={12} />
                                 </button>

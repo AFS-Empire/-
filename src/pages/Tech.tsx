@@ -4,16 +4,9 @@ import { Plus, Pencil, Trash2, Cog } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
 import { ConfirmDialog } from '../components/Dialog';
+import { EmptyState } from '../components/Common';
 import type { TechEntry, TechCategory } from '../types';
-
-const CATEGORY_LABEL: Record<TechCategory, string> = {
-  weapon: '武器',
-  mecha: '机甲',
-  facility: '设施',
-  system: '制度',
-  creature: '生物',
-  other: '其他',
-};
+import { CATEGORY_LABEL } from '../constants/labels';
 
 export default function Tech() {
   const navigate = useNavigate();
@@ -70,7 +63,7 @@ export default function Tech() {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="panel p-12 text-center text-ink-500">暂无内容</div>
+        <EmptyState />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map(t => (
@@ -87,9 +80,9 @@ export default function Tech() {
                 </div>
               </button>
               {isAdmin && (
-                <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button className="btn-ghost" onClick={() => navigate(`/editor/tech/${t.id}`)}><Pencil className="w-4 h-4" /></button>
-                  <button className="btn-ghost text-red-400" onClick={() => handleDelete(t.id)}><Trash2 className="w-4 h-4" /></button>
+                <div className="absolute top-2 right-2 flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                  <button className="btn-ghost" aria-label="编辑" onClick={() => navigate(`/editor/tech/${t.id}`)}><Pencil className="w-4 h-4" /></button>
+                  <button className="btn-ghost text-red-400" aria-label="删除" onClick={() => handleDelete(t.id)}><Trash2 className="w-4 h-4" /></button>
                 </div>
               )}
             </div>

@@ -13,28 +13,7 @@ import type {
   TechEntry,
   TimelineEvent,
 } from '../types';
-
-const LEVEL_LABEL: Record<Geography['level'], string> = {
-  galaxy: '星系',
-  planet: '星球',
-  city: '城市',
-  area: '区域',
-};
-
-const CATEGORY_LABEL: Record<TechEntry['category'], string> = {
-  weapon: '武器',
-  mecha: '机甲',
-  facility: '设施',
-  system: '制度',
-  creature: '生物',
-  other: '其他',
-};
-
-const IMPORTANCE_LABEL: Record<Milestone['importance'], string> = {
-  low: '低',
-  medium: '中',
-  high: '高',
-};
+import { LEVEL_LABEL, CATEGORY_LABEL, IMPORTANCE_LABEL } from '../constants/labels';
 
 function Field({ label, value }: { label: string; value: string }) {
   return (

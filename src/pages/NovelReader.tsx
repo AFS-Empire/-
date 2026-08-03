@@ -60,23 +60,19 @@ export default function NovelReader() {
   const mentionIndices = useMemo(() => {
     if (!chapter || !showMentions) return new Map<number, Array<{ name: string; charId: string }>>();
     const map = new Map<number, Array<{ name: string; charId: string }>>();
+    const processed = new Set<string>(); // 记录已处理角色，避免突变源数据
 
-    // 把 mentions 的 firstOffset 转换为段落级位置
-    let globalOffset = 0;
     for (let pi = 0; pi < paragraphs.length; pi++) {
       const para = paragraphs[pi];
       for (const m of chapter.mentions) {
-        // 检查此角色名是否在本段首次出现
-        // 简化处理：直接在本段查找
+        if (processed.has(m.charId)) continue;
         const idx = para.indexOf(m.name);
         if (idx >= 0) {
           if (!map.has(pi)) map.set(pi, []);
           map.get(pi)!.push({ name: m.name, charId: m.charId });
-          // 标记已处理，后续段落不再高亮此角色
-          m.firstOffset = -1;
+          processed.add(m.charId);
         }
       }
-      globalOffset += para.length + 2;
     }
     return map;
   }, [chapter, paragraphs, showMentions]);
@@ -259,36 +255,40 @@ export default function NovelReader() {
 
       {/* 底部导航栏 */}
       <div className={`sticky bottom-0 z-20 border-t ${theme === 'light' ? 'bg-stone-50 border-stone-200' : 'bg-ink-950/95 border-gold-900/20'}`}>
-        <div className="flex items-center justify-center gap-8 h-12">
+        <div className="flex items-center justify-center gap-8 h-14">
           <button
             onClick={() => prevChapter && navigate(`/novel/${bookId}/chapter/${prevChapter.id}`)}
             disabled={!prevChapter}
             className="flex flex-col items-center disabled:opacity-30"
+            aria-label="上一章"
           >
             <ChevronLeft size={20} />
-            <span className="text-[10px] mt-0.5">上一章</span>
+            <span className="text-xs mt-0.5">上一章</span>
           </button>
           <button
             onClick={() => setShowToc(true)}
             className="flex flex-col items-center"
+            aria-label="目录"
           >
             <List size={20} />
-            <span className="text-[10px] mt-0.5">目录</span>
+            <span className="text-xs mt-0.5">目录</span>
           </button>
           <button
             onClick={() => setShowSettings(true)}
             className="flex flex-col items-center"
+            aria-label="设置"
           >
             <Settings2 size={20} />
-            <span className="text-[10px] mt-0.5">设置</span>
+            <span className="text-xs mt-0.5">设置</span>
           </button>
           <button
             onClick={() => nextChapter && navigate(`/novel/${bookId}/chapter/${nextChapter.id}`)}
             disabled={!nextChapter}
             className="flex flex-col items-center disabled:opacity-30"
+            aria-label="下一章"
           >
             <ChevronRight size={20} />
-            <span className="text-[10px] mt-0.5">下一章</span>
+            <span className="text-xs mt-0.5">下一章</span>
           </button>
         </div>
       </div>
@@ -509,22 +509,6 @@ export default function NovelReader() {
         </div>
       )}
 
-      {/* 样式注入 */}
-      <style>{`
-        .novel-para {
-          text-indent: 2em;
-          margin-bottom: 1em;
-        }
-        .mention-highlight {
-          border-bottom: 1px dashed currentColor;
-          cursor: pointer;
-          color: #d4a855;
-          transition: opacity 0.2s;
-        }
-        .mention-highlight:hover {
-          opacity: 0.7;
-        }
-      `}</style>
       {PinGuard}
     </div>
   );

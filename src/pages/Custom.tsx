@@ -7,6 +7,7 @@ import { useBindingStore } from '../store/bindingStore';
 import { useRequirePin } from '../hooks/useRequirePin';
 import { genId } from '../data/db';
 import { ConfirmDialog, AlertDialog } from '../components/Dialog';
+import { EmptyState } from '../components/Common';
 import type { CustomEntry, CustomSection } from '../types';
 
 export default function Custom() {
@@ -109,7 +110,7 @@ export default function Custom() {
         <div className="gold-divider" />
 
         {sectionEntries.length === 0 ? (
-          <div className="panel p-12 text-center text-ink-500">暂无内容</div>
+          <EmptyState />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {sectionEntries.map(e => (
@@ -119,9 +120,9 @@ export default function Custom() {
                   {e.summary && <p className="text-sm text-ink-400 mt-1 line-clamp-2">{e.summary}</p>}
                 </button>
                 {isAdmin && (
-                  <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button className="btn-ghost" onClick={() => navigate(`/editor/custom/${e.id}`)}><Pencil className="w-4 h-4" /></button>
-                    <button className="btn-ghost text-red-400" onClick={() => handleDeleteEntry(e.id)}><Trash2 className="w-4 h-4" /></button>
+                  <div className="absolute top-2 right-2 flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                    <button className="btn-ghost" aria-label="编辑" onClick={() => navigate(`/editor/custom/${e.id}`)}><Pencil className="w-4 h-4" /></button>
+                    <button className="btn-ghost text-red-400" aria-label="删除" onClick={() => handleDeleteEntry(e.id)}><Trash2 className="w-4 h-4" /></button>
                   </div>
                 )}
               </div>
@@ -213,9 +214,9 @@ export default function Custom() {
                 {s.description && <p className="text-sm text-ink-400 mt-2 line-clamp-2">{s.description}</p>}
               </button>
               {isAdmin && (
-                <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button className="btn-ghost" onClick={() => setEditing({ ...s })}><Pencil className="w-4 h-4" /></button>
-                  <button className="btn-ghost text-red-400" onClick={() => handleDeleteSection(s.id)}><Trash2 className="w-4 h-4" /></button>
+                <div className="absolute top-2 right-2 flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                  <button className="btn-ghost" aria-label="编辑" onClick={() => setEditing({ ...s })}><Pencil className="w-4 h-4" /></button>
+                  <button className="btn-ghost text-red-400" aria-label="删除" onClick={() => handleDeleteSection(s.id)}><Trash2 className="w-4 h-4" /></button>
                 </div>
               )}
             </div>

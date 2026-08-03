@@ -190,8 +190,7 @@ export default function Layout() {
               <img
                 src="/logo.jpg"
                 alt="奥菲斯帝国档案馆"
-                className="w-8 h-8 rounded-full object-cover border border-gold-800/60 shadow-sm"
-                style={{ boxShadow: '0 0 0 1px rgba(143,89,28,0.3), 0 0 8px rgba(200,144,42,0.15)' }}
+                className="logo-ring w-8 h-8 rounded-full object-cover border border-gold-800/60 shadow-sm"
               />
               <span className="gold-title text-base sm:text-lg font-bold">
                 奥菲斯帝国档案馆

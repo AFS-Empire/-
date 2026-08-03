@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, CornerDownRight, MessageSquare, Pin, Send, Trash2 } from 'lucide-react';
 import { useCommentStore } from '../store/commentStore';
 import { useAuthStore } from '../store/authStore';
+import { fmtTime } from '../lib/format';
 import { useDataStore } from '../store/dataStore';
 import { getEntryCode } from '../data/db';
 import { ConfirmDialog } from '../components/Dialog';
@@ -129,22 +130,13 @@ export default function CommentSection() {
     setDeleteTarget(id);
   };
 
-  const fmtTime = (t: number) =>
-    new Date(t).toLocaleString('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-
   const renderComment = (c: Comment, isChild = false) => {
     const kids = childrenOf(c.id);
     return (
       <div key={c.id} className={isChild ? 'ml-6 sm:ml-8' : ''}>
         <div
           className="panel p-4"
-          style={c.isPinned ? { borderLeft: '3px solid #c8902a' } : undefined}
+          style={c.isPinned ? { borderLeft: '3px solid var(--color-gold-500)' } : undefined}
         >
           <div className="flex items-center gap-2 flex-wrap mb-2">
             <span className="font-medium text-gold-100">{c.author}</span>

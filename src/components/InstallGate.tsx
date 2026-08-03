@@ -65,7 +65,7 @@ export default function InstallGate({ onVerified }: Props) {
         {/* Logo + 标题 */}
         <div className="text-center mb-6">
           <div className="w-16 h-16 mx-auto mb-3 rounded-full overflow-hidden border-2 border-gold-600/50 shadow-lg shadow-gold-900/30">
-            <img src="/logo.jpg" alt="Logo" className="w-full h-full object-cover" />
+            <img src="/logo.jpg" alt="奥菲斯帝国档案馆徽记" className="w-full h-full object-cover" />
           </div>
           <h1 className="text-lg font-bold text-gold-200 tracking-wider">奥菲斯帝国档案馆</h1>
           <p className="text-xs text-ink-500 mt-1">首次安装验证</p>

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { AnyEntry, Era, CustomSection } from '../types';
 import * as db from '../data/db';
+import { isOperationVerified } from '../lib/operationKey';
 import { needVerify } from '../lib/operationKeyGuard';
 
 interface DataState {
@@ -19,6 +20,19 @@ interface DataState {
   getByType: (type: string) => AnyEntry[];
 }
 
+/** 写操作执行器：已验证则立即执行并 await，未验证则入队返回 false */
+async function guardWrite(execute: () => Promise<void>): Promise<boolean> {
+  if (isOperationVerified()) {
+    await execute();
+    return true;
+  }
+  // 未验证：入队等待密钥B验证通过后执行
+  needVerify(() => {
+    void execute();
+  });
+  return false;
+}
+
 export const useDataStore = create<DataState>((set, get) => ({
   entries: [],
   eras: [],
@@ -35,75 +49,51 @@ export const useDataStore = create<DataState>((set, get) => ({
   },
 
   saveEntry: async (entry) => {
-    // 密钥B验证：未验证则拦截操作
-    const ok = needVerify(() => {
-      void (async () => {
-        await db.saveEntry(entry);
-        db.scheduleBackup();
-        await get().refresh();
-      })();
+    return guardWrite(async () => {
+      await db.saveEntry(entry);
+      db.scheduleBackup();
+      await get().refresh();
     });
-    return ok;
   },
 
   deleteEntry: async (id) => {
-    // 密钥B验证：未验证则拦截操作
-    const ok = needVerify(() => {
-      void (async () => {
-        await db.deleteEntry(id);
-        db.scheduleBackup();
-        await get().refresh();
-      })();
+    return guardWrite(async () => {
+      await db.deleteEntry(id);
+      db.scheduleBackup();
+      await get().refresh();
     });
-    return ok;
   },
 
   saveEra: async (era) => {
-    // 密钥B验证：未验证则拦截操作
-    const ok = needVerify(() => {
-      void (async () => {
-        await db.saveEra(era);
-        db.scheduleBackup();
-        await get().refresh();
-      })();
+    return guardWrite(async () => {
+      await db.saveEra(era);
+      db.scheduleBackup();
+      await get().refresh();
     });
-    return ok;
   },
 
   deleteEra: async (id) => {
-    // 密钥B验证：未验证则拦截操作
-    const ok = needVerify(() => {
-      void (async () => {
-        await db.deleteEra(id);
-        db.scheduleBackup();
-        await get().refresh();
-      })();
+    return guardWrite(async () => {
+      await db.deleteEra(id);
+      db.scheduleBackup();
+      await get().refresh();
     });
-    return ok;
   },
 
   saveCustomSection: async (s) => {
-    // 密钥B验证：未验证则拦截操作
-    const ok = needVerify(() => {
-      void (async () => {
-        await db.saveCustomSection(s);
-        db.scheduleBackup();
-        await get().refresh();
-      })();
+    return guardWrite(async () => {
+      await db.saveCustomSection(s);
+      db.scheduleBackup();
+      await get().refresh();
     });
-    return ok;
   },
 
   deleteCustomSection: async (id) => {
-    // 密钥B验证：未验证则拦截操作
-    const ok = needVerify(() => {
-      void (async () => {
-        await db.deleteCustomSection(id);
-        db.scheduleBackup();
-        await get().refresh();
-      })();
+    return guardWrite(async () => {
+      await db.deleteCustomSection(id);
+      db.scheduleBackup();
+      await get().refresh();
     });
-    return ok;
   },
 
   getById: (id) => get().entries.find(e => e.id === id),

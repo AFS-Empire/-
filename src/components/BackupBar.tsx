@@ -399,10 +399,11 @@ export default function BackupBar() {
                   }
                 } catch (e) { showToast('err', e instanceof Error ? e.message : String(e)); }
               }}
-              className="flex items-center gap-0.5 px-1.5 py-0.5 rounded border border-ink-600/50 hover:border-gold-700/60 hover:text-gold-300 text-ink-400 text-[9px] transition-colors"
+              className="flex items-center gap-1 px-2 py-1 rounded border border-ink-600/50 hover:border-gold-700/60 hover:text-gold-300 text-ink-400 text-xs transition-colors"
               title="用文件管理器打开此目录"
+              aria-label="用文件管理器打开此目录"
             >
-              <FolderOpen size={9} /> 打开文件夹
+              <FolderOpen size={12} /> 打开文件夹
             </button>
           </div>
           <div className="break-all font-mono">{appInfo.userDataPath}</div>
@@ -533,18 +534,20 @@ export default function BackupBar() {
                         onClick={() => handleRestoreAuto(item.name)}
                         disabled={busy}
                         title="从该备份恢复"
-                        className="p-1 rounded hover:bg-gold-900/30 text-ink-400 hover:text-gold-300"
+                        aria-label="从该备份恢复"
+                        className="p-1.5 rounded hover:bg-gold-900/30 text-ink-400 hover:text-gold-300"
                       >
-                        <RotateCcw size={11} />
+                        <RotateCcw size={14} />
                       </button>
                       {!item.isLatest && (
                         <button
                           onClick={() => handleDeleteAuto(item.name)}
                           disabled={busy}
                           title="删除该备份"
-                          className="p-1 rounded hover:bg-red-900/30 text-ink-400 hover:text-red-400"
+                          aria-label="删除该备份"
+                          className="p-1.5 rounded hover:bg-red-900/30 text-ink-400 hover:text-red-400"
                         >
-                          <Trash2 size={11} />
+                          <Trash2 size={14} />
                         </button>
                       )}
                     </div>
@@ -562,12 +565,15 @@ export default function BackupBar() {
       )}
 
       {toast && (
-        <div className="animate-fade-in text-[11px] rounded-md px-2 py-1.5 border flex items-center gap-1.5"
-             style={{ background: toast.type === 'ok' ? 'rgba(80,200,120,0.1)' : 'rgba(220,70,70,0.1)', borderColor: toast.type === 'ok' ? 'rgba(80,200,120,0.4)' : 'rgba(220,70,70,0.4)' }}>
+        <div className={`animate-fade-in text-[11px] rounded-md px-2 py-1.5 border flex items-center gap-1.5 ${
+          toast.type === 'ok'
+            ? 'bg-green-500/10 border-green-500/40 text-green-300'
+            : 'bg-red-500/10 border-red-500/40 text-red-300'
+        }`}>
           {toast.type === 'ok'
-            ? <CheckCircle2 size={12} style={{ color: '#77dd77' }} />
-            : <XCircle size={12} style={{ color: '#dd5555' }} />}
-          <span className="truncate" style={{ color: toast.type === 'ok' ? '#aaddaa' : '#ddaaaa' }}>{toast.msg}</span>
+            ? <CheckCircle2 size={12} className="text-green-400" />
+            : <XCircle size={12} className="text-red-400" />}
+          <span className="truncate">{toast.msg}</span>
         </div>
       )}
 

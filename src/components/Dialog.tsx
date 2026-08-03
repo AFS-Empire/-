@@ -13,7 +13,7 @@ export function BaseDialog({ open, onClose, title, children }: BaseDialogProps) 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in" onClick={onClose}>
       <div className="panel-gold w-full max-w-md p-5 relative" onClick={e => e.stopPropagation()}>
-        <button onClick={onClose} className="absolute top-3 right-3 p-1 rounded text-ink-500 hover:text-gold-300 hover:bg-ink-800/50">
+        <button onClick={onClose} className="absolute top-3 right-3 p-1.5 rounded text-ink-500 hover:text-gold-300 hover:bg-ink-800/50" aria-label="关闭">
           <X size={16} />
         </button>
         <h3 className="text-base font-semibold text-gold-200 tracking-wide mb-4">{title}</h3>

@@ -10,6 +10,7 @@ import { genId } from '../data/db';
 import { AlertDialog } from '../components/Dialog';
 import { platform } from '../platform';
 import type { AnyEntry, GeoLevel, LinkRef, TechCategory } from '../types';
+import { LEVEL_LABEL as GEO_LEVEL_LABEL, CATEGORY_LABEL as TECH_CATEGORY_LABEL } from '../constants/labels';
 
 interface FormState {
   title: string;
@@ -47,11 +48,7 @@ const TYPE_TITLE: Record<EditableType, string> = {
 };
 
 const GEO_LEVELS: GeoLevel[] = ['galaxy', 'planet', 'city', 'area'];
-const GEO_LEVEL_LABEL: Record<GeoLevel, string> = { galaxy: '星系', planet: '星球', city: '城市', area: '区域' };
 const TECH_CATEGORIES: TechCategory[] = ['weapon', 'mecha', 'facility', 'system', 'creature', 'other'];
-const TECH_CATEGORY_LABEL: Record<TechCategory, string> = {
-  weapon: '武器', mecha: '机甲', facility: '设施', system: '制度', creature: '生物', other: '其他',
-};
 
 function initForm(existing: AnyEntry | undefined, presetSectionId: string | null): FormState {
   if (existing) {
@@ -295,8 +292,11 @@ export default function EntryEditor() {
     setSaving(true);
     try {
       const entry = buildEntry();
-      await saveEntry(entry);
-      navigate(`/entry/${entry.id}`);
+      const ok = await saveEntry(entry);
+      if (ok) {
+        navigate(`/entry/${entry.id}`);
+      }
+      // ok=false 表示密钥B未验证，操作已入队，不跳转等验证完成
     } catch (err) {
       setAlertMsg('保存失败：' + (err as Error).message);
     } finally {

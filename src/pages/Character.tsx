@@ -5,6 +5,7 @@ import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
 import type { Character as CharacterEntry } from '../types';
 import { ConfirmDialog } from '../components/Dialog';
+import { EmptyState } from '../components/Common';
 
 export default function Character() {
   const navigate = useNavigate();
@@ -77,7 +78,7 @@ export default function Character() {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="panel p-12 text-center text-ink-500">暂无内容</div>
+        <EmptyState />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map(c => (
@@ -93,9 +94,9 @@ export default function Character() {
                 {c.summary && <p className="text-sm text-ink-400 mt-2 line-clamp-2">{c.summary}</p>}
               </button>
               {isAdmin && (
-                <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button className="btn-ghost" onClick={() => navigate(`/editor/character/${c.id}`)}><Pencil className="w-4 h-4" /></button>
-                  <button className="btn-ghost text-red-400" onClick={() => handleDelete(c.id)}><Trash2 className="w-4 h-4" /></button>
+                <div className="absolute top-2 right-2 flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                  <button className="btn-ghost" onClick={() => navigate(`/editor/character/${c.id}`)} aria-label="编辑角色"><Pencil className="w-4 h-4" /></button>
+                  <button className="btn-ghost text-red-400" onClick={() => handleDelete(c.id)} aria-label="删除角色"><Trash2 className="w-4 h-4" /></button>
                 </div>
               )}
             </div>

@@ -30,6 +30,7 @@
   --animate-slide-up: slideUp 0.4s ease-out;
   --animate-glow: glow 3s ease-in-out infinite;
   --animate-shimmer: shimmer 4s linear infinite;
+  --animate-shake: shake 0.5s ease-in-out;
 }
 
 @keyframes fadeIn {
@@ -55,6 +56,15 @@
 @keyframes pageEnter {
   0% { opacity: 0; transform: translateY(14px); }
   100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  15% { transform: translateX(-8px); }
+  30% { transform: translateX(8px); }
+  45% { transform: translateX(-6px); }
+  60% { transform: translateX(6px); }
+  75% { transform: translateX(-4px); }
+  90% { transform: translateX(4px); }
 }
 
 /* 涟漪 + :active 点击反馈统一由 effects.css 管理，此处不再重复定义 */
@@ -132,6 +142,10 @@
   /* 页面切换过渡 */
   .page-enter {
     animation: pageEnter 0.35s ease-out;
+  }
+  /* Logo 光晕 */
+  .logo-ring {
+    box-shadow: 0 0 0 1px var(--color-gold-700), 0 0 12px rgba(200, 144, 42, 0.25);
   }
   .panel {
     @apply bg-ink-900/60 border border-ink-800 rounded-xl backdrop-blur-sm relative overflow-hidden;
@@ -230,7 +244,7 @@
 .mention-highlight {
   border-bottom: 1px dashed currentColor;
   cursor: pointer;
-  color: #d4a855;
+  color: var(--color-gold-400);
   transition: opacity 0.2s;
   text-indent: 0;
 }

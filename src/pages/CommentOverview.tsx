@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, MessageCircle, MessageSquare, Search } from 'lucide-react';
 import { useCommentStore } from '../store/commentStore';
 import { SECTION_PREFIX, SECTIONS } from '../types';
+import { fmtTime } from '../lib/format';
 
 // 板块前缀 → 中文名
 const PREFIX_LABEL: Record<string, string> = {};
@@ -56,15 +57,6 @@ export default function CommentOverview() {
     }
     return [...list].sort((a, b) => b.createdAt - a.createdAt);
   }, [comments, filter, search]);
-
-  const fmtTime = (t: number) =>
-    new Date(t).toLocaleString('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
 
   const quickJumps = [
     { code: 'GLOBAL', label: '总评论区' },

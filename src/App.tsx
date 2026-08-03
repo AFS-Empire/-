@@ -12,6 +12,7 @@ import Layout from './components/Layout';
 import { FullScreenLoader } from './components/Skeleton';
 import InstallGate from './components/InstallGate';
 import OperationKeyDialog from './components/OperationKeyDialog';
+import ErrorBoundary from './components/ErrorBoundary';
 import { IS_WEB_BUILD } from './lib/buildTarget';
 import { isInstallVerified } from './lib/installKey';
 import {
@@ -19,7 +20,6 @@ import {
   executePendingActions,
   cancelPendingActions,
 } from './lib/operationKeyGuard';
-import { verifyOperationKey } from './lib/operationKey';
 
 // 路由懒加载：首屏只加载必要代码，其余按需加载
 // 把 importer 抽出来复用：lazy() 用一次，首屏后预加载再用一次（Vite 会去重，已加载的立即 resolve）
@@ -226,7 +226,7 @@ export default function App() {
   }
 
   return (
-    <>
+    <ErrorBoundary>
       <Suspense fallback={routeFallback(location.pathname)}>
         <div key={pageKey} className="page-enter">
           <Routes location={location}>
@@ -267,6 +267,6 @@ export default function App() {
           }}
         />
       )}
-    </>
+    </ErrorBoundary>
   );
 }

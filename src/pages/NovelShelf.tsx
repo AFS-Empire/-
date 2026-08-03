@@ -127,7 +127,7 @@ export default function NovelShelf() {
                       if (!isBound) { setAlertMsg('设备未绑定，无法删除'); return; }
                       setDeleteTarget({ id: book.id, title: book.title });
                     }}
-                    className="absolute top-1 right-1 p-1 rounded text-ink-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute top-1 right-1 p-1 rounded text-ink-600 hover:text-red-400 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                     title="删除"
                   >
                     <Trash2 size={14} />

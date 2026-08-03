@@ -6,13 +6,8 @@ import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
 import type { Geography as GeoEntry, GeoLevel } from '../types';
 import { ConfirmDialog } from '../components/Dialog';
-
-const LEVEL_LABEL: Record<GeoLevel, string> = {
-  galaxy: '星系',
-  planet: '星球',
-  city: '城市',
-  area: '区域',
-};
+import { EmptyState } from '../components/Common';
+import { LEVEL_LABEL } from '../constants/labels';
 
 const LEVEL_ICON: Record<GeoLevel, ComponentType<{ className?: string }>> = {
   galaxy: Globe,
@@ -81,9 +76,9 @@ export default function Geography() {
             {node.summary && <p className="text-xs text-ink-400 truncate mt-0.5">{node.summary}</p>}
           </button>
           {isAdmin && (
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-              <button className="btn-ghost" onClick={() => navigate(`/editor/geography/${node.id}`)}><Pencil className="w-4 h-4" /></button>
-              <button className="btn-ghost text-red-400" onClick={() => handleDelete(node.id)}><Trash2 className="w-4 h-4" /></button>
+            <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
+              <button className="btn-ghost" aria-label="编辑" onClick={() => navigate(`/editor/geography/${node.id}`)}><Pencil className="w-4 h-4" /></button>
+              <button className="btn-ghost text-red-400" aria-label="删除" onClick={() => handleDelete(node.id)}><Trash2 className="w-4 h-4" /></button>
             </div>
           )}
         </div>
@@ -131,10 +126,10 @@ export default function Geography() {
       </div>
 
       {geos.length === 0 ? (
-        <div className="panel p-12 text-center text-ink-500">暂无内容</div>
+        <EmptyState />
       ) : flatFiltered ? (
         flatFiltered.length === 0 ? (
-          <div className="panel p-12 text-center text-ink-500">暂无内容</div>
+          <EmptyState />
         ) : (
           <div className="space-y-2">
             {flatFiltered.map(g => {
@@ -151,9 +146,9 @@ export default function Geography() {
                     {g.summary && <p className="text-xs text-ink-400 truncate mt-0.5">{g.summary}</p>}
                   </button>
                   {isAdmin && (
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                      <button className="btn-ghost" onClick={() => navigate(`/editor/geography/${g.id}`)}><Pencil className="w-4 h-4" /></button>
-                      <button className="btn-ghost text-red-400" onClick={() => handleDelete(g.id)}><Trash2 className="w-4 h-4" /></button>
+                    <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
+                      <button className="btn-ghost" aria-label="编辑" onClick={() => navigate(`/editor/geography/${g.id}`)}><Pencil className="w-4 h-4" /></button>
+                      <button className="btn-ghost text-red-400" aria-label="删除" onClick={() => handleDelete(g.id)}><Trash2 className="w-4 h-4" /></button>
                     </div>
                   )}
                 </div>

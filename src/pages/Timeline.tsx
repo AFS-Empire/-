@@ -7,6 +7,7 @@ import { useBindingStore } from '../store/bindingStore';
 import { useRequirePin } from '../hooks/useRequirePin';
 import { genId } from '../data/db';
 import { ConfirmDialog, AlertDialog } from '../components/Dialog';
+import { EmptyState } from '../components/Common';
 import type { Era, TimelineEvent } from '../types';
 
 const UNCATEGORIZED = '__uncategorized__';
@@ -133,8 +134,8 @@ export default function Timeline() {
                   {era.description && <p className="text-sm text-ink-400 mt-1 truncate">{era.description}</p>}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  <button className="btn-ghost" onClick={() => setEditingEra({ ...era })}><Pencil className="w-4 h-4" /></button>
-                  <button className="btn-ghost text-red-400" onClick={() => handleDeleteEra(era.id)}><Trash2 className="w-4 h-4" /></button>
+                  <button className="btn-ghost" aria-label="编辑" onClick={() => setEditingEra({ ...era })}><Pencil className="w-4 h-4" /></button>
+                  <button className="btn-ghost text-red-400" aria-label="删除" onClick={() => handleDeleteEra(era.id)}><Trash2 className="w-4 h-4" /></button>
                 </div>
               </div>
             ))}
@@ -181,7 +182,7 @@ export default function Timeline() {
       )}
 
       {isEmpty && (
-        <div className="panel p-12 text-center text-ink-500">暂无内容</div>
+        <EmptyState />
       )}
 
       <div className="space-y-4">
@@ -224,9 +225,9 @@ export default function Timeline() {
                           </div>
                         </button>
                         {isAdmin && (
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                            <button className="btn-ghost" onClick={() => navigate(`/editor/timeline/${ev.id}`)}><Pencil className="w-4 h-4" /></button>
-                            <button className="btn-ghost text-red-400" onClick={() => handleDeleteEvent(ev.id)}><Trash2 className="w-4 h-4" /></button>
+                          <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
+                            <button className="btn-ghost" aria-label="编辑" onClick={() => navigate(`/editor/timeline/${ev.id}`)}><Pencil className="w-4 h-4" /></button>
+                            <button className="btn-ghost text-red-400" aria-label="删除" onClick={() => handleDeleteEvent(ev.id)}><Trash2 className="w-4 h-4" /></button>
                           </div>
                         )}
                       </div>
@@ -265,9 +266,9 @@ export default function Timeline() {
                       </div>
                     </button>
                     {isAdmin && (
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                        <button className="btn-ghost" onClick={() => navigate(`/editor/timeline/${ev.id}`)}><Pencil className="w-4 h-4" /></button>
-                        <button className="btn-ghost text-red-400" onClick={() => handleDeleteEvent(ev.id)}><Trash2 className="w-4 h-4" /></button>
+                      <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
+                        <button className="btn-ghost" aria-label="编辑" onClick={() => navigate(`/editor/timeline/${ev.id}`)}><Pencil className="w-4 h-4" /></button>
+                        <button className="btn-ghost text-red-400" aria-label="删除" onClick={() => handleDeleteEvent(ev.id)}><Trash2 className="w-4 h-4" /></button>
                       </div>
                     )}
                   </div>

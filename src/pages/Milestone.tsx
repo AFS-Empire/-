@@ -5,14 +5,10 @@ import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
 import type { Milestone as MilestoneEntry } from '../types';
 import { ConfirmDialog } from '../components/Dialog';
+import { EmptyState } from '../components/Common';
+import { IMPORTANCE_LABEL } from '../constants/labels';
 
 type Importance = 'low' | 'medium' | 'high';
-
-const IMPORTANCE_LABEL: Record<Importance, string> = {
-  low: '低',
-  medium: '中',
-  high: '高',
-};
 
 const IMPORTANCE_CLASS: Record<Importance, string> = {
   low: 'tag',
@@ -59,7 +55,7 @@ export default function Milestone() {
       <div className="gold-divider" />
 
       {milestones.length === 0 ? (
-        <div className="panel p-12 text-center text-ink-500">暂无内容</div>
+        <EmptyState />
       ) : (
         <div className="relative pl-6 space-y-3 before:content-[''] before:absolute before:left-[7px] before:top-3 before:bottom-3 before:w-px before:bg-gold-800/50">
           {milestones.map(m => (
@@ -75,9 +71,9 @@ export default function Milestone() {
                   {m.summary && <p className="text-sm text-ink-400 mt-1">{m.summary}</p>}
                 </button>
                 {isAdmin && (
-                  <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button className="btn-ghost" onClick={() => navigate(`/editor/milestone/${m.id}`)}><Pencil className="w-4 h-4" /></button>
-                    <button className="btn-ghost text-red-400" onClick={() => handleDelete(m.id)}><Trash2 className="w-4 h-4" /></button>
+                  <div className="absolute top-2 right-2 flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                    <button className="btn-ghost" aria-label="编辑" onClick={() => navigate(`/editor/milestone/${m.id}`)}><Pencil className="w-4 h-4" /></button>
+                    <button className="btn-ghost text-red-400" aria-label="删除" onClick={() => handleDelete(m.id)}><Trash2 className="w-4 h-4" /></button>
                   </div>
                 )}
               </div>
