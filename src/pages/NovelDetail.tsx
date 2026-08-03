@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { ChevronRight, ChevronDown, Plus, Trash2, Edit3, FileText, Eye, EyeOff, Upload } from 'lucide-react';
 import { useNovelStore } from '../store/novelStore';
 import { useDataStore } from '../store/dataStore';
@@ -23,7 +23,8 @@ export default function NovelDetail() {
   const createChapter = useNovelStore(s => s.createChapter);
   const deleteChapter = useNovelStore(s => s.deleteChapter);
   const updateChapter = useNovelStore(s => s.updateChapter);
-  const characters = useDataStore(s => s.entries.filter(e => e.type === 'character'));
+  const entries = useDataStore(s => s.entries);
+  const characters = useMemo(() => entries.filter(e => e.type === 'character'), [entries]);
 
   const book = books.find(b => b.id === bookId);
   const bookChapters = bookId ? (chapters[bookId] || []) : [];
