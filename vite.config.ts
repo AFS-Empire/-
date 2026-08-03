@@ -24,6 +24,11 @@ export default defineConfig(({ mode }) => {
     ? ''
     : (process.env.VITE_ARCHIVE_SALT || process.env.ARCHIVE_PRIVATE_SALT || env.ARCHIVE_PRIVATE_SALT || env.VITE_ARCHIVE_SALT || '')
 
+  // 密钥A（首次安装验证）：App版从CI/本地环境读取，Web版强制为空（直接跳过验证）
+  const installKeyA = isWebBuild
+    ? ''
+    : (process.env.VITE_INSTALL_KEY_A || env.VITE_INSTALL_KEY_A || '')
+
   return {
     plugins: [react(), tailwindcss()],
     // Release 构建时：调试模块 alias 到空实现，编译期移除所有旁路代码
@@ -41,6 +46,8 @@ export default defineConfig(({ mode }) => {
       'import.meta.env.VITE_BUILD_TARGET': JSON.stringify(isWebBuild ? 'web' : 'app'),
       // 盐值在构建时内联为常量；Web 构建强制空字符串
       'import.meta.env.VITE_ARCHIVE_SALT': JSON.stringify(archiveSalt),
+      // 密钥A（首次安装验证）：App版内联常量；Web版为空字符串（InstallGate组件会直接跳过）
+      'import.meta.env.VITE_INSTALL_KEY_A': JSON.stringify(installKeyA),
     },
     server: {
       host: '0.0.0.0',

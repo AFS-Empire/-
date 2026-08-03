@@ -32,22 +32,31 @@ jobs:
         with:
           packages: 'platforms;android-34 build-tools;34.0.0'
 
-      - name: 配置 CI 环境（跳过国内镜像 + 不下载 electron 二进制）
+      - name: 配置 CI 环境（覆盖项目 .npmrc + 跳过所有二进制下载）
         run: |
-          # GitHub Actions 在美国机房，用官方 npm 源比国内镜像快
-          echo "registry=https://registry.npmjs.org/" > ~/.npmrc
-          echo "fetch-retries=5" >> ~/.npmrc
-          echo "fetch-retry-mintimeout=20000" >> ~/.npmrc
-          echo "fetch-retry-maxtimeout=120000" >> ~/.npmrc
-          echo "legacy-peer-deps=true" >> ~/.npmrc
-          # 关键：Android 构建完全不需要 electron 二进制，跳过下载，避免超时
+          # ⚠️ 关键 1：直接覆盖"项目级" .npmrc（优先级最高），避免国内镜像导致美国机房超时
+          cat > .npmrc << 'EOF'
+          registry=https://registry.npmjs.org/
+          fetch-retries=5
+          fetch-retry-mintimeout=20000
+          fetch-retry-maxtimeout=120000
+          fetch-timeout=300000
+          legacy-peer-deps=true
+          EOF
+          echo "=== 项目级 .npmrc 已覆盖 ==="
+          cat .npmrc
+
+          # ⚠️ 关键 2：设置各种跳过二进制下载的环境变量
           echo "ELECTRON_SKIP_BINARY_DOWNLOAD=1" >> "${GITHUB_ENV}"
-          cat ~/.npmrc
+          echo "PUPPETEER_SKIP_DOWNLOAD=1" >> "${GITHUB_ENV}"
+          echo "SHARP_IGNORE_GLOBAL_LIBVIPS=1" >> "${GITHUB_ENV}"
 
       - name: 安装 npm 依赖
-        run: npm ci
+        run: npm ci --ignore-scripts
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          PUPPETEER_SKIP_DOWNLOAD: 1
+          SHARP_IGNORE_GLOBAL_LIBVIPS: 1
 
       - name: 构建 Web 资源
         run: npx vite build
