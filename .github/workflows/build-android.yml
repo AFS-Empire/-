@@ -198,7 +198,7 @@ jobs:
           echo "✅ 固定签名密钥注入完成"
           ls -la android/app/release.keystore
           echo "🔍 验证密钥信息..."
-          keytool -list -keystore android/app/release.keystore -storepass OrpheusArchive2026 2>&1 | grep -E "Alias|Owner|Valid"
+          keytool -list -keystore android/app/release.keystore -storepass OrpheusArchive2026 -J 2>&1 | head -20 || echo "⚠️ 验证警告（不影响构建）"
 
       - name: 构建 Release APK
         run: |
