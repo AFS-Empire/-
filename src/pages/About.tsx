@@ -2,26 +2,16 @@
  * 关于页面
  *
  * 1. 展示版权信息、原创声明、联系方式
- * 2. App 版：连续点击标题 6 次触发调试面板（仅 Dev 构建）
- * 3. Web 版：连续点击标题 5 次触发隐藏密码框，解锁后可导入/导出
+ * 2. Web 版：连续点击标题 5 次触发隐藏密码框，解锁后可导入/导出
  */
 import { useState, useRef, useEffect } from 'react';
-import { BookOpen, Shield, Code, AlertTriangle, X, KeyRound, FlaskConical, Lock, CheckCircle2, Smartphone, ArrowRightLeft, Copy, Circle, Wifi } from 'lucide-react';
+import { BookOpen, Shield, Code, AlertTriangle, X, KeyRound, Lock, CheckCircle2, Smartphone, ArrowRightLeft, Copy, Circle, Wifi } from 'lucide-react';
 import { CREATOR, CONTACT, COPYRIGHT } from '../lib/watermark';
 import { IS_WEB_BUILD } from '../lib/buildTarget';
 import { useHiddenUnlock } from '../lib/hiddenUnlock';
 import { platform } from '../platform';
-// devTools 在 Release/Web 构建时被 alias 替换为 noop，不会包含真实逻辑
-import {
-  unlockDebug, isDebugUnlocked, setBypassPin, setBypassMachineBinding,
-  isPinBypassed, isMachineBindingBypassed, resetDebug,
-} from '../debug/devTools';
 
 type BindingResult = Awaited<ReturnType<typeof platform.verifyBinding>>;
-
-// App 版调试面板：6 次点击
-const DEBUG_TRIGGER_COUNT = 6;
-const DEBUG_TRIGGER_WINDOW_MS = 2000;
 
 // Web 版隐藏解锁：5 次点击
 const HIDDEN_TRIGGER_COUNT = 5;
@@ -30,9 +20,6 @@ const HIDDEN_TRIGGER_WINDOW_MS = 3000;
 export default function About() {
   const [clickCount, setClickCount] = useState(0);
   const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // App 版调试面板
-  const [showDebug, setShowDebug] = useState(false);
 
   // Web 版隐藏解锁
   const [showHiddenPrompt, setShowHiddenPrompt] = useState(false);
@@ -59,24 +46,19 @@ export default function About() {
     }
   }, []);
 
-  /** 标题连续点击触发 */
+  /** Web 版标题连续点击触发隐藏解锁 */
   const handleTitleClick = () => {
-    const targetCount = IS_WEB_BUILD ? HIDDEN_TRIGGER_COUNT : DEBUG_TRIGGER_COUNT;
-    const windowMs = IS_WEB_BUILD ? HIDDEN_TRIGGER_WINDOW_MS : DEBUG_TRIGGER_WINDOW_MS;
+    if (!IS_WEB_BUILD) return;
 
     const newCount = clickCount + 1;
     setClickCount(newCount);
 
     if (clickTimer.current) clearTimeout(clickTimer.current);
-    clickTimer.current = setTimeout(() => setClickCount(0), windowMs);
+    clickTimer.current = setTimeout(() => setClickCount(0), HIDDEN_TRIGGER_WINDOW_MS);
 
-    if (newCount >= targetCount) {
+    if (newCount >= HIDDEN_TRIGGER_COUNT) {
       setClickCount(0);
-      if (IS_WEB_BUILD) {
-        setShowHiddenPrompt(true);
-      } else {
-        setShowDebug(true);
-      }
+      setShowHiddenPrompt(true);
     }
   };
 
@@ -206,11 +188,6 @@ export default function About() {
 
       {/* ─── App 版换机迁移 ─── */}
       {!IS_WEB_BUILD && <MigratePanel />}
-
-      {/* ─── App 版调试面板 ─── */}
-      {!IS_WEB_BUILD && showDebug && (
-        <DebugPanel show={showDebug} onClose={() => setShowDebug(false)} />
-      )}
 
       {/* ─── Web 版隐藏解锁面板 ─── */}
       {IS_WEB_BUILD && showHiddenPrompt && (
@@ -439,76 +416,4 @@ function MigratePanel() {
   );
 }
 
-/** App 版调试面板（独立组件，Web 版编译时不会渲染） */
-function DebugPanel({ show: _show, onClose }: { show: boolean; onClose: () => void }) {
-  const [debugKey, setDebugKey] = useState('');
-  const [debugMsg, setDebugMsg] = useState('');
-  const [bypassPin, setBypassPinState] = useState(isPinBypassed());
-  const [bypassMachine, setBypassMachineState] = useState(isMachineBindingBypassed());
 
-  const handleUnlock = async () => {
-    if (!debugKey) return;
-    const ok = await unlockDebug(debugKey);
-    if (ok) {
-      setDebugMsg('调试模式已解锁');
-      setBypassPinState(isPinBypassed());
-      setBypassMachineState(isMachineBindingBypassed());
-    } else {
-      setDebugMsg('调试密钥错误');
-    }
-  };
-
-  const handleReset = () => {
-    resetDebug();
-    setBypassPinState(false);
-    setBypassMachineState(false);
-    setDebugMsg('已退出调试模式');
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in" onClick={onClose}>
-      <div className="panel-gold w-full max-w-md p-5 relative" onClick={e => e.stopPropagation()}>
-        <button onClick={onClose} className="absolute top-3 right-3 p-1 rounded text-ink-500 hover:text-gold-300 hover:bg-ink-800/50">
-          <X size={16} />
-        </button>
-        <div className="flex items-center gap-2 mb-4">
-          <FlaskConical size={18} className="text-gold-400" />
-          <h3 className="text-base font-semibold text-gold-200 tracking-wide">调试面板</h3>
-          <span className="text-[10px] text-ink-500 ml-auto">仅开发版可用</span>
-        </div>
-        {!isDebugUnlocked() ? (
-          <div className="space-y-3">
-            <p className="text-xs text-ink-400">输入调试密钥以解锁安全旁路</p>
-            <div className="relative">
-              <KeyRound size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-500" />
-              <input type="password" value={debugKey} onChange={e => setDebugKey(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') void handleUnlock(); }}
-                placeholder="调试密钥" className="input-field pl-9" autoFocus />
-            </div>
-            <button onClick={handleUnlock} className="btn-gold w-full">解锁</button>
-            {debugMsg && <p className="text-[11px] text-ink-500">{debugMsg}</p>}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <p className="text-xs text-green-400">✓ 调试模式已激活</p>
-            <div className="space-y-2">
-              <label className="flex items-center justify-between p-2.5 rounded-lg bg-ink-900/60 border border-ink-700">
-                <span className="text-sm text-ink-200">旁路 PIN 校验</span>
-                <input type="checkbox" checked={bypassPin}
-                  onChange={e => { setBypassPin(e.target.checked); setBypassPinState(e.target.checked); }}
-                  className="w-4 h-4 accent-gold-500" />
-              </label>
-              <label className="flex items-center justify-between p-2.5 rounded-lg bg-ink-900/60 border border-ink-700">
-                <span className="text-sm text-ink-200">旁路机器码校验</span>
-                <input type="checkbox" checked={bypassMachine}
-                  onChange={e => { setBypassMachineBinding(e.target.checked); setBypassMachineState(e.target.checked); }}
-                  className="w-4 h-4 accent-gold-500" />
-              </label>
-            </div>
-            <button onClick={handleReset} className="btn-ghost w-full text-sm">退出调试模式</button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}

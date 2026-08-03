@@ -182,10 +182,14 @@
   .btn-gold {
     @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-b from-gold-400 to-gold-600 text-ink-950 font-semibold tracking-wide transition-all duration-300 relative overflow-hidden;
     box-shadow: 0 2px 8px rgba(200, 144, 42, 0.2), inset 0 1px 0 rgba(255,255,255,0.15);
+    /* 基础态必须显式声明完整 transform，避免 :active 结束后 Android WebView 回弹计算异常 */
+    transform: translateY(0) scale(1);
+    will-change: transform;
   }
   .btn-gold:hover {
     box-shadow: 0 4px 16px rgba(200, 144, 42, 0.35), inset 0 1px 0 rgba(255,255,255,0.25);
-    @apply from-gold-300 to-gold-500 -translate-y-0.5;
+    @apply from-gold-300 to-gold-500;
+    transform: translateY(-2px) scale(1);
   }
   .btn-ghost {
     @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-ink-400 hover:text-gold-300 hover:bg-ink-800/50 transition-colors relative overflow-hidden;
@@ -210,6 +214,16 @@
   }
   .input-field {
     @apply w-full px-4 py-2.5 rounded-lg bg-ink-850 border border-ink-700 text-ink-100 placeholder:text-ink-500 focus:outline-none focus:border-gold-700 focus:ring-1 focus:ring-gold-700/50 transition-all;
+    /* Android WebView / Chrome 自动填充时不使用默认浅色背景 */
+    &:-webkit-autofill,
+    &:-webkit-autofill:hover,
+    &:-webkit-autofill:focus,
+    &:-webkit-autofill:active {
+      -webkit-box-shadow: 0 0 0 1000px #1a1a1e inset !important;
+      -webkit-text-fill-color: #e8e4dc !important;
+      caret-color: #e8e4dc !important;
+      transition: background-color 5000s ease-in-out 0s;
+    }
   }
   .label-text {
     @apply block text-sm font-medium text-gold-400/80 mb-1.5 tracking-wide;

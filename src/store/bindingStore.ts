@@ -5,11 +5,9 @@
  * - App 端：启动时调用 platform.verifyBinding()，isBound = bound && match
  *   未绑定 / 设备不匹配 → 锁死写操作，仅允许查看
  * - Web 端：不启用机器绑定，isBound 恒为 true（Web 的写权限由 hiddenUnlock 把关）
- * - Dev 构建可经 devTools 旁路（Release 构建旁路代码被整体移除）
  */
 import { create } from 'zustand';
 import { IS_WEB_BUILD } from '../lib/buildTarget';
-import { isMachineBindingBypassed } from '../debug/devTools';
 import { platform } from '../platform';
 
 export type BindingResult = Awaited<ReturnType<typeof platform.verifyBinding>>;
@@ -40,12 +38,6 @@ export const useBindingStore = create<BindingState>((set) => ({
       const passResult: BindingResult = { bound: false, deviceId: null, match: false, reason: '当前环境不启用机器绑定' };
       set({ isBound: true, result: passResult, loading: false });
       return passResult;
-    }
-    // Dev 旁路：调试构建跳过校验
-    if (isMachineBindingBypassed()) {
-      const bypassResult: BindingResult = { bound: true, deviceId: null, match: true };
-      set({ isBound: true, result: bypassResult, loading: false });
-      return bypassResult;
     }
     try {
       const result = await platform.verifyBinding();

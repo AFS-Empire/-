@@ -4,7 +4,6 @@ import tailwindcss from '@tailwindcss/vite'
 import { fileURLToPath } from 'url'
 
 // Release 构建：用环境变量 ARCHIVE_RELEASE=1 触发
-// 把调试模块替换为 noop，彻底从产物中移除安全旁路代码
 const isRelease = process.env.ARCHIVE_RELEASE === '1'
 
 // 网页浏览版：VITE_BUILD_TARGET=web 触发
@@ -31,9 +30,6 @@ export default defineConfig(({ mode }) => {
     // Web 构建时：appSecret.ts → appSecret.web.ts，盐值从产物中彻底消失
     resolve: {
       alias: [
-        ...(isRelease
-          ? [{ find: /^.*devTools$/, replacement: abs('./src/debug/devTools.noop.ts') }]
-          : []),
         ...(isWebBuild
           ? [{ find: /^.*appSecret$/, replacement: abs('./src/lib/appSecret.web.ts') }]
           : []),
