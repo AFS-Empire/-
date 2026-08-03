@@ -46,13 +46,15 @@ if m2:
     line_start = m2.end()
     insert = (
         '\n            signingConfig signingConfigs.release'
-        '\n            minifyEnabled true'
-        '\n            shrinkResources true'
+        '\n            // 临时关闭代码缩减和资源收缩，优先打通APK构建'
+        '\n            // TODO: 构建成功后分步开启：1)先单独开minifyEnabled  2)再开shrinkResources'
+        '\n            minifyEnabled false'
+        '\n            shrinkResources false'
         '\n            proguardFiles getDefaultProguardFile(\'proguard-android-optimize.txt\'), \'proguard-rules.pro\''
     )
     content = content[:line_start] + insert + content[line_start:]
     changed = True
-    print("✅ signingConfig + minifyEnabled + shrinkResources 已插入")
+    print("✅ signingConfig + minifyEnabled(false) + shrinkResources(false) 已插入")
 else:
     print("⚠️ 未找到 buildTypes.release 块")
 
