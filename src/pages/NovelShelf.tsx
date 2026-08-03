@@ -4,6 +4,8 @@ import { BookOpen, Plus, Trash2, EyeOff } from 'lucide-react';
 import { useNovelStore } from '../store/novelStore';
 import { useBindingStore } from '../store/bindingStore';
 import { IS_WEB_BUILD } from '../lib/buildTarget';
+import { isOperationVerified } from '../lib/operationKey';
+import { needVerify } from '../lib/operationKeyGuard';
 import { ConfirmDialog, PromptDialog, ModeSelectDialog, AlertDialog } from '../components/Dialog';
 
 export default function NovelShelf() {
@@ -32,14 +34,24 @@ export default function NovelShelf() {
       setShowNameDialog(false);
       return;
     }
-    setPendingName(value.trim());
-    setShowModeDialog(true);
+    const name = value.trim();
+    setPendingName(name);
+    // 先检查验证状态，避免在 createBook 内部触发状态更新导致渲染冲突
+    if (isOperationVerified()) {
+      setShowModeDialog(true);
+    } else {
+      // 未验证：触发验证流程，验证通过后自动显示模式选择
+      needVerify(() => {
+        setShowModeDialog(true);
+      });
+    }
   };
 
-  // 创建小说：验证由 novelStore 内部的 guardWrite 统一处理
+  // 创建小说：此时已确保通过验证，guardWrite 会直接执行
   const handleModeSelect = async (mode: 'open' | 'unlock') => {
     if (!pendingName) return;
     const name = pendingName;
+    setShowModeDialog(false);
     const book = await createBook(name, mode);
     if (book) {
       navigate(`/novel/${book.id}`);

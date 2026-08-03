@@ -6,14 +6,13 @@ import type { Character } from '../types';
 import { isOperationVerified } from '../lib/operationKey';
 import { needVerify } from '../lib/operationKeyGuard';
 
-/** 写操作执行器：已验证则立即执行，未验证则入队等待 */
+/** 写操作执行器：已验证则立即执行，未验证则入队返回 false */
 async function guardWrite<T>(execute: () => Promise<T>): Promise<T | false> {
   if (isOperationVerified()) {
     return await execute();
   }
-  // 未验证：入队等待验证通过后执行
-  needVerify(async () => {
-    await execute();
+  needVerify(() => {
+    void execute();
   });
   return false;
 }
