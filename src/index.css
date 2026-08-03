@@ -180,11 +180,12 @@
 
 @layer components {
   .btn-gold {
-    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-b from-gold-400 to-gold-600 text-ink-950 font-semibold tracking-wide transition-all duration-300 relative overflow-hidden;
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-b from-gold-400 to-gold-600 text-ink-950 font-semibold tracking-wide relative overflow-hidden;
     box-shadow: 0 2px 8px rgba(200, 144, 42, 0.2), inset 0 1px 0 rgba(255,255,255,0.15);
-    /* 基础态必须显式声明完整 transform，避免 :active 结束后 Android WebView 回弹计算异常 */
+    /* transform 和 transition 由 effects.css 统一接管，避免 transition-all 与 :active 的 !important 冲突 */
     transform: translateY(0) scale(1);
     will-change: transform;
+    transition: transform 0.2s ease-out, box-shadow 0.2s ease-out, background 0.2s ease-out;
   }
   .btn-gold:hover {
     box-shadow: 0 4px 16px rgba(200, 144, 42, 0.35), inset 0 1px 0 rgba(255,255,255,0.25);

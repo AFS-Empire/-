@@ -66,54 +66,49 @@ jobs:
             echo "✅ ImageMagick 已安装"
           else
             echo "⬇️ 安装 ImageMagick..."
-            if sudo apt-get update -qq >/dev/null 2>&1; then
-              sudo apt-get install -y -qq imagemagick >/dev/null 2>&1 || true
-            fi
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq imagemagick
           fi
 
           RES_DIR="android/app/src/main/res"
           SRC="public/logo.jpg"
           if [ ! -f "$SRC" ]; then
-            echo "⚠️ logo.jpg 不存在，跳过图标替换"
-            exit 0
+            echo "❌ logo.jpg 不存在，终止构建"
+            exit 1
           fi
 
           echo ""
           echo "=== 缩放 Logo 到各分辨率 ==="
-          # 先做圆角裁剪（圆形徽标），然后再缩放
-          TMP_MASK="/tmp/logo_masked.png"
-          if ! convert "$SRC" \
-            \( +clone -fill white -colorize 100% -draw "roundrectangle 0,0,%w,%h,%[fx:int(w*0.22)],%[fx:int(w*0.22)]" \) \
-            -alpha off -compose copyopacity -composite \
-            -resize 512x512 \
-            -background '#0d0d0f' -compose over -flatten \
-            "$TMP_MASK" 2>&1; then
-            cp "$SRC" "$TMP_MASK"
-          fi
-
-          # 5 种标准密度 → ic_launcher.png
+          # 5 种标准密度 → ic_launcher.png（系统自动处理圆角，无需脚本裁剪）
           for pair in "mipmap-mdpi:48" "mipmap-hdpi:72" "mipmap-xhdpi:96" "mipmap-xxhdpi:144" "mipmap-xxxhdpi:192"; do
             DIR="${pair%%:*}"
             SIZE="${pair##*:}"
             mkdir -p "$RES_DIR/$DIR"
-            convert "$TMP_MASK" -resize "${SIZE}x${SIZE}" -gravity center -extent "${SIZE}x${SIZE}" \
-              "$RES_DIR/$DIR/ic_launcher.png" 2>&1 || true
-            # 圆形图标（ic_launcher_round）- 裁剪为完美圆形
-            convert "$RES_DIR/$DIR/ic_launcher.png" \
-              \( +clone -fill white -colorize 100% -draw "circle %[fx:w/2],%[fx:h/2] %[fx:w/2],0" \) \
-              -alpha off -compose copyopacity -composite \
-              "$RES_DIR/$DIR/ic_launcher_round.png" 2>/dev/null || { test -f "$RES_DIR/$DIR/ic_launcher_round.png" || cp "$RES_DIR/$DIR/ic_launcher.png" "$RES_DIR/$DIR/ic_launcher_round.png"; }
+            convert "$SRC" -resize "${SIZE}x${SIZE}" -gravity center -extent "${SIZE}x${SIZE}" \
+              "$RES_DIR/$DIR/ic_launcher.png"
+            cp "$RES_DIR/$DIR/ic_launcher.png" "$RES_DIR/$DIR/ic_launcher_round.png"
             echo "  $DIR → ${SIZE}px  完成"
           done
 
           # 前台图层（自适应图标需要）
           mkdir -p "$RES_DIR/drawable"
-          convert "$TMP_MASK" -resize 432x432 -gravity center -extent 432x432 "$RES_DIR/drawable/ic_launcher_foreground.png" 2>&1 || true
+          convert "$SRC" -resize 432x432 -gravity center -extent 432x432 "$RES_DIR/drawable/ic_launcher_foreground.png"
           echo "✅ drawable/ic_launcher_foreground.png 生成"
 
-          ls -la "$RES_DIR/mipmap-mdpi/ic_launcher.png" 2>/dev/null || true
+          echo ""
+          echo "=== 验证图标文件 ==="
+          for pair in "mipmap-mdpi:48" "mipmap-hdpi:72" "mipmap-xhdpi:96" "mipmap-xxhdpi:144" "mipmap-xxxhdpi:192"; do
+            DIR="${pair%%:*}"
+            SIZE="${pair##*:}"
+            if [ ! -f "$RES_DIR/$DIR/ic_launcher.png" ]; then
+              echo "❌ $DIR/ic_launcher.png 生成失败"
+              exit 1
+            fi
+            ACTUAL_SIZE=$(identify -format "%wx%h" "$RES_DIR/$DIR/ic_launcher.png" 2>/dev/null || echo "unknown")
+            echo "  $DIR/ic_launcher.png → ${ACTUAL_SIZE}"
+          done
 
-      - name: 注入签名配置
+      - name: 注入签名配置 + 混淆配置
         run: |
           echo "=== 创建 gradle.properties ==="
           cat > android/app/gradle.properties << 'EOF'
@@ -125,12 +120,12 @@ jobs:
           cat android/app/gradle.properties
 
           echo ""
-          echo "=== 注入签名配置到 build.gradle ==="
+          echo "=== 注入签名 + 混淆配置到 build.gradle ==="
           python3 scripts/inject-signing.py android/app/build.gradle
 
           echo ""
           echo "=== build.gradle 关键段落 ==="
-          grep -n "signingConfigs\|buildTypes\|signingConfig\|ORPHEUS" android/app/build.gradle
+          grep -n "signingConfigs\|buildTypes\|signingConfig\|ORPHEUS\|minifyEnabled\|shrinkResources\|proguard" android/app/build.gradle
 
       - name: 缓存签名密钥
         id: keystore
