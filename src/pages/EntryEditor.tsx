@@ -6,7 +6,7 @@ import { useDataStore } from '../store/dataStore';
 import { useBindingStore } from '../store/bindingStore';
 import { IS_WEB_BUILD } from '../lib/buildTarget';
 import { genId } from '../data/db';
-import { AlertDialog } from '../components/Dialog';
+import { AlertDialog, Picker } from '../components/Dialog';
 import { platform } from '../platform';
 import type { AnyEntry, GeoLevel, LinkRef, TechCategory } from '../types';
 import { LEVEL_LABEL as GEO_LEVEL_LABEL, CATEGORY_LABEL as TECH_CATEGORY_LABEL } from '../constants/labels';
@@ -368,10 +368,12 @@ export default function EntryEditor() {
           <>
             <div>
               <label className="label-text">所属纪元 *</label>
-              <select className="input-field" value={eraId} onChange={e => setEraId(e.target.value)}>
-                <option value="">请选择</option>
-                {eras.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-              </select>
+              <Picker
+                value={eraId}
+                onChange={setEraId}
+                options={[{ value: '', label: '请选择' }, ...eras.map(e => ({ value: e.id, label: e.name }))]}
+                placeholder="请选择"
+              />
             </div>
             <div>
               <label className="label-text">发生时间</label>
@@ -409,9 +411,11 @@ export default function EntryEditor() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="label-text">层级</label>
-              <select className="input-field" value={level} onChange={e => setLevel(e.target.value as GeoLevel)}>
-                {GEO_LEVELS.map(lv => <option key={lv} value={lv}>{GEO_LEVEL_LABEL[lv]}</option>)}
-              </select>
+              <Picker
+                value={level}
+                onChange={(v) => setLevel(v as GeoLevel)}
+                options={GEO_LEVELS.map(lv => ({ value: lv, label: GEO_LEVEL_LABEL[lv] }))}
+              />
             </div>
             <div>
               <label className="label-text">关联势力</label>
@@ -419,14 +423,12 @@ export default function EntryEditor() {
             </div>
             <div className="md:col-span-2">
               <label className="label-text">上级地点</label>
-              <select className="input-field" value={parentId} onChange={e => setParentId(e.target.value)}>
-                <option value="">无（顶级）</option>
-                {geographyOptions.map(g => (
-                  <option key={g.id} value={g.id}>
-                    {g.title}（{GEO_LEVEL_LABEL[(g as { level: GeoLevel }).level]}）
-                  </option>
-                ))}
-              </select>
+              <Picker
+                value={parentId}
+                onChange={setParentId}
+                options={[{ value: '', label: '无（顶级）' }, ...geographyOptions.map(g => ({ value: g.id, label: `${g.title}（${GEO_LEVEL_LABEL[(g as { level: GeoLevel }).level]}）` }))]}
+                placeholder="无（顶级）"
+              />
             </div>
           </div>
         )}
@@ -435,9 +437,11 @@ export default function EntryEditor() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="label-text">分类</label>
-              <select className="input-field" value={category} onChange={e => setCategory(e.target.value as TechCategory)}>
-                {TECH_CATEGORIES.map(c => <option key={c} value={c}>{TECH_CATEGORY_LABEL[c]}</option>)}
-              </select>
+              <Picker
+                value={category}
+                onChange={(v) => setCategory(v as TechCategory)}
+                options={TECH_CATEGORIES.map(c => ({ value: c, label: TECH_CATEGORY_LABEL[c] }))}
+              />
             </div>
             <div>
               <label className="label-text">首次出现</label>
@@ -458,11 +462,11 @@ export default function EntryEditor() {
             </div>
             <div>
               <label className="label-text">重要程度</label>
-              <select className="input-field" value={importance} onChange={e => setImportance(e.target.value as 'low' | 'medium' | 'high')}>
-                <option value="low">低</option>
-                <option value="medium">中</option>
-                <option value="high">高</option>
-              </select>
+              <Picker
+                value={importance}
+                onChange={(v) => setImportance(v as 'low' | 'medium' | 'high')}
+                options={[{ value: 'low', label: '低' }, { value: 'medium', label: '中' }, { value: 'high', label: '高' }]}
+              />
             </div>
           </div>
         )}
@@ -470,10 +474,12 @@ export default function EntryEditor() {
         {editType === 'custom' && (
           <div>
             <label className="label-text">所属分类 *</label>
-            <select className="input-field" value={sectionId} onChange={e => setSectionId(e.target.value)}>
-              <option value="">请选择</option>
-              {customSections.map(s => <option key={s.id} value={s.id}>{s.icon} {s.name}</option>)}
-            </select>
+            <Picker
+              value={sectionId}
+              onChange={setSectionId}
+              options={[{ value: '', label: '请选择' }, ...customSections.map(s => ({ value: s.id, label: `${s.icon} ${s.name}` }))]}
+              placeholder="请选择"
+            />
           </div>
         )}
       </div>

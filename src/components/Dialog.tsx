@@ -200,3 +200,82 @@ export function ModeSelectDialog({
     </BaseDialog>
   );
 }
+
+export interface SelectDialogProps {
+  open: boolean;
+  onClose: () => void;
+  title?: string;
+  options: { value: string; label: string }[];
+  value?: string;
+  onSelect: (value: string) => void;
+}
+
+export function SelectDialog({
+  open, onClose, title = '请选择', options, value, onSelect
+}: SelectDialogProps) {
+  if (!open) return null;
+  return (
+    <BaseDialog open={open} onClose={onClose} title={title}>
+      <div className="space-y-1 max-h-64 overflow-y-auto">
+        {options.map(opt => (
+          <button
+            key={opt.value}
+            onClick={() => { onSelect(opt.value); onClose(); }}
+            className={`w-full flex items-center justify-between p-3 rounded-lg transition-all text-left ${
+              value === opt.value
+                ? 'bg-gold-900/30 border border-gold-700 text-gold-200'
+                : 'border border-transparent text-ink-300 hover:bg-ink-800/50'
+            }`}
+          >
+            <span className={value === opt.value ? 'text-gold-200' : 'text-ink-300'}>
+              {opt.label}
+            </span>
+            <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+              value === opt.value ? 'border-gold-500 bg-gold-900/50' : 'border-ink-600'
+            }`}>
+              {value === opt.value && <span className="w-2 h-2 rounded-full bg-gold-500" />}
+            </span>
+          </button>
+        ))}
+      </div>
+    </BaseDialog>
+  );
+}
+
+export interface PickerProps {
+  value?: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string }[];
+  placeholder?: string;
+  className?: string;
+}
+
+export function Picker({ value, onChange, options, placeholder = '请选择', className = '' }: PickerProps) {
+  const [open, setOpen] = useState(false);
+  const selected = options.find(o => o.value === value);
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className={`input-field flex items-center justify-between text-left ${className}`}
+      >
+        <span className={selected ? 'text-ink-100' : 'text-ink-500'}>
+          {selected?.label || placeholder}
+        </span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gold-600 shrink-0">
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+      <SelectDialog
+        open={open}
+        onClose={() => setOpen(false)}
+        title={placeholder}
+        options={options}
+        value={value}
+        onSelect={onChange}
+      />
+    </>
+  );
+}

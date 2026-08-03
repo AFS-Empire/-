@@ -4,7 +4,7 @@ import { Plus, Pencil, Trash2, Users, Search } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
 import type { Character as CharacterEntry } from '../types';
-import { ConfirmDialog } from '../components/Dialog';
+import { ConfirmDialog, Picker } from '../components/Dialog';
 import { EmptyState } from '../components/Common';
 
 export default function Character() {
@@ -72,9 +72,12 @@ export default function Character() {
             onChange={e => setKeyword(e.target.value)}
           />
         </div>
-        <select className="input-field md:w-48" value={faction} onChange={e => setFaction(e.target.value)}>
-          {factions.map(f => <option key={f} value={f}>{f}</option>)}
-        </select>
+        <Picker
+          value={faction}
+          onChange={setFaction}
+          options={factions.map(f => ({ value: f, label: f }))}
+          className="md:w-48"
+        />
       </div>
 
       {filtered.length === 0 ? (
