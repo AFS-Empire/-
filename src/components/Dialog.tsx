@@ -11,13 +11,25 @@ interface BaseDialogProps {
 export function BaseDialog({ open, onClose, title, children }: BaseDialogProps) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in" onClick={onClose}>
-      <div className="panel-gold w-full max-w-md p-5 relative" onClick={e => e.stopPropagation()}>
-        <button onClick={onClose} className="absolute top-3 right-3 p-1.5 rounded text-ink-500 hover:text-gold-300 hover:bg-ink-800/50" aria-label="关闭">
-          <X size={16} />
-        </button>
-        <h3 className="text-base font-semibold text-gold-200 tracking-wide mb-4">{title}</h3>
-        {children}
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 animate-fade-in" onClick={onClose}>
+      <div
+        className="panel-gold w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden relative"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* 标题栏：固定高度，不被压缩 */}
+        <div className="flex items-center justify-between p-5 pb-3 shrink-0">
+          <h3 className="text-base font-semibold text-gold-200 tracking-wide">{title}</h3>
+          <button onClick={onClose} className="p-1.5 rounded text-ink-500 hover:text-gold-300 hover:bg-ink-800/50" aria-label="关闭">
+            <X size={16} />
+          </button>
+        </div>
+        {/* 内容区：独立滚动，适配安卓 WebView */}
+        <div
+          className="overflow-y-auto flex-1 min-h-0 px-5 pb-5"
+          style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
+        >
+          {children}
+        </div>
       </div>
     </div>
   );
@@ -53,7 +65,7 @@ export function ConfirmDialog({
         <div className="flex gap-2 justify-end">
           <button onClick={onClose} className="btn-ghost text-sm">{cancelText}</button>
           <button
-            onClick={() => { onConfirm(); onClose(); }}
+            onClick={() => { onClose(); onConfirm(); }}
             className={variant === 'danger' ? 'btn-gold-danger text-sm' : 'btn-gold text-sm'}
           >
             {confirmText}
@@ -129,7 +141,7 @@ export function PromptDialog({
         <div className="flex gap-2 justify-end">
           <button onClick={onClose} className="btn-ghost text-sm">{cancelText}</button>
           <button
-            onClick={() => { onConfirm(value); onClose(); }}
+            onClick={() => { onClose(); onConfirm(value); }}
             className="btn-gold text-sm"
           >
             {confirmText}
@@ -179,7 +191,7 @@ export function ModeSelectDialog({
       <div className="space-y-3">
         <p className="text-xs text-ink-400">请选择小说的角色关联显示模式</p>
         <button
-          onClick={() => { onSelect('open'); onClose(); }}
+          onClick={() => { onClose(); onSelect('open'); }}
           className="w-full p-4 rounded-lg border border-gold-700/50 hover:border-gold-500 hover:bg-gold-900/20 transition-all text-left"
         >
           <div className="flex items-center gap-2 mb-1">
@@ -188,7 +200,7 @@ export function ModeSelectDialog({
           <p className="text-xs text-ink-400">角色名直接高亮显示，点击查看档案</p>
         </button>
         <button
-          onClick={() => { onSelect('unlock'); onClose(); }}
+          onClick={() => { onClose(); onSelect('unlock'); }}
           className="w-full p-4 rounded-lg border border-ink-700 hover:border-gold-500 hover:bg-gold-900/20 transition-all text-left"
         >
           <div className="flex items-center gap-2 mb-1">
@@ -216,11 +228,14 @@ export function SelectDialog({
   if (!open) return null;
   return (
     <BaseDialog open={open} onClose={onClose} title={title}>
-      <div className="space-y-1 max-h-64 overflow-y-auto">
+      <div
+        className="space-y-1 max-h-[60vh] overflow-y-auto overflow-x-hidden"
+        style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' } as React.CSSProperties}
+      >
         {options.map(opt => (
           <button
             key={opt.value}
-            onClick={() => { onSelect(opt.value); onClose(); }}
+            onClick={() => { onClose(); onSelect(opt.value); }}
             className={`w-full flex items-center justify-between p-3 rounded-lg transition-all text-left ${
               value === opt.value
                 ? 'bg-gold-900/30 border border-gold-700 text-gold-200'
