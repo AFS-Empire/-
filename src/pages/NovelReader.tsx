@@ -112,13 +112,13 @@ export default function NovelReader() {
     }, 1000);
   }, [chapter, bookId, chapterId, saveProgress]);
 
-  // 键盘导航
+  // 键盘导航（replace 替换历史记录，back 直接回到详情页）
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft' && currentIndex > 0) {
-        navigate(`/novel/${bookId}/chapter/${bookChapters[currentIndex - 1].id}`);
+        navigate(`/novel/${bookId}/chapter/${bookChapters[currentIndex - 1].id}`, { replace: true });
       } else if (e.key === 'ArrowRight' && currentIndex < bookChapters.length - 1) {
-        navigate(`/novel/${bookId}/chapter/${bookChapters[currentIndex + 1].id}`);
+        navigate(`/novel/${bookId}/chapter/${bookChapters[currentIndex + 1].id}`, { replace: true });
       }
     };
     window.addEventListener('keydown', handler);
@@ -233,7 +233,7 @@ export default function NovelReader() {
         {/* 章节末尾导航 */}
         <div className="flex items-center justify-between mt-12 pt-6 border-t border-ink-800/30">
           <button
-            onClick={() => prevChapter && navigate(`/novel/${bookId}/chapter/${prevChapter.id}`)}
+            onClick={() => prevChapter && navigate(`/novel/${bookId}/chapter/${prevChapter.id}`, { replace: true })}
             disabled={!prevChapter}
             className="btn-ghost text-sm disabled:opacity-30"
           >
@@ -241,7 +241,7 @@ export default function NovelReader() {
           </button>
           <span className="text-xs text-ink-500">{currentIndex + 1} / {bookChapters.length}</span>
           <button
-            onClick={() => nextChapter && navigate(`/novel/${bookId}/chapter/${nextChapter.id}`)}
+            onClick={() => nextChapter && navigate(`/novel/${bookId}/chapter/${nextChapter.id}`, { replace: true })}
             disabled={!nextChapter}
             className="btn-ghost text-sm disabled:opacity-30"
           >
@@ -254,7 +254,7 @@ export default function NovelReader() {
       <div className={`sticky bottom-0 z-20 border-t ${theme === 'light' ? 'bg-stone-50 border-stone-200' : 'bg-ink-950/95 border-gold-900/20'}`}>
         <div className="flex items-center justify-center gap-8 h-14">
           <button
-            onClick={() => prevChapter && navigate(`/novel/${bookId}/chapter/${prevChapter.id}`)}
+            onClick={() => prevChapter && navigate(`/novel/${bookId}/chapter/${prevChapter.id}`, { replace: true })}
             disabled={!prevChapter}
             className="flex flex-col items-center disabled:opacity-30"
             aria-label="上一章"
@@ -279,7 +279,7 @@ export default function NovelReader() {
             <span className="text-xs mt-0.5">设置</span>
           </button>
           <button
-            onClick={() => nextChapter && navigate(`/novel/${bookId}/chapter/${nextChapter.id}`)}
+            onClick={() => nextChapter && navigate(`/novel/${bookId}/chapter/${nextChapter.id}`, { replace: true })}
             disabled={!nextChapter}
             className="flex flex-col items-center disabled:opacity-30"
             aria-label="下一章"
@@ -309,7 +309,7 @@ export default function NovelReader() {
                   key={c.id}
                   onClick={() => {
                     setShowToc(false);
-                    navigate(`/novel/${bookId}/chapter/${c.id}`);
+                    navigate(`/novel/${bookId}/chapter/${c.id}`, { replace: true });
                   }}
                   className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
                     c.id === chapterId

@@ -275,7 +275,7 @@ export default function NovelDetail() {
                           <div className="flex items-center gap-2 shrink-0">
                             <span className="text-xs text-ink-600">{chap.content.length}字</span>
                             {!IS_WEB_BUILD && (
-                              <div className="hidden group-hover:flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
+                              <div className="flex items-center gap-0.5 opacity-50 hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
                                 <button
                                   onClick={() => {
                                     openPrompt('修改章节标题', '请输入新的章节标题：', '章节标题', chap.title, async (name) => {
