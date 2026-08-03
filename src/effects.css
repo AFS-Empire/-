@@ -41,6 +41,13 @@
    核心点击反馈（:active 纯 CSS，零显存开销，100% 稳定触发）
    按下去立刻有"被按到"的触感，松手即回弹
    ====================================================================== */
+
+/* 基础态：强制 transform: scale(1) + will-change，确保 :active 结束后平滑回弹到原始尺寸 */
+.btn-gold {
+  transform: scale(1);
+  will-change: transform;
+}
+
 .btn-gold:active {
   transform: translateY(1px) scale(0.97) !important;
   filter: brightness(1.08) saturate(1.1) !important;

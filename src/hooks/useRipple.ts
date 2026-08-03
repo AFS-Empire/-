@@ -28,10 +28,13 @@ export function useRipple(): void {
       target.appendChild(span);
 
       // 双保险清理：animationend + 硬超时兜底（Android WebView animationend 可能不触发）
-      const cleanup = () => span.remove();
+      const cleanup = () => {
+        if (span.parentNode) span.remove();
+      };
       span.addEventListener('animationend', cleanup, { once: true });
       setTimeout(cleanup, 900);
     };
+
     document.addEventListener('click', handler, true);
     return () => document.removeEventListener('click', handler, true);
   }, []);
