@@ -191,19 +191,14 @@ jobs:
       #     path: android/app/release.keystore
       #     key: release-keystore-v1
 
-      - name: 创建签名密钥（每次全新生成，无缓存）
+      - name: 注入固定签名密钥（从 GitHub Secrets）
         run: |
-          echo "🔐 全新生成签名密钥..."
-          keytool -genkey -v \
-            -keystore android/app/release.keystore \
-            -alias orpheus \
-            -keyalg RSA -keysize 2048 \
-            -validity 36500 \
-            -storepass OrpheusArchive2026 \
-            -keypass OrpheusArchive2026 \
-            -dname "CN=AFS-JZY, OU=Archive, O=OrpheusEmpire, L=Unknown, ST=Unknown, C=CN"
-          echo "✅ 签名密钥生成完成"
+          echo "🔐 从 GitHub Secrets 读取固定签名密钥..."
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore
+          echo "✅ 固定签名密钥注入完成"
           ls -la android/app/release.keystore
+          echo "🔍 验证密钥信息..."
+          keytool -list -keystore android/app/release.keystore -storepass OrpheusArchive2026 2>&1 | grep -E "Alias|Owner|Valid"
 
       - name: 构建 Release APK
         run: |

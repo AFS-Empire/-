@@ -29,3 +29,7 @@ dist-ssr
 .cache/
 tmp/
 
+# 签名密钥文件（仅本地保存，已上传到 GitHub Secrets）
+*.jks
+*.keystore
+

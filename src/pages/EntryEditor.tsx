@@ -4,7 +4,6 @@ import { ArrowLeft, Save, Upload, X, Search, Trash2 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
 import { useBindingStore } from '../store/bindingStore';
-import { useRequirePin } from '../hooks/useRequirePin';
 import { IS_WEB_BUILD } from '../lib/buildTarget';
 import { genId } from '../data/db';
 import { AlertDialog } from '../components/Dialog';
@@ -111,9 +110,8 @@ export default function EntryEditor() {
   const existing = id ? getById(id) : undefined;
   const initialForm = useMemo(() => initForm(existing, searchParams.get('sectionId')), [existing, searchParams]);
 
-  // 写操作守卫：机器码绑定（设备级）+ PIN 会话（操作级，App/桌面端）
+  // 写操作守卫：机器码绑定（设备级），验证由 dataStore 内部的 guardWrite 统一处理
   const isBound = useBindingStore(s => s.isBound);
-  const { requirePin, PinGuard } = useRequirePin();
 
   // 非受控文本字段 —— 不触发重新渲染，光标不会跳
   const titleField = useTextField(initialForm.title);
@@ -323,9 +321,8 @@ export default function EntryEditor() {
       setAlertMsg('设备未绑定机器码，无法保存编辑');
       return;
     }
-    // App/桌面端：保存前需 PIN 密钥校验（会话内有效，杀后台清）
-    if (IS_WEB_BUILD) { void doSave(); return; }
-    requirePin('保存档案', doSave);
+    // 验证由 dataStore.guardWrite 统一处理，直接调用 doSave
+    void doSave();
   };
 
   return (
@@ -586,9 +583,6 @@ export default function EntryEditor() {
       </div>
 
       <AlertDialog open={!!alertMsg} onClose={() => setAlertMsg('')} title="提示" message={alertMsg} />
-
-      {/* App 端 PIN 密钥校验弹窗（保存档案前） */}
-      {PinGuard}
     </div>
   );
 }

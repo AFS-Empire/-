@@ -4,7 +4,6 @@ import { ChevronDown, ChevronRight, Plus, Pencil, Trash2, Scroll, Settings, X, S
 import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
 import { useBindingStore } from '../store/bindingStore';
-import { useRequirePin } from '../hooks/useRequirePin';
 import { genId } from '../data/db';
 import { ConfirmDialog, AlertDialog } from '../components/Dialog';
 import { EmptyState } from '../components/Common';
@@ -25,7 +24,6 @@ export default function Timeline() {
   const navigate = useNavigate();
   const isAdmin = useAuthStore(s => s.currentUser?.role === 'admin');
   const isBound = useBindingStore(s => s.isBound);
-  const { requirePin, PinGuard } = useRequirePin();
   const entries = useDataStore(s => s.entries);
   const eras = useDataStore(s => s.eras);
   const saveEra = useDataStore(s => s.saveEra);
@@ -57,15 +55,15 @@ export default function Timeline() {
 
   const toggle = (id: string) => setCollapsed(prev => ({ ...prev, [id]: !prev[id] }));
 
-  // 写操作守卫：机器未绑定 → 拒绝；已绑定 → 弹 PIN 校验通过后执行
+  // 写操作守卫：机器未绑定 → 拒绝；验证由 dataStore.guardWrite 统一处理
   const handleDeleteEvent = (id: string) => {
     if (!isBound) { setAlertMsg('设备未绑定，无法删除'); return; }
-    setConfirmState({open: true, msg: '确认删除该事件？此操作不可撤销。', action: () => requirePin('删除事件', () => deleteEntry(id))});
+    setConfirmState({open: true, msg: '确认删除该事件？此操作不可撤销。', action: () => deleteEntry(id)});
   };
 
   const handleDeleteEra = (id: string) => {
     if (!isBound) { setAlertMsg('设备未绑定，无法删除'); return; }
-    setConfirmState({open: true, msg: '确认删除该纪元？纪元下的事件将变为"未分类"。', action: () => requirePin('删除纪元', () => deleteEra(id))});
+    setConfirmState({open: true, msg: '确认删除该纪元？纪元下的事件将变为"未分类"。', action: () => deleteEra(id)});
   };
 
   const handleSaveEra = async () => {
@@ -76,10 +74,8 @@ export default function Timeline() {
     }
     if (!isBound) { setAlertMsg('设备未绑定，无法保存'); return; }
     const eraToSave = editingEra;
-    requirePin('保存纪元', async () => {
-      await saveEra(eraToSave);
-      setEditingEra(null);
-    });
+    await saveEra(eraToSave);
+    setEditingEra(null);
   };
 
   const uncategorized = grouped.get(UNCATEGORIZED) || [];
@@ -289,7 +285,6 @@ export default function Timeline() {
         onConfirm={() => { confirmState.action?.(); }}
       />
       <AlertDialog open={!!alertMsg} onClose={() => setAlertMsg('')} title="提示" message={alertMsg} />
-      {PinGuard}
     </div>
   );
 }

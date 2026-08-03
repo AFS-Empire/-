@@ -4,7 +4,6 @@ import { Plus, Pencil, Trash2, Layers, X } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
 import { useBindingStore } from '../store/bindingStore';
-import { useRequirePin } from '../hooks/useRequirePin';
 import { genId } from '../data/db';
 import { ConfirmDialog, AlertDialog } from '../components/Dialog';
 import { EmptyState } from '../components/Common';
@@ -14,7 +13,6 @@ export default function Custom() {
   const navigate = useNavigate();
   const isAdmin = useAuthStore(s => s.currentUser?.role === 'admin');
   const isBound = useBindingStore(s => s.isBound);
-  const { requirePin, PinGuard } = useRequirePin();
   const entries = useDataStore(s => s.entries);
   const customSections = useDataStore(s => s.customSections);
   const saveCustomSection = useDataStore(s => s.saveCustomSection);
@@ -59,10 +57,8 @@ export default function Custom() {
     }
     if (!isBound) { setAlertMsg('设备未绑定，无法保存'); return; }
     const sectionToSave = editing;
-    requirePin('保存分类', async () => {
-      await saveCustomSection(sectionToSave);
-      setEditing(null);
-    });
+    await saveCustomSection(sectionToSave);
+    setEditing(null);
   };
 
   const handleDeleteEntry = (id: string) => {
@@ -70,19 +66,17 @@ export default function Custom() {
     setDeleteTarget({ kind: 'entry', id, msg: '确认删除该条目？' });
   };
 
-  // 删除确认通过后，包一层 PIN 守卫再执行实际删除
-  const confirmDelete = () => {
+  // 删除确认通过后，验证由 dataStore.guardWrite 统一处理
+  const confirmDelete = async () => {
     if (!deleteTarget) return;
     const target = deleteTarget;
     setDeleteTarget(null);
-    requirePin(target.kind === 'section' ? '删除分类' : '删除条目', async () => {
-      if (target.kind === 'section') {
-        await deleteCustomSection(target.id);
-        if (selectedId === target.id) setSelectedId(null);
-      } else {
-        await deleteEntry(target.id);
-      }
-    });
+    if (target.kind === 'section') {
+      await deleteCustomSection(target.id);
+      if (selectedId === target.id) setSelectedId(null);
+    } else {
+      await deleteEntry(target.id);
+    }
   };
 
   // ---- Section detail view ----
@@ -142,7 +136,6 @@ export default function Custom() {
           />
         )}
         <AlertDialog open={!!alertMsg} onClose={() => setAlertMsg('')} title="提示" message={alertMsg} />
-        {PinGuard}
       </div>
     );
   }
@@ -236,7 +229,6 @@ export default function Custom() {
         />
       )}
       <AlertDialog open={!!alertMsg} onClose={() => setAlertMsg('')} title="提示" message={alertMsg} />
-      {PinGuard}
     </div>
   );
 }
