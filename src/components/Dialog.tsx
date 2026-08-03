@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X, AlertTriangle, Info } from 'lucide-react';
 
 interface BaseDialogProps {
@@ -10,7 +11,9 @@ interface BaseDialogProps {
 
 export function BaseDialog({ open, onClose, title, children }: BaseDialogProps) {
   if (!open) return null;
-  return (
+  // 使用 Portal 渲染到 document.body，彻底脱离祖先 DOM 树
+  // 解决 position:fixed 被祖先 transform/backdrop-filter 限制导致弹窗内嵌的问题
+  return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 animate-fade-in" onClick={onClose}>
       <div
         className="panel-gold w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden relative"
@@ -31,7 +34,8 @@ export function BaseDialog({ open, onClose, title, children }: BaseDialogProps) 
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -274,7 +278,7 @@ export function Picker({ value, onChange, options, placeholder = '请选择', cl
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={`input-field flex items-center justify-between text-left ${className}`}
+        className={`w-full px-4 py-2.5 rounded-lg bg-ink-850 border border-ink-700 text-ink-100 focus:outline-none focus:border-gold-700 focus:ring-1 focus:ring-gold-700/50 transition-all flex items-center justify-between text-left ${className}`}
       >
         <span className={selected ? 'text-ink-100' : 'text-ink-500'}>
           {selected?.label || placeholder}
