@@ -25,7 +25,9 @@ export default function About() {
   const [showHiddenPrompt, setShowHiddenPrompt] = useState(false);
   const [hiddenPassword, setHiddenPassword] = useState('');
   const [hiddenMsg, setHiddenMsg] = useState('');
+  const [keyFingerprint, setKeyFingerprint] = useState<string>('');
   const isUnlocked = useHiddenUnlock(s => s.isUnlocked);
+  const sessionKey = useHiddenUnlock(s => s.sessionKey);
   const unlock = useHiddenUnlock(s => s.unlock);
   const lock = useHiddenUnlock(s => s.lock);
 
@@ -66,13 +68,49 @@ export default function About() {
   const handleHiddenUnlock = async () => {
     if (!hiddenPassword) return;
     unlock(hiddenPassword);
-    setHiddenMsg('已解锁 · 导入功能已开启');
+    // 计算指纹（不显示本体），方便和 App 端导出时的指纹比对
+    try {
+      const { sha256Hex } = await import('../lib/hiddenUnlock');
+      const sha = await sha256Hex(hiddenPassword);
+      const fp = sha.slice(0, 8) + '…' + sha.slice(-6);
+      setKeyFingerprint(fp);
+      setHiddenMsg('已解锁 · 导入功能已开启  密钥指纹：' + fp);
+    } catch {
+      setHiddenMsg('已解锁 · 导入功能已开启');
+    }
     setTimeout(() => {
       setShowHiddenPrompt(false);
       setHiddenPassword('');
-      setHiddenMsg('');
-    }, 1500);
+    }, 3000);
   };
+
+  // App 端显示注入盐值的指纹（不显示本体）
+  const [appKeyFingerprint, setAppKeyFingerprint] = useState<string>('');
+  useEffect(() => {
+    if (IS_WEB_BUILD) return;
+    (async () => {
+      try {
+        const { APP_PRIVATE_SALT } = await import('../lib/appSecret');
+        if (!APP_PRIVATE_SALT) return;
+        const { sha256Hex } = await import('../lib/hiddenUnlock');
+        const sha = await sha256Hex(APP_PRIVATE_SALT);
+        setAppKeyFingerprint(sha.slice(0, 8) + '…' + sha.slice(-6));
+      } catch { /* ignore */ }
+    })();
+  }, []);
+
+  // Web 端解锁时同步指纹
+  useEffect(() => {
+    if (!IS_WEB_BUILD) return;
+    if (!isUnlocked || !sessionKey) { setKeyFingerprint(''); return; }
+    (async () => {
+      try {
+        const { sha256Hex } = await import('../lib/hiddenUnlock');
+        const sha = await sha256Hex(sessionKey);
+        setKeyFingerprint(sha.slice(0, 8) + '…' + sha.slice(-6));
+      } catch { /* ignore */ }
+    })();
+  }, [isUnlocked, sessionKey]);
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -139,6 +177,17 @@ export default function About() {
         <p className="text-xs text-ink-500">
           数据本地存储 · 无需联网 · 支持 Windows / 安卓 / 浏览器三端
         </p>
+        {!IS_WEB_BUILD && appKeyFingerprint && (
+          <div className="mt-3 pt-3 border-t border-ink-800/60 space-y-1">
+            <p className="text-[11px] text-ink-500">
+              <span className="text-gold-500/70 mr-2">数据密钥指纹</span>
+              （用于和网页端同步密钥比对）
+            </p>
+            <p className="font-mono text-xs text-gold-400 tracking-wider">
+              {appKeyFingerprint}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* 机器码绑定状态 */}
@@ -225,7 +274,17 @@ export default function About() {
             ) : (
               <div className="space-y-3 text-center">
                 <CheckCircle2 size={36} className="text-green-400 mx-auto" />
-                <p className="text-sm text-green-400">{hiddenMsg || '已解锁'}</p>
+                <p className="text-sm text-green-400">已解锁 · 导入功能已开启</p>
+                {keyFingerprint && (
+                  <div className="text-left bg-ink-900/60 rounded p-2 border border-ink-800/80 space-y-1">
+                    <p className="text-[10px] text-ink-500">
+                      同步密钥指纹（请与 App 端「技术信息」中指纹比对）
+                    </p>
+                    <p className="font-mono text-xs text-gold-400 tracking-wider">
+                      {keyFingerprint}
+                    </p>
+                  </div>
+                )}
                 <p className="text-xs text-ink-500">导入功能已在侧边栏开启</p>
                 <button onClick={() => { lock(); setShowHiddenPrompt(false); }} className="btn-ghost w-full text-sm">
                   重新锁定
@@ -238,14 +297,23 @@ export default function About() {
 
       {/* Web 版已解锁状态提示 */}
       {IS_WEB_BUILD && isUnlocked && !showHiddenPrompt && (
-        <div className="panel p-3 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-green-400 text-sm">
-            <CheckCircle2 size={14} />
-            <span>数据同步已开启</span>
+        <div className="panel p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-green-400 text-sm">
+              <CheckCircle2 size={14} />
+              <span>数据同步已开启</span>
+            </div>
+            <button onClick={() => { lock(); }} className="text-xs text-ink-500 hover:text-red-400 transition-colors">
+              锁定
+            </button>
           </div>
-          <button onClick={() => { lock(); }} className="text-xs text-ink-500 hover:text-red-400 transition-colors">
-            锁定
-          </button>
+          {keyFingerprint && (
+            <div className="text-[10px] text-ink-500 flex items-center gap-2">
+              <span>同步密钥指纹：</span>
+              <span className="font-mono text-gold-400 tracking-wider">{keyFingerprint}</span>
+              <span className="text-ink-600">（请与 App 端「关于页-技术信息」中指纹比对）</span>
+            </div>
+          )}
         </div>
       )}
     </div>
