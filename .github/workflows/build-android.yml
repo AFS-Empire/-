@@ -32,8 +32,22 @@ jobs:
         with:
           packages: 'platforms;android-34 build-tools;34.0.0'
 
+      - name: 配置 CI 环境（跳过国内镜像 + 不下载 electron 二进制）
+        run: |
+          # GitHub Actions 在美国机房，用官方 npm 源比国内镜像快
+          echo "registry=https://registry.npmjs.org/" > ~/.npmrc
+          echo "fetch-retries=5" >> ~/.npmrc
+          echo "fetch-retry-mintimeout=20000" >> ~/.npmrc
+          echo "fetch-retry-maxtimeout=120000" >> ~/.npmrc
+          echo "legacy-peer-deps=true" >> ~/.npmrc
+          # 关键：Android 构建完全不需要 electron 二进制，跳过下载，避免超时
+          echo "ELECTRON_SKIP_BINARY_DOWNLOAD=1" >> "${GITHUB_ENV}"
+          cat ~/.npmrc
+
       - name: 安装 npm 依赖
         run: npm ci
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
 
       - name: 构建 Web 资源
         run: npx vite build
@@ -48,7 +62,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: android
-          key: android-project-v7-${{ hashFiles('capacitor.config.json') }}
+          key: android-project-v8-${{ hashFiles('capacitor.config.json') }}
 
       - name: 首次生成 Android 工程
         if: steps.cache-android.outputs.cache-hit != 'true'

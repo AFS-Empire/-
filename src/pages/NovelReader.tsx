@@ -151,7 +151,6 @@ export default function NovelReader() {
 
     // 找到所有需要高亮的位置
     const parts: React.ReactNode[] = [];
-    let lastIdx = 0;
     let key = 0;
 
     // 只取第一个匹配（首次出现）

@@ -53,7 +53,6 @@ export default function Layout() {
   const refreshData = useDataStore(s => s.refresh);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showRefreshConfirm, setShowRefreshConfirm] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const isUnlocked = useHiddenUnlock(s => s.isUnlocked);
@@ -259,13 +258,11 @@ export default function Layout() {
         message="重新从本地数据库读取数据，不会丢失已保存的内容。"
         confirmText="刷新"
         onConfirm={async () => {
-          setRefreshing(true);
           try {
             await refreshData();
           } catch (e) {
             console.error('refresh failed', e);
           }
-          setRefreshing(false);
         }}
       />
     </div>

@@ -1,5 +1,5 @@
 import type { NovelBook, NovelVolume, NovelChapter, NovelProgress } from '../types';
-import { getDB, genId } from './db';
+import { getDB } from './db';
 
 // ============ 书籍 CRUD ============
 export async function getAllNovelBooks(): Promise<NovelBook[]> {

@@ -180,7 +180,6 @@ export function scanMentions(
   const sorted = Array.from(byOffset.values()).sort((a, b) => a.firstOffset - b.firstOffset);
   const filtered: NovelMention[] = [];
   for (const m of sorted) {
-    const end = m.firstOffset + m.name.length;
     // 检查是否被前一个更长的覆盖（前一个end > 当前firstOffset AND 前一个名更长）
     const overlappedByPrev = filtered.length > 0 &&
       (filtered[filtered.length - 1].firstOffset + filtered[filtered.length - 1].name.length) > m.firstOffset &&
@@ -188,13 +187,6 @@ export function scanMentions(
     if (!overlappedByPrev) filtered.push(m);
   }
   return filtered;
-}
-
-/** 判断是否为中日韩统一表意文字 */
-function isCjkChar(ch: string): boolean {
-  const code = ch.charCodeAt(0);
-  return (code >= 0x4e00 && code <= 0x9fff) ||
-         (code >= 0x3400 && code <= 0x4dbf);
 }
 
 /** 从段落数组中找到某 offset 所在的段落索引和段内偏移 */

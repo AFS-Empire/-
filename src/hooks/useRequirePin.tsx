@@ -19,10 +19,10 @@ export function useRequirePin() {
   const [pending, setPending] = useState<{
     open: boolean;
     label: string;
-    action: (() => void | Promise<void>) | null;
+    action: (() => unknown) | null;
   }>({ open: false, label: '', action: null });
 
-  const requirePin = useCallback((label: string, action: () => void | Promise<void>) => {
+  const requirePin = useCallback((label: string, action: () => unknown) => {
     // 已解锁直接执行
     if (usePinSessionStore.getState().isUnlocked) {
       action();

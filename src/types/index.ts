@@ -104,9 +104,11 @@ export interface CustomEntry extends BaseEntry {
 // ============ 用户 ============
 export type UserRole = 'admin' | 'guest';
 export interface User {
+  id?: string;
   username: string;
   role: UserRole;
   passwordHash: string;   // 简单哈希（本地演示用）
+  createdAt?: number;
 }
 
 // ============ 联合类型 ============

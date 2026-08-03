@@ -5,7 +5,7 @@
  * 2. Web 版：连续点击标题 5 次触发隐藏密码框，解锁后可导入/导出
  */
 import { useState, useRef, useEffect } from 'react';
-import { BookOpen, Shield, Code, AlertTriangle, X, KeyRound, Lock, CheckCircle2, Smartphone, ArrowRightLeft, Copy, Circle, Wifi } from 'lucide-react';
+import { Shield, Code, AlertTriangle, X, KeyRound, Lock, CheckCircle2, Smartphone, ArrowRightLeft, Copy, Circle, Wifi } from 'lucide-react';
 import { CREATOR, CONTACT, COPYRIGHT } from '../lib/watermark';
 import { IS_WEB_BUILD } from '../lib/buildTarget';
 import { useHiddenUnlock } from '../lib/hiddenUnlock';

@@ -355,7 +355,7 @@ export default function EntryEditor() {
         </div>
         <div>
           <label className="label-text">正文内容</label>
-          <textarea className="input-field" rows={8} ref={contentField.ref as React.RefObject<HTMLTextAreaElement>} defaultValue={contentField.defaultValue} placeholder="支持换行的正文..." />
+          <textarea className="input-field" rows={8} ref={contentField.ref as unknown as React.RefObject<HTMLTextAreaElement>} defaultValue={contentField.defaultValue} placeholder="支持换行的正文..." />
         </div>
         <div>
           <label className="label-text">标签（逗号分隔）</label>

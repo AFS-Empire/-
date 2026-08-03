@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { BookOpen, LogIn, User, Lock, AlertCircle, ShieldCheck, ArrowRight } from 'lucide-react';
+import { LogIn, User, Lock, AlertCircle, ShieldCheck, ArrowRight } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { IS_WEB_BUILD } from '../lib/buildTarget';
 
