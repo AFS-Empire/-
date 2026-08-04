@@ -84,24 +84,30 @@ export default function About() {
     }, 3000);
   };
 
-  // App 端显示注入盐值的指纹（不显示本体）—— 诊断导入签名失败时用，release 也显示
-  const [appKeyFingerprint, setAppKeyFingerprint] = useState<string>('');
-  const [appDataSaltFp, setAppDataSaltFp] = useState<string>('');
+  // App 端显示注入盐值（脱敏）—— 无条件显示，确认环境变量是否注入成功
+  const [appSaltInfo, setAppSaltInfo] = useState<{
+    dataSalt: string; opKeyB: string; err: string;
+  } | null>(null);
   useEffect(() => {
     if (IS_WEB_BUILD) return;
     (async () => {
       try {
         const { APP_OPERATION_KEY_B, APP_DATA_SALT } = await import('../lib/appSecret');
-        const { sha256Hex } = await import('../lib/hiddenUnlock');
-        if (APP_OPERATION_KEY_B) {
-          const sha = await sha256Hex(APP_OPERATION_KEY_B);
-          setAppKeyFingerprint(sha.slice(0, 8) + '…' + sha.slice(-6));
-        }
-        if (APP_DATA_SALT) {
-          const sha = await sha256Hex(APP_DATA_SALT);
-          setAppDataSaltFp(sha.slice(0, 8) + '…' + sha.slice(-6));
-        }
-      } catch { /* ignore */ }
+        const mask = (s: string) => s
+          ? `len=${s.length} "${s.slice(0, 2)}${'*'.repeat(Math.max(0, s.length - 4))}${s.slice(-2)}"`
+          : '空';
+        setAppSaltInfo({
+          dataSalt: mask(APP_DATA_SALT),
+          opKeyB: mask(APP_OPERATION_KEY_B),
+          err: '',
+        });
+      } catch (e: any) {
+        setAppSaltInfo({
+          dataSalt: '加载失败',
+          opKeyB: '加载失败',
+          err: e?.message || String(e),
+        });
+      }
     })();
   }, []);
 
@@ -183,30 +189,25 @@ export default function About() {
         <p className="text-xs text-ink-500">
           数据本地存储 · 无需联网 · 支持 Windows / 安卓 / 浏览器三端
         </p>
-        {!IS_WEB_BUILD && (appKeyFingerprint || appDataSaltFp) && (
-          <div className="mt-3 pt-3 border-t border-ink-800/60 space-y-2">
-            {appDataSaltFp && (
-              <>
-                <p className="text-[11px] text-ink-500">
-                  <span className="text-gold-500/70 mr-2">导出密钥指纹</span>
-                  （网页端导入时输入的密钥，SHA-256 指纹应与此一致）
-                </p>
-                <p className="font-mono text-xs text-gold-400 tracking-wider">
-                  {appDataSaltFp}
-                </p>
-              </>
+        {!IS_WEB_BUILD && appSaltInfo && (
+          <div className="mt-3 pt-3 border-t border-ink-800/60 space-y-1">
+            {appSaltInfo.err && (
+              <p className="text-[11px] text-red-400">⚠ 密钥加载异常：{appSaltInfo.err}</p>
             )}
-            {appKeyFingerprint && (
-              <>
-                <p className="text-[11px] text-ink-500">
-                  <span className="text-gold-500/70 mr-2">操作密钥指纹</span>
-                  （30天操作验证用）
-                </p>
-                <p className="font-mono text-xs text-gold-400 tracking-wider">
-                  {appKeyFingerprint}
-                </p>
-              </>
-            )}
+            <p className="text-[11px] text-ink-500">
+              <span className="text-gold-500/70 mr-2">导出密钥（盐值）</span>
+              网页端导入时需输入相同密钥
+            </p>
+            <p className="font-mono text-xs text-gold-400 tracking-wider">
+              {appSaltInfo.dataSalt}
+            </p>
+            <p className="text-[11px] text-ink-500">
+              <span className="text-gold-500/70 mr-2">操作密钥（盐值）</span>
+              30天操作验证用
+            </p>
+            <p className="font-mono text-xs text-gold-400 tracking-wider">
+              {appSaltInfo.opKeyB}
+            </p>
           </div>
         )}
       </div>
