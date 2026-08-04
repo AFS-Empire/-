@@ -228,9 +228,14 @@ export async function exportAll(): Promise<string> {
 
   // 私有盐值：App/桌面构建注入真实值；Web 构建为空（但网页端不调用导出）
   const { APP_DATA_SALT } = await import('../lib/appSecret');
+  // 诊断日志：打印导出密钥指纹（与导入端 [Import] 日志的密钥指纹对比）
+  console.error('[Export] 密钥指纹=' + (APP_DATA_SALT
+    ? 'len=' + APP_DATA_SALT.length + ' "' + APP_DATA_SALT.slice(0, 2) + '…' + APP_DATA_SALT.slice(-2) + '"'
+    : '空'));
   // 加密主体 + 签名（AES-GCM 认证加密 + HMAC 双保险）
   const { encryptPayload } = await import('../lib/cryptoVault');
   const vault = await encryptPayload(payload, APP_DATA_SALT);
+  console.error('[Export] ✅ v2 加密完成，v=' + vault.v + ' encrypted=' + vault.encrypted);
 
   // 外层明文：导出时间 + 创作者署名水印
   const { buildExportWatermark } = await import('../lib/watermark');
@@ -264,25 +269,47 @@ export async function verifyAndDecrypt(
   try {
     data = JSON.parse(rawJson);
   } catch {
+    console.error('[Import] ❌ JSON.parse 失败，rawJson 长度=' + rawJson.length);
     throw new VaultError();
   }
 
+  // 诊断日志（console.error 不受 __DEBUG_BUILD__ 门控，release 构建保留）
+  // 打印密钥指纹（不泄露本体）+ 格式版本 + 顶层字段名
+  const keyFp = privateKey
+    ? 'len=' + privateKey.length + ' "' + privateKey.slice(0, 2) + '…' + privateKey.slice(-2) + '"'
+    : '空';
+  console.error('[Import] 格式 v=' + data.v + ' encrypted=' + data.encrypted +
+    ' 顶层字段=[' + Object.keys(data).join(',') + ']' +
+    ' 密钥指纹=' + keyFp);
+
   // v2 加密格式
   if (data.v === 2 && data.encrypted === true) {
-    // decryptPayload 内部完成 AES-GCM 解密 + 验签，任何失败统一抛 VaultError
-    return decryptPayload(data, privateKey);
+    try {
+      const result = await decryptPayload(data, privateKey);
+      console.error('[Import] ✅ v2 解密+验签成功');
+      return result;
+    } catch {
+      console.error('[Import] ❌ v2 失败（AES-GCM 解密失败=密钥不匹配；验签失败=sign 被篡改）');
+      throw new VaultError();
+    }
   }
 
   // v1 旧明文格式（向后兼容）
   // 用 hiddenUnlock.verifySign 做签名校验
+  console.error('[Import] 走 v1 路径（文件可能是旧版 App 导出的明文格式）');
   const { verifySign } = await import('../lib/hiddenUnlock');
   let ok: boolean;
   try {
     ok = await verifySign(data, privateKey);
   } catch {
+    console.error('[Import] ❌ v1 verifySign 异常');
     throw new VaultError();
   }
-  if (!ok) throw new VaultError();
+  if (!ok) {
+    console.error('[Import] ❌ v1 验签失败（序列化不一致 or 密钥不匹配）');
+    throw new VaultError();
+  }
+  console.error('[Import] ✅ v1 验签成功');
   return data;
 }
 
