@@ -113,6 +113,15 @@ jobs:
           fi
 
           echo ""
+          echo "=== 清理 Capacitor 默认图标资源 ==="
+          # 删除所有默认图标，避免残留文件冲突
+          rm -f "$RES_DIR"/mipmap-*/ic_launcher*.png
+          rm -f "$RES_DIR"/mipmap-*/ic_launcher*.xml
+          rm -f "$RES_DIR"/drawable/ic_launcher_foreground.*
+          rm -f "$RES_DIR"/values/ic_launcher_background.xml
+          echo "✅ 默认图标资源已清理"
+
+          echo ""
           echo "=== 缩放 Logo 到各分辨率 ==="
           for pair in "mipmap-mdpi:48" "mipmap-hdpi:72" "mipmap-xhdpi:96" "mipmap-xxhdpi:144" "mipmap-xxxhdpi:192"; do
             DIR="${pair%%:*}"

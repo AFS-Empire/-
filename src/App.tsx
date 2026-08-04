@@ -103,6 +103,7 @@ export default function App() {
   const refreshComments = useCommentStore(s => s.refresh);
   const refreshNovel = useNovelStore(s => s.refresh);
   const location = useLocation();
+  const { isAuthenticated } = useAuthStore();
 
   // 机器码绑定校验（仅 App 端）— 统一走 bindingStore，写操作守卫共用
   const bindingResult = useBindingStore(s => s.result);
