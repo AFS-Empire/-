@@ -17,6 +17,7 @@ export interface PlatformAPI {
   unbindMachine(): void;
 
   initPlatform(): Promise<{ platform: 'web'; isMobile: false } | null>;
+  onIncomingFile(callback: (file: { content: string; name: string } | null) => void): () => void;
 }
 
 const MACHINE_BINDING_KEY = '__machine_binding__';
@@ -174,5 +175,9 @@ export const web: PlatformAPI = {
 
   async initPlatform(): Promise<{ platform: 'web'; isMobile: false } | null> {
     return { platform: 'web', isMobile: false };
+  },
+
+  onIncomingFile(_callback: (file: { content: string; name: string } | null) => void): () => void {
+    return () => {};
   },
 };

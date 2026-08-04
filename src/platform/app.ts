@@ -29,6 +29,7 @@ export interface PlatformAPI {
   verifyMigrateAndRebind(code: string): Promise<BindingResult>;
   unbindMachine(): void;
   initPlatform(): Promise<{ platform: 'android' | 'ios'; isMobile: true } | null>;
+  onIncomingFile(callback: (file: { content: string; name: string } | null) => void): () => void;
 }
 
 const STORAGE_KEY = 'machine_binding';
@@ -357,5 +358,41 @@ export const app: PlatformAPI = {
       console.error('[initPlatform] failed', e);
       return null;
     }
+  },
+
+  /** 监听外部 Intent 传入的文件（如微信"用其他应用打开"→本 App） */
+  onIncomingFile(callback: (file: { content: string; name: string } | null) => void): () => void {
+    const cap = (window as any).Capacitor;
+    const AppPlugin = cap?.Plugins?.App;
+    if (!AppPlugin) {
+      // Capacitor App 插件不可用，返回空函数
+      return () => {};
+    }
+
+    const handler = async (event: any) => {
+      const url: string | undefined = event?.url || event?.uri;
+      if (!url) return;
+
+      // 只处理 content:// 和 file:// 协议的文件
+      if (!url.startsWith('content://') && !url.startsWith('file://')) return;
+
+      try {
+        const { Filesystem } = await import('@capacitor/filesystem');
+        const result = await Filesystem.readFile({ path: url });
+        const content = typeof result.data === 'string'
+          ? result.data
+          : atob(result.data as string);
+        const name = decodeURIComponent(url.split('/').pop() || 'import.json');
+        callback({ content, name });
+      } catch (e) {
+        console.error('[onIncomingFile] 读取文件失败:', e);
+        callback(null);
+      }
+    };
+
+    AppPlugin.addListener('appUrlOpen', handler);
+    return () => {
+      try { AppPlugin.removeListener('appUrlOpen', handler); } catch { /* ignore */ }
+    };
   },
 };

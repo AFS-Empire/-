@@ -6,7 +6,7 @@ import { useCommentStore } from './store/commentStore';
 import { useNovelStore } from './store/novelStore';
 import { useBindingStore } from './store/bindingStore';
 import { seedData } from './data/seed';
-import { exportAll, restoreFromBackupIfNeeded } from './data/db';
+import { exportAll, importAll, restoreFromBackupIfNeeded } from './data/db';
 import { useRipple } from './hooks/useRipple';
 import Layout from './components/Layout';
 import { FullScreenLoader } from './components/Skeleton';
@@ -20,6 +20,9 @@ import {
   executePendingActions,
   cancelPendingActions,
 } from './lib/operationKeyGuard';
+import { platform } from './platform';
+import { usePinSessionStore } from './store/pinSessionStore';
+import { useHiddenUnlock } from './lib/hiddenUnlock';
 
 // 路由懒加载：首屏只加载必要代码，其余按需加载
 // 把 importer 抽出来复用：lazy() 用一次，首屏后预加载再用一次（Vite 会去重，已加载的立即 resolve）
@@ -104,6 +107,7 @@ export default function App() {
   // 机器码绑定校验（仅 App 端）— 统一走 bindingStore，写操作守卫共用
   const bindingResult = useBindingStore(s => s.result);
   const refreshBinding = useBindingStore(s => s.refresh);
+  const isBound = useBindingStore(s => s.isBound);
 
   // 密钥A：首次安装验证状态（仅 App 端）
   const [installVerified, setInstallVerified] = useState(() => {
@@ -114,11 +118,24 @@ export default function App() {
   // 密钥B：操作验证对话框状态
   const [showOperationDialog, setShowOperationDialog] = useState(false);
 
+  // 外部 Intent 传入的待导入文件
+  const [pendingImport, setPendingImport] = useState<{ content: string; name: string } | null>(null);
+  const [importToast, setImportToast] = useState<string | null>(null);
+
   // 监听密钥B验证事件（仅 App 端）
   useEffect(() => {
     if (IS_WEB_BUILD) return;
     const unsubscribe = subscribeOperationKeyListener((show) => {
       setShowOperationDialog(show);
+    });
+    return unsubscribe;
+  }, []);
+
+  // 监听外部 Intent 传入的文件（如微信"用其他应用打开"→本 App）
+  useEffect(() => {
+    if (IS_WEB_BUILD) return;
+    const unsubscribe = platform.onIncomingFile((file) => {
+      if (file) setPendingImport(file);
     });
     return unsubscribe;
   }, []);
@@ -150,6 +167,40 @@ export default function App() {
       await refreshNovel();
     })();
   }, []);
+
+  // 待导入文件：数据就绪 + 用户已登录时自动导入（Intent 传文件场景）
+  useEffect(() => {
+    if (!pendingImport) return;
+    if (!loaded) return;
+    if (!isAuthenticated) return;
+    if (bindingResult && bindingResult.bound && !bindingResult.match) return;
+    if (!IS_WEB_BUILD && !isBound) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const { APP_DATA_SALT } = await import('./lib/appSecret');
+        const sessionKey = IS_WEB_BUILD
+          ? useHiddenUnlock.getState().sessionKey || ''
+          : (usePinSessionStore.getState().sessionKey || APP_DATA_SALT);
+        const { verifyAndDecrypt } = await import('./data/db');
+        const payload = await verifyAndDecrypt(pendingImport.content, sessionKey);
+        await importAll(payload);
+        await Promise.all([refresh(), refreshComments(), refreshNovel()]);
+        if (!cancelled) {
+          setImportToast(`已从 ${pendingImport.name} 导入`);
+          setPendingImport(null);
+          setTimeout(() => setImportToast(null), 3500);
+        }
+      } catch {
+        if (!cancelled) {
+          setImportToast('文件导入失败，请手动导入');
+          setTimeout(() => setImportToast(null), 3500);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [pendingImport, loaded, isAuthenticated, bindingResult, isBound]);
 
   // 数据就绪后，空闲时段预加载所有路由 chunk
   // 这样用户点进二级页面时 chunk 已缓存，Suspense 不会再有空白闪烁
@@ -266,6 +317,13 @@ export default function App() {
             cancelPendingActions();
           }}
         />
+      )}
+
+      {/* 外部文件导入 Toast */}
+      {importToast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg bg-green-600/90 text-white text-sm shadow-lg animate-fade-in">
+          {importToast}
+        </div>
       )}
     </ErrorBoundary>
   );

@@ -68,7 +68,7 @@ try {
   hasError = true;
 }
 
-// ── 2. 修改 AndroidManifest.xml 添加权限 ──
+// ── 2. 修改 AndroidManifest.xml 添加权限 + 文件 Intent 处理 ──
 try {
   const manifestPath = path.join(androidAppDir, 'src', 'main', 'AndroidManifest.xml');
   if (fs.existsSync(manifestPath)) {
@@ -89,8 +89,31 @@ try {
       'android:allowBackup="true"',
       'android:allowBackup="false"'
     );
+
+    // 注入文件 Intent-filter：接收外部 JSON 文件的"打开"和"分享"
+    const intentFilterBlock = `
+        <!-- 接收外部 JSON 文件：打开方式 / 分享 -->
+        <intent-filter android:autoVerify="true">
+            <action android:name="android.intent.action.VIEW" />
+            <action android:name="android.intent.action.SEND" />
+            <action android:name="android.intent.action.SEND_MULTIPLE" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:mimeType="application/json" />
+            <data android:mimeType="application/octet-stream" />
+            <data android:scheme="content" />
+            <data android:scheme="file" />
+        </intent-filter>`;
+
+    if (!manifest.includes('android.intent.action.VIEW')) {
+      manifest = manifest.replace(
+        /(<\/activity>)/,
+        `    ${intentFilterBlock}\n    </activity>`
+      );
+    }
+
     fs.writeFileSync(manifestPath, manifest);
-    console.log('✅ AndroidManifest.xml 已更新');
+    console.log('✅ AndroidManifest.xml 已更新（权限 + 文件 Intent）');
   }
 } catch (e) {
   console.error('⚠️ AndroidManifest.xml 更新失败:', e.message);
