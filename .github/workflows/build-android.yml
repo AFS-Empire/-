@@ -58,6 +58,9 @@ jobs:
           PUPPETEER_SKIP_DOWNLOAD: 1
           SHARP_IGNORE_GLOBAL_LIBVIPS: 1
 
+      - name: 单独安装 esbuild（Vite 8 transformWithEsbuild 依赖）
+        run: npm install esbuild --no-save
+
       - name: 构建 Web 资源
         run: npx vite build
         env:
