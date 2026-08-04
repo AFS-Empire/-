@@ -51,17 +51,19 @@ export default defineConfig(({ mode }) => {
       'import.meta.env.VITE_INSTALL_KEY_A': JSON.stringify(installKeyA),
     },
     // 代码混淆 + 调试净化
-    esbuild: {
-      // release 构建移除 debugger 语句；legalComments 清理注释（混淆辅助）
-      drop: isRelease ? ['debugger'] : [],
-      legalComments: 'none',
-    },
     build: {
       // esbuild 压缩：变量名混淆(mangle) + 去空白 + 死代码消除。
       // 可逆（满足"代码要能反编译"），不引入重依赖。
       minify: 'esbuild',
       // 不输出 sourcemap，避免暴露源码结构
       sourcemap: false,
+      // esbuild 构建选项（仅影响生产构建压缩阶段，Vite 内部自带 esbuild，无需额外安装）
+      // 注意：顶层 esbuild 配置在 Vite 8 会触发已废弃的 transformWithEsbuild
+      // （需单独安装 esbuild 包），因此选项全部放在 build.esbuild 下。
+      esbuild: {
+        drop: isRelease ? ['debugger'] : [],
+        legalComments: 'none',
+      },
     },
     server: {
       host: '0.0.0.0',
