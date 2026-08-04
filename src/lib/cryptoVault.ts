@@ -28,11 +28,13 @@ const KEY_BITS = 256;
 // 用项目命名空间做派生盐，与其他项目隔离
 const PBKDF2_SALT = new TextEncoder().encode('orpheus-archive-vault-v2');
 
-/** 加密保险库统一错误类型 */
+/** 加密保险库统一错误类型 — 可携带诊断信息（对用户文案仍为"文件无效"） */
 export class VaultError extends Error {
-  constructor() {
+  diag?: string;
+  constructor(diag?: string) {
     super('文件无效');
     this.name = 'VaultError';
+    this.diag = diag;
   }
 }
 
@@ -160,7 +162,7 @@ export async function decryptPayload(
       typeof ivB64 !== 'string' || typeof ciphertextB64 !== 'string' ||
       typeof sign !== 'string') {
     if (__DEBUG_BUILD__) console.debug('[Vault] ❌ 格式校验失败', { v, encrypted, ivT: typeof ivB64, ctT: typeof ciphertextB64, signT: typeof sign });
-    throw new VaultError();
+    throw new VaultError('v2 容器字段缺失/类型不符（encrypted/iv/ciphertext/sign 必须都存在且为字符串）');
   }
 
   let key: CryptoKey;
@@ -169,7 +171,7 @@ export async function decryptPayload(
     if (__DEBUG_BUILD__) console.debug('[Vault] ✅ PBKDF2 密钥派生成功');
   } catch (e) {
     if (__DEBUG_BUILD__) console.debug('[Vault] ❌ PBKDF2 密钥派生失败', e);
-    throw new VaultError();
+    throw new VaultError('PBKDF2 密钥派生失败（crypto.subtle 不可用？）');
   }
 
   // AES-GCM 解密（密钥错误/数据被篡改 → 解密抛异常 → 统一「文件无效」）
@@ -187,7 +189,7 @@ export async function decryptPayload(
     if (__DEBUG_BUILD__) console.debug('[Vault] ✅ AES-GCM 解密成功，明文 ', plaintext.length, '字节');
   } catch (e) {
     if (__DEBUG_BUILD__) console.debug('[Vault] ❌ AES-GCM 解密失败（最常见原因：密钥不匹配 / 数据被篡改 / auth tag 不匹配）', e);
-    throw new VaultError();
+    throw new VaultError('AES-GCM 解密失败（密钥不匹配 或 数据被篡改 / auth tag 不匹配）');
   }
 
   // 解析 payload
@@ -199,7 +201,7 @@ export async function decryptPayload(
     if (__DEBUG_BUILD__) console.debug('[Vault] ✅ JSON 解析成功，字段：', Object.keys(payload));
   } catch (e) {
     if (__DEBUG_BUILD__) console.debug('[Vault] ❌ 明文解析失败', e);
-    throw new VaultError();
+    throw new VaultError('解密后明文不是合法 JSON（密钥不对导致明文乱码？）');
   }
 
   // 验签（第二道保险，防止极端情况下的绕过）
@@ -207,12 +209,12 @@ export async function decryptPayload(
   try {
     computed = await sha256Hex(payloadStr + privateKey);
   } catch {
-    throw new VaultError();
+    throw new VaultError('算签 sha256Hex 失败');
   }
   if (__DEBUG_BUILD__) console.debug('[Vault] 验签 computed=', computed.slice(0, 16), '… container.sign=', sign.slice(0, 16), '… match=', computed === sign);
   if (computed !== sign) {
     if (__DEBUG_BUILD__) console.debug('[Vault] ❌ 验签失败：computed=', computed, '  container.sign=', sign);
-    throw new VaultError();
+    throw new VaultError('v2 验签失败（sign 被篡改 或 密钥不匹配）');
   }
 
   return payload;

@@ -84,19 +84,23 @@ export default function About() {
     }, 3000);
   };
 
-  // App 端显示注入盐值的指纹（不显示本体）
+  // App 端显示注入盐值的指纹（不显示本体）—— 诊断导入签名失败时用，release 也显示
   const [appKeyFingerprint, setAppKeyFingerprint] = useState<string>('');
+  const [appDataSaltFp, setAppDataSaltFp] = useState<string>('');
   useEffect(() => {
     if (IS_WEB_BUILD) return;
-    // release 构建隐藏内置密钥指纹显示（仅 dev 用于核对，避免泄露 App 内置密钥指纹）
-    if (!__DEBUG_BUILD__) return;
     (async () => {
       try {
-        const { APP_OPERATION_KEY_B } = await import('../lib/appSecret');
-        if (!APP_OPERATION_KEY_B) return;
+        const { APP_OPERATION_KEY_B, APP_DATA_SALT } = await import('../lib/appSecret');
         const { sha256Hex } = await import('../lib/hiddenUnlock');
-        const sha = await sha256Hex(APP_OPERATION_KEY_B);
-        setAppKeyFingerprint(sha.slice(0, 8) + '…' + sha.slice(-6));
+        if (APP_OPERATION_KEY_B) {
+          const sha = await sha256Hex(APP_OPERATION_KEY_B);
+          setAppKeyFingerprint(sha.slice(0, 8) + '…' + sha.slice(-6));
+        }
+        if (APP_DATA_SALT) {
+          const sha = await sha256Hex(APP_DATA_SALT);
+          setAppDataSaltFp(sha.slice(0, 8) + '…' + sha.slice(-6));
+        }
       } catch { /* ignore */ }
     })();
   }, []);
@@ -179,15 +183,30 @@ export default function About() {
         <p className="text-xs text-ink-500">
           数据本地存储 · 无需联网 · 支持 Windows / 安卓 / 浏览器三端
         </p>
-        {!IS_WEB_BUILD && appKeyFingerprint && (
-          <div className="mt-3 pt-3 border-t border-ink-800/60 space-y-1">
-            <p className="text-[11px] text-ink-500">
-              <span className="text-gold-500/70 mr-2">数据密钥指纹</span>
-              （用于和网页端同步密钥比对）
-            </p>
-            <p className="font-mono text-xs text-gold-400 tracking-wider">
-              {appKeyFingerprint}
-            </p>
+        {!IS_WEB_BUILD && (appKeyFingerprint || appDataSaltFp) && (
+          <div className="mt-3 pt-3 border-t border-ink-800/60 space-y-2">
+            {appDataSaltFp && (
+              <>
+                <p className="text-[11px] text-ink-500">
+                  <span className="text-gold-500/70 mr-2">导出密钥指纹</span>
+                  （网页端导入时输入的密钥，SHA-256 指纹应与此一致）
+                </p>
+                <p className="font-mono text-xs text-gold-400 tracking-wider">
+                  {appDataSaltFp}
+                </p>
+              </>
+            )}
+            {appKeyFingerprint && (
+              <>
+                <p className="text-[11px] text-ink-500">
+                  <span className="text-gold-500/70 mr-2">操作密钥指纹</span>
+                  （30天操作验证用）
+                </p>
+                <p className="font-mono text-xs text-gold-400 tracking-wider">
+                  {appKeyFingerprint}
+                </p>
+              </>
+            )}
           </div>
         )}
       </div>

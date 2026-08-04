@@ -265,51 +265,55 @@ export async function verifyAndDecrypt(
   privateKey: string,
 ): Promise<Record<string, unknown>> {
   const { VaultError, decryptPayload } = await import('../lib/cryptoVault');
+
+  // 先算密钥指纹（sha256 摘要首尾 6+4 = 10位，不泄露本体）
+  // 两端肉眼对比：App端关于页"导出密钥指纹" == 网页端导入时输入密钥的指纹
+  const { sha256Hex } = await import('../lib/hiddenUnlock');
+  let keyFp = '空';
+  try {
+    if (privateKey) {
+      const sha = await sha256Hex(privateKey);
+      keyFp = sha.slice(0, 8) + '…' + sha.slice(-6);
+    }
+  } catch { /* ignore */ }
+
   let data: Record<string, unknown>;
   try {
     data = JSON.parse(rawJson);
   } catch {
-    console.error('[Import] ❌ JSON.parse 失败，rawJson 长度=' + rawJson.length);
-    throw new VaultError();
+    throw new VaultError(`JSON 解析失败；导入密钥指纹=${keyFp}`);
   }
-
-  // 诊断日志（console.error 不受 __DEBUG_BUILD__ 门控，release 构建保留）
-  // 打印密钥指纹（不泄露本体）+ 格式版本 + 顶层字段名
-  const keyFp = privateKey
-    ? 'len=' + privateKey.length + ' "' + privateKey.slice(0, 2) + '…' + privateKey.slice(-2) + '"'
-    : '空';
-  console.error('[Import] 格式 v=' + data.v + ' encrypted=' + data.encrypted +
-    ' 顶层字段=[' + Object.keys(data).join(',') + ']' +
-    ' 密钥指纹=' + keyFp);
+  const fmt = `v=${data.v} encrypted=${data.encrypted} 顶层=[${Object.keys(data).join(',')}]`;
 
   // v2 加密格式
   if (data.v === 2 && data.encrypted === true) {
     try {
-      const result = await decryptPayload(data, privateKey);
-      console.error('[Import] ✅ v2 解密+验签成功');
-      return result;
-    } catch {
-      console.error('[Import] ❌ v2 失败（AES-GCM 解密失败=密钥不匹配；验签失败=sign 被篡改）');
-      throw new VaultError();
+      return await decryptPayload(data, privateKey);
+    } catch (e) {
+      const reason = e instanceof VaultError && e.diag
+        ? e.diag
+        : 'AES-GCM 解密失败（最常见=密钥不匹配；也可能数据被篡改）';
+      throw new VaultError(`走 v2 路径 ❌ ${reason}；格式：${fmt}；导入密钥指纹=${keyFp}`);
     }
   }
 
   // v1 旧明文格式（向后兼容）
-  // 用 hiddenUnlock.verifySign 做签名校验
-  console.error('[Import] 走 v1 路径（文件可能是旧版 App 导出的明文格式）');
-  const { verifySign } = await import('../lib/hiddenUnlock');
+  const { verifySign, buildSignPayload } = await import('../lib/hiddenUnlock');
   let ok: boolean;
   try {
     ok = await verifySign(data, privateKey);
   } catch {
-    console.error('[Import] ❌ v1 verifySign 异常');
-    throw new VaultError();
+    throw new VaultError(`走 v1 路径 ❌ verifySign 异常；格式：${fmt}；导入密钥指纹=${keyFp}`);
   }
   if (!ok) {
-    console.error('[Import] ❌ v1 验签失败（序列化不一致 or 密钥不匹配）');
-    throw new VaultError();
+    // 额外判断：data 中有没有 entries 等主体字段？没有的话就是 v2 文件误走 v1
+    const hasPayload = Array.isArray(data.entries) && data.entries.length > 0
+      || Array.isArray(data.novelBooks) && data.novelBooks.length > 0;
+    const diag = hasPayload
+      ? '文件有明文数据但签名不匹配（密钥不对 或 JSON 序列化顺序不一致）'
+      : '文件中没有明文 entries/novelBooks 等主体数据，极可能是 v2 加密文件被误判为 v1（网页端跑旧代码？）';
+    throw new VaultError(`走 v1 路径 ❌ 验签失败（${diag}）；格式：${fmt}；导入密钥指纹=${keyFp}`);
   }
-  console.error('[Import] ✅ v1 验签成功');
   return data;
 }
 

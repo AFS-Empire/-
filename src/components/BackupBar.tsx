@@ -62,8 +62,9 @@ export default function BackupBar() {
   const [autoBackups, setAutoBackups] = useState<AutoBackupItem[]>([]);
   const [showHistory, setShowHistory] = useState(false);
 
-  // 网页端验签失败警告卡片
+  // 网页端验签失败警告卡片（含 VaultError 诊断信息）
   const [showReject, setShowReject] = useState(false);
+  const [rejectDiag, setRejectDiag] = useState<string>('');
 
   // 机器码绑定状态（App 端写操作总闸门；Web 端恒为 true）
   const isBound = useBindingStore(s => s.isBound);
@@ -203,6 +204,13 @@ export default function BackupBar() {
     }
   };
 
+  /** 从 VaultError 提取诊断信息，写入 rejectDiag 后弹 reject 卡片 */
+  const showRejectWithDiag = (e: unknown) => {
+    const diag = (e as any)?.diag ?? (e as any)?.message ?? '';
+    setRejectDiag(diag);
+    setShowReject(true);
+  };
+
   /** 浏览器环境：从文件读（需解锁 + 解密验签） */
   const handleImportBackup = () => {
     if (busy) return;
@@ -220,10 +228,10 @@ export default function BackupBar() {
           let payload: Record<string, unknown>;
           try {
             payload = await verifyAndDecrypt(json, sessionKey || '');
-          } catch {
-            // 不加载文件的任何内容，直接拒绝并弹出警告卡片
+          } catch (e) {
+            // 不加载文件的任何内容，直接拒绝并弹出警告卡片（附诊断）
             setBusy(false);
-            setShowReject(true);
+            showRejectWithDiag(e);
             return;
           }
 
@@ -257,9 +265,9 @@ export default function BackupBar() {
             let payload: Record<string, unknown>;
             try {
               payload = await verifyAndDecrypt(r.json, sessionKey || '');
-            } catch {
+            } catch (e) {
               setBusy(false);
-              setShowReject(true);
+              showRejectWithDiag(e);
               return;
             }
             await importAll(payload);
@@ -289,9 +297,9 @@ export default function BackupBar() {
           let payload: Record<string, unknown>;
           try {
             payload = await verifyAndDecrypt(r.content, sessionKey || '');
-          } catch {
+          } catch (e) {
             setBusy(false);
-            setShowReject(true);
+            showRejectWithDiag(e);
             return;
           }
           await importAll(payload);
@@ -325,9 +333,9 @@ export default function BackupBar() {
             let payload: Record<string, unknown>;
             try {
               payload = await verifyAndDecrypt(r.json, APP_DATA_SALT);
-            } catch {
+            } catch (e) {
               setBusy(false);
-              setShowReject(true);
+              showRejectWithDiag(e);
               return;
             }
             await importAll(payload);
@@ -577,24 +585,31 @@ export default function BackupBar() {
         </div>
       )}
 
-      {/* 网页端验签失败警告卡片 */}
+      {/* 网页端验签失败警告卡片（含诊断信息，便于定位密钥/格式/序列化问题） */}
       {showReject && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={() => setShowReject(false)}>
-          <div className="w-full max-w-sm p-6 rounded-xl border border-red-900/60 bg-gradient-to-b from-red-950/80 to-ink-950 shadow-2xl text-center" onClick={e => e.stopPropagation()}>
-            <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-red-900/40 border border-red-700/50 flex items-center justify-center">
+          <div className="w-full max-w-md p-6 rounded-xl border border-red-900/60 bg-gradient-to-b from-red-950/80 to-ink-950 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-red-900/40 border border-red-700/50 flex items-center justify-center">
               <ShieldAlert size={28} className="text-red-400" />
             </div>
-            <h3 className="text-lg font-bold text-red-300 tracking-wide mb-2">奥菲斯帝国记录了你的行为</h3>
-            <p className="text-xs text-red-400/70 leading-relaxed mb-4">
-              签名校验失败 — 文件密钥错误或数据已被篡改，系统已拒绝载入该文件。<br />
-              非法文件不会被加载任何内容。
+            <h3 className="text-lg font-bold text-red-300 tracking-wide text-center mb-2">奥菲斯帝国记录了你的行为</h3>
+            <p className="text-xs text-red-400/70 leading-relaxed mb-3 text-center">
+              签名校验失败 — 文件密钥错误或数据已被篡改，系统已拒绝载入该文件。
             </p>
-            <button
-              onClick={() => setShowReject(false)}
-              className="px-6 py-2 rounded-lg border border-red-800/50 text-red-300 hover:text-red-200 hover:bg-red-900/30 transition-colors text-sm"
-            >
-              知道了
-            </button>
+            {rejectDiag && (
+              <div className="p-3 rounded-lg border border-red-900/40 bg-black/40 text-left mb-4 max-h-64 overflow-y-auto">
+                <p className="text-[10px] text-red-400/60 mb-1 uppercase tracking-wider">诊断</p>
+                <pre className="text-[11px] text-red-200/90 whitespace-pre-wrap break-all leading-relaxed">{rejectDiag}</pre>
+              </div>
+            )}
+            <div className="text-center">
+              <button
+                onClick={() => setShowReject(false)}
+                className="px-6 py-2 rounded-lg border border-red-800/50 text-red-300 hover:text-red-200 hover:bg-red-900/30 transition-colors text-sm"
+              >
+                知道了
+              </button>
+            </div>
           </div>
         </div>
       )}
