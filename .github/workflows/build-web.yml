@@ -1,0 +1,72 @@
+name: 构建 Web 资源
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'index.html'
+      - 'vite.config.ts'
+      - 'tsconfig*.json'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/build-web.yml'
+  workflow_dispatch:
+
+jobs:
+  build-web:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: 配置 CI 环境（跳过二进制下载）
+        run: |
+          echo "ELECTRON_SKIP_BINARY_DOWNLOAD=1" >> "$GITHUB_ENV"
+          echo "PUPPETEER_SKIP_DOWNLOAD=1" >> "$GITHUB_ENV"
+          echo "SHARP_IGNORE_GLOBAL_LIBVIPS=1" >> "$GITHUB_ENV"
+
+      - name: 安装 npm 依赖
+        run: npm install --ignore-scripts --legacy-peer-deps
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          PUPPETEER_SKIP_DOWNLOAD: 1
+          SHARP_IGNORE_GLOBAL_LIBVIPS: 1
+
+      - name: 单独安装 esbuild（Vite 8 transformWithEsbuild 依赖）
+        run: npm install esbuild --no-save
+
+      - name: 构建 Web 资源（release 模式）
+        run: npm run build:web
+        env:
+          ARCHIVE_RELEASE: '1'
+          VITE_ARCHIVE_SALT: ${{ secrets.ARCHIVE_PRIVATE_SALT }}
+          ARCHIVE_PRIVATE_SALT: ${{ secrets.ARCHIVE_PRIVATE_SALT }}
+          VITE_INSTALL_KEY_A: ${{ secrets.INSTALL_KEY_A }}
+
+      - name: 打包网页构建产物
+        run: |
+          cd dist
+          zip -r ../web-dist.zip .
+          cd ..
+
+      - name: 上传到 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: web-latest
+          name: Web 最新构建
+          body: |
+            自动构建于 ${{ github.sha }}
+            - 构建时间：${{ github.event.head_commit.timestamp }}
+            - 提交：${{ github.event.head_commit.message }}
+          files: web-dist.zip
+          make_latest: false
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
