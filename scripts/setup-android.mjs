@@ -115,6 +115,19 @@ try {
     fs.writeFileSync(manifestPath, manifest);
     console.log('✅ AndroidManifest.xml 已更新（权限 + 文件 Intent）');
   }
+
+  // 确保 icon 属性指向 @mipmap/ic_launcher
+  if (fs.existsSync(manifestPath)) {
+    let m2 = fs.readFileSync(manifestPath, 'utf-8');
+    if (!m2.includes('android:icon=')) {
+      m2 = m2.replace(
+        '<activity',
+        '<application android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" >\n        <activity'
+      );
+      fs.writeFileSync(manifestPath, m2);
+      console.log('✅ AndroidManifest.xml icon 属性已设置');
+    }
+  }
 } catch (e) {
   console.error('⚠️ AndroidManifest.xml 更新失败:', e.message);
   hasError = true;

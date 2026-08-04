@@ -114,7 +114,6 @@ jobs:
 
           echo ""
           echo "=== 缩放 Logo 到各分辨率 ==="
-          # 5 种标准密度 → ic_launcher.png（系统自动处理圆角，无需脚本裁剪）
           for pair in "mipmap-mdpi:48" "mipmap-hdpi:72" "mipmap-xhdpi:96" "mipmap-xxhdpi:144" "mipmap-xxxhdpi:192"; do
             DIR="${pair%%:*}"
             SIZE="${pair##*:}"
@@ -125,12 +124,15 @@ jobs:
             echo "  $DIR → ${SIZE}px  完成"
           done
 
-          # 前台图层（自适应图标需要）
+          echo ""
+          echo "=== 生成自适应图标前景层 ==="
           mkdir -p "$RES_DIR/drawable"
-          convert "$SRC" -resize 432x432 -gravity center -extent 432x432 "$RES_DIR/drawable/ic_launcher_foreground.png"
+          # 用 -alpha set 确保 PNG 有透明通道，自适应图标系统才能正确处理
+          convert "$SRC" -resize 432x432 -gravity center -extent 432x432 \
+            -alpha set -background none \
+            "$RES_DIR/drawable/ic_launcher_foreground.png"
           echo "✅ drawable/ic_launcher_foreground.png 生成"
 
-          # 自适应图标 XML（Android 8+ 必须有，否则用默认 Capacitor 图标）
           echo ""
           echo "=== 创建自适应图标配置 ==="
           mkdir -p "$RES_DIR/mipmap-anydpi-v26"
