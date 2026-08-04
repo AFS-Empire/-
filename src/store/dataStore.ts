@@ -3,6 +3,7 @@ import type { AnyEntry, Era, CustomSection } from '../types';
 import * as db from '../data/db';
 import { isOperationVerified } from '../lib/operationKey';
 import { needVerify } from '../lib/operationKeyGuard';
+import { useBindingStore } from './bindingStore';
 
 interface DataState {
   entries: AnyEntry[];
@@ -22,6 +23,8 @@ interface DataState {
 
 /** 写操作执行器：已验证则立即执行并 await，未验证则入队返回 false */
 async function guardWrite(execute: () => Promise<void>): Promise<boolean> {
+  // 双重校验：机器码绑定 + 密钥B操作验证
+  if (!useBindingStore.getState().isBound) return false;
   if (isOperationVerified()) {
     await execute();
     return true;

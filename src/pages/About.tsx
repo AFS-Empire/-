@@ -88,12 +88,14 @@ export default function About() {
   const [appKeyFingerprint, setAppKeyFingerprint] = useState<string>('');
   useEffect(() => {
     if (IS_WEB_BUILD) return;
+    // release 构建隐藏内置密钥指纹显示（仅 dev 用于核对，避免泄露 App 内置密钥指纹）
+    if (!__DEBUG_BUILD__) return;
     (async () => {
       try {
-        const { APP_PRIVATE_SALT } = await import('../lib/appSecret');
-        if (!APP_PRIVATE_SALT) return;
+        const { APP_OPERATION_KEY_B } = await import('../lib/appSecret');
+        if (!APP_OPERATION_KEY_B) return;
         const { sha256Hex } = await import('../lib/hiddenUnlock');
-        const sha = await sha256Hex(APP_PRIVATE_SALT);
+        const sha = await sha256Hex(APP_OPERATION_KEY_B);
         setAppKeyFingerprint(sha.slice(0, 8) + '…' + sha.slice(-6));
       } catch { /* ignore */ }
     })();

@@ -30,9 +30,9 @@ interface PinSessionState {
   verifyImport: (fileData: Record<string, unknown>) => Promise<boolean>;
 }
 
-async function getAppPrivateSalt(): Promise<string> {
-  const { APP_PRIVATE_SALT } = await import('../lib/appSecret');
-  return APP_PRIVATE_SALT;
+async function getDataSalt(): Promise<string> {
+  const { APP_DATA_SALT } = await import('../lib/appSecret');
+  return APP_DATA_SALT;
 }
 
 export const usePinSessionStore = create<PinSessionState>((set, get) => ({
@@ -41,7 +41,7 @@ export const usePinSessionStore = create<PinSessionState>((set, get) => ({
   unlockedAt: null,
 
   unlock: async (pin) => {
-    const salt = await getAppPrivateSalt();
+    const salt = await getDataSalt();
     // Web 构建 salt 为空 → 永远无法解锁（Web 走 hiddenUnlock，不使用本 store）
     if (!salt) {
       return { ok: false, error: '当前环境不支持 PIN 解锁' };

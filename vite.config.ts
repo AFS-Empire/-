@@ -31,8 +31,9 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react(), tailwindcss()],
-    // Release 构建时：调试模块 alias 到空实现，编译期移除所有旁路代码
-    // Web 构建时：appSecret.ts → appSecret.web.ts，盐值从产物中彻底消失
+    // 调试代码门控：源码内用 if (__DEBUG_BUILD__) 包裹敏感日志/指纹显示，
+    // release 构建时 __DEBUG_BUILD__=false → 死分支被 tree-shaking 整段移除（含字符串字面量）。
+    // Web 构建时：appSecret.ts → appSecret.web.ts，盐值从产物中彻底消失。
     resolve: {
       alias: [
         ...(isWebBuild
@@ -48,6 +49,19 @@ export default defineConfig(({ mode }) => {
       'import.meta.env.VITE_ARCHIVE_SALT': JSON.stringify(archiveSalt),
       // 密钥A（首次安装验证）：App版内联常量；Web版为空字符串（InstallGate组件会直接跳过）
       'import.meta.env.VITE_INSTALL_KEY_A': JSON.stringify(installKeyA),
+    },
+    // 代码混淆 + 调试净化
+    esbuild: {
+      // release 构建移除 debugger 语句；legalComments 清理注释（混淆辅助）
+      drop: isRelease ? ['debugger'] : [],
+      legalComments: 'none',
+    },
+    build: {
+      // esbuild 压缩：变量名混淆(mangle) + 去空白 + 死代码消除。
+      // 可逆（满足"代码要能反编译"），不引入重依赖。
+      minify: 'esbuild',
+      // 不输出 sourcemap，避免暴露源码结构
+      sourcemap: false,
     },
     server: {
       host: '0.0.0.0',

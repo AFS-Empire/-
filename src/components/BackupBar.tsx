@@ -321,10 +321,10 @@ export default function BackupBar() {
             showToast('err', '文件无效');
           } else {
             // 自动备份是本机自己导出的 v2 加密文件，用 App 内置盐值解密
-            const { APP_PRIVATE_SALT } = await import('../lib/appSecret');
+            const { APP_DATA_SALT } = await import('../lib/appSecret');
             let payload: Record<string, unknown>;
             try {
-              payload = await verifyAndDecrypt(r.json, APP_PRIVATE_SALT);
+              payload = await verifyAndDecrypt(r.json, APP_DATA_SALT);
             } catch {
               setBusy(false);
               setShowReject(true);

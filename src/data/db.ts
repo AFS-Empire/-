@@ -227,10 +227,10 @@ export async function exportAll(): Promise<string> {
   };
 
   // 私有盐值：App/桌面构建注入真实值；Web 构建为空（但网页端不调用导出）
-  const { APP_PRIVATE_SALT } = await import('../lib/appSecret');
+  const { APP_DATA_SALT } = await import('../lib/appSecret');
   // 加密主体 + 签名（AES-GCM 认证加密 + HMAC 双保险）
   const { encryptPayload } = await import('../lib/cryptoVault');
-  const vault = await encryptPayload(payload, APP_PRIVATE_SALT);
+  const vault = await encryptPayload(payload, APP_DATA_SALT);
 
   // 外层明文：导出时间 + 创作者署名水印
   const { buildExportWatermark } = await import('../lib/watermark');
@@ -298,7 +298,7 @@ export async function importAll(payload: Record<string, unknown>): Promise<void>
   if (!wm.hasWatermark) {
     console.warn('[import] 导入的备份未包含本项目水印，可能来自第三方或旧版本');
   } else if (wm.author) {
-    console.info(`[import] 水印校验通过：作者 ${wm.author}`);
+    if (__DEBUG_BUILD__) console.info(`[import] 水印校验通过：作者 ${wm.author}`);
   }
   const db = await getDB();
   const storeNames = ['entries', 'eras', 'customSections', 'users', 'settings', 'novelBooks', 'novelVolumes', 'novelChapters', 'novelProgress'];

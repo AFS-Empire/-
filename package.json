@@ -10,7 +10,7 @@
     "dev": "vite",
     "dev:app": "concurrently -k -n VITE,APP -c cyan,yellow \"npm:dev\" \"wait-on tcp:5173 && npm:compile-electron && NODE_ENV=development electron .\"",
     "compile-electron": "tsc -p tsconfig.electron.json",
-    "build": "tsc -b && vite build && npm run compile-electron",
+    "build": "tsc -b && ARCHIVE_RELEASE=1 vite build && npm run compile-electron",
     "build:web": "VITE_BUILD_TARGET=web ARCHIVE_RELEASE=1 vite build",
     "postbuild:web": "node scripts/verify-web-secrets.js",
     "build:electron": "npm run build && electron-builder",

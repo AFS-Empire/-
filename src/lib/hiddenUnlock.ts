@@ -22,19 +22,28 @@
  */
 import { create } from 'zustand';
 
-/** 纯 JS SHA-256（优先用 crypto.subtle，降级到纯 JS） */
-export async function sha256Hex(text: string): Promise<string> {
-  if (typeof crypto !== 'undefined' && crypto.subtle) {
-    try {
-      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
-    } catch { /* 降级 */ }
-  }
-  return sha256PureJS(text);
+/** 字节数组转十六进制字符串 */
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-/** 纯 JS SHA-256 实现 */
-function sha256PureJS(message: string): string {
+/** SHA-256：优先 crypto.subtle，降级到纯 JS；返回原始字节 */
+export async function sha256Bytes(input: Uint8Array): Promise<Uint8Array> {
+  if (typeof crypto !== 'undefined' && crypto.subtle) {
+    try {
+      return new Uint8Array(await crypto.subtle.digest('SHA-256', input));
+    } catch { /* 降级 */ }
+  }
+  return sha256BytesPureJS(input);
+}
+
+/** SHA-256 十六进制（便捷封装，文本输入） */
+export async function sha256Hex(text: string): Promise<string> {
+  return bytesToHex(await sha256Bytes(new TextEncoder().encode(text)));
+}
+
+/** 纯 JS SHA-256 实现（接受字节，返回 32 字节摘要） */
+function sha256BytesPureJS(input: Uint8Array): Uint8Array {
   function rrot(x: number, n: number): number { return (x >>> n) | (x << (32 - n)); }
   const K = new Uint32Array([
     0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
@@ -47,7 +56,7 @@ function sha256PureJS(message: string): string {
     0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2,
   ]);
   const H = new Uint32Array([0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19]);
-  const bytes = new TextEncoder().encode(message);
+  const bytes = input;
   const l = bytes.length;
   const bitLen = l * 8;
   const withPad = new Uint8Array(((l + 9 + 63) >> 6) << 6);
@@ -77,7 +86,44 @@ function sha256PureJS(message: string): string {
     H[0]=(H[0]+a)>>>0;H[1]=(H[1]+b)>>>0;H[2]=(H[2]+c)>>>0;H[3]=(H[3]+d)>>>0;
     H[4]=(H[4]+e)>>>0;H[5]=(H[5]+f)>>>0;H[6]=(H[6]+g)>>>0;H[7]=(H[7]+h)>>>0;
   }
-  return Array.from(H).map(x => x.toString(16).padStart(8,'0')).join('');
+  const out = new Uint8Array(32);
+  for (let i = 0; i < 8; i++) {
+    out[i * 4]     = (H[i] >>> 24) & 0xff;
+    out[i * 4 + 1] = (H[i] >>> 16) & 0xff;
+    out[i * 4 + 2] = (H[i] >>> 8) & 0xff;
+    out[i * 4 + 3] = H[i] & 0xff;
+  }
+  return out;
+}
+
+/**
+ * HMAC-SHA256（同步，用于本地时间戳等防篡改签名）
+ * 标准 HMAC 构造：H((K⊕opad) ‖ H((K⊕ipad) ‖ m))，块大小 64 字节
+ * 同步实现（纯 JS SHA-256），保证 isOperationVerified 等同步调用点无需 async 化。
+ * 输出与 crypto.subtle 版本完全一致（SHA-256 是确定性算法）。
+ */
+export function hmacSha256Hex(key: string, message: string): string {
+  const keyBytes = new TextEncoder().encode(key);
+  const msgBytes = new TextEncoder().encode(message);
+  const BLOCK = 64;
+  let k = keyBytes;
+  if (k.length > BLOCK) k = sha256BytesPureJS(k);
+  const paddedKey = new Uint8Array(BLOCK);
+  paddedKey.set(k);
+  const ipad = new Uint8Array(BLOCK);
+  const opad = new Uint8Array(BLOCK);
+  for (let i = 0; i < BLOCK; i++) {
+    ipad[i] = paddedKey[i] ^ 0x36;
+    opad[i] = paddedKey[i] ^ 0x5c;
+  }
+  const innerInput = new Uint8Array(BLOCK + msgBytes.length);
+  innerInput.set(ipad);
+  innerInput.set(msgBytes, BLOCK);
+  const inner = sha256BytesPureJS(innerInput);
+  const outerInput = new Uint8Array(BLOCK + inner.length);
+  outerInput.set(opad);
+  outerInput.set(inner, BLOCK);
+  return bytesToHex(sha256BytesPureJS(outerInput));
 }
 
 /**

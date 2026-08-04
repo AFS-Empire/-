@@ -82,7 +82,7 @@ async function getDeviceId(): Promise<string | null> {
       }
       const hex = (hash >>> 0).toString(16).padStart(8, '0');
       const uuid = `${hex}-0000-4000-8000-${hex}${hex}`;
-      console.info('[app:getDeviceId] 使用设备指纹兜底 ID');
+      if (__DEBUG_BUILD__) console.info('[app:getDeviceId] 使用设备指纹兜底 ID');
       return uuid;
     }
   } catch (e) {
@@ -92,30 +92,30 @@ async function getDeviceId(): Promise<string | null> {
   return null;
 }
 
-async function getAppPrivateSalt(): Promise<string> {
-  const { APP_PRIVATE_SALT } = await import('../lib/appSecret');
-  return APP_PRIVATE_SALT;
+async function getInstallKeyA(): Promise<string> {
+  const { APP_INSTALL_KEY_A } = await import('../lib/appSecret');
+  return APP_INSTALL_KEY_A;
 }
 
 async function bindMachineInner(): Promise<BindingResult> {
-  const APP_PRIVATE_SALT = await getAppPrivateSalt();
+  const APP_INSTALL_KEY_A = await getInstallKeyA();
   const deviceId = await getDeviceId();
   if (!deviceId) {
     return { bound: false, deviceId: null, match: false, reason: '非 App 环境，跳过绑定' };
   }
 
-  if (!APP_PRIVATE_SALT) {
+  if (!APP_INSTALL_KEY_A) {
     return { bound: false, deviceId: null, match: false, reason: '无盐值，跳过绑定' };
   }
 
-  const bindingCode = await sha256Hex(deviceId + APP_ID + APP_PRIVATE_SALT);
+  const bindingCode = await sha256Hex(deviceId + APP_ID + APP_INSTALL_KEY_A);
   secureStorage.set(STORAGE_KEY, bindingCode);
 
   return { bound: true, deviceId, match: true };
 }
 
 async function verifyBindingInner(): Promise<BindingResult> {
-  const APP_PRIVATE_SALT = await getAppPrivateSalt();
+  const APP_INSTALL_KEY_A = await getInstallKeyA();
   const stored = secureStorage.get(STORAGE_KEY);
 
   if (!stored) {
@@ -127,11 +127,11 @@ async function verifyBindingInner(): Promise<BindingResult> {
     return { bound: false, deviceId: null, match: false, reason: '非 App 环境' };
   }
 
-  if (!APP_PRIVATE_SALT) {
+  if (!APP_INSTALL_KEY_A) {
     return { bound: false, deviceId: null, match: false, reason: '无盐值' };
   }
 
-  const currentCode = await sha256Hex(deviceId + APP_ID + APP_PRIVATE_SALT);
+  const currentCode = await sha256Hex(deviceId + APP_ID + APP_INSTALL_KEY_A);
   const match = currentCode === stored;
 
   return {
@@ -143,11 +143,11 @@ async function verifyBindingInner(): Promise<BindingResult> {
 }
 
 async function generateMigrateCodeInner(password: string): Promise<MigrateCodeResult> {
-  const APP_PRIVATE_SALT = await getAppPrivateSalt();
-  if (!APP_PRIVATE_SALT) {
+  const APP_INSTALL_KEY_A = await getInstallKeyA();
+  if (!APP_INSTALL_KEY_A) {
     return { ok: false, error: '非 App 环境' };
   }
-  if (password !== APP_PRIVATE_SALT) {
+  if (password !== APP_INSTALL_KEY_A) {
     return { ok: false, error: '管理员密码错误' };
   }
 
@@ -164,8 +164,8 @@ async function generateMigrateCodeInner(password: string): Promise<MigrateCodeRe
 }
 
 async function verifyMigrateAndRebindInner(migrateCode: string): Promise<BindingResult> {
-  const APP_PRIVATE_SALT = await getAppPrivateSalt();
-  if (!APP_PRIVATE_SALT) {
+  const APP_INSTALL_KEY_A = await getInstallKeyA();
+  if (!APP_INSTALL_KEY_A) {
     return { bound: false, deviceId: null, match: false, reason: '非 App 环境' };
   }
 
@@ -187,7 +187,7 @@ async function verifyMigrateAndRebindInner(migrateCode: string): Promise<Binding
     return { bound: false, deviceId: null, match: false, reason: '迁移码错误' };
   }
 
-  const newBindingCode = await sha256Hex(newDeviceId + APP_ID + APP_PRIVATE_SALT);
+  const newBindingCode = await sha256Hex(newDeviceId + APP_ID + APP_INSTALL_KEY_A);
   secureStorage.set(STORAGE_KEY, newBindingCode);
 
   return { bound: true, deviceId: newDeviceId, match: true };

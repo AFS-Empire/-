@@ -14,6 +14,10 @@
  *
  * 统一错误处理：任何失败（解密失败 / 验签不一致 / 格式错误）
  * 一律抛出 VaultError，外层展示「文件无效」并丢弃详细错误，防试探攻击。
+ *
+ * 调试日志：所有 [Vault] console.debug 均经 __DEBUG_BUILD__ 门控，
+ * release 构建时 __DEBUG_BUILD__=false → 死分支被 tree-shaking 整段移除
+ * （含字符串字面量），产物中不残留任何密钥指纹 / 签名 / IV 长度等信息。
  */
 
 const PBKDF2_ITERATIONS = 150_000; // 暴力破解成本权衡
@@ -87,13 +91,15 @@ export async function encryptPayload(
   privateKey: string,
 ): Promise<{ v: 2; encrypted: true; iv: string; ciphertext: string; sign: string }> {
   if (!privateKey) throw new VaultError();
-  // 打印密钥指纹（不泄露本体），便于和导入端比对
-  (async () => {
-    try {
-      const sha = await sha256Hex(privateKey);
-      console.debug('[Vault] 加密启动，privateKey 指纹：', sha.slice(0, 8) + '...' + sha.slice(-6));
-    } catch { /* 指纹打印失败不影响主流程 */ }
-  })();
+  // 打印密钥指纹（不泄露本体），便于和导入端比对（release 构建经 __DEBUG_BUILD__ 门控移除）
+  if (__DEBUG_BUILD__) {
+    (async () => {
+      try {
+        const sha = await sha256Hex(privateKey);
+        console.debug('[Vault] 加密启动，privateKey 指纹：', sha.slice(0, 8) + '...' + sha.slice(-6));
+      } catch { /* 指纹打印失败不影响主流程 */ }
+    })();
+  }
   const key = await deriveKey(privateKey);
 
   // 1. 序列化 payload（key 顺序两端必须一致 → 用稳定序列化）
@@ -144,23 +150,25 @@ export async function decryptPayload(
   const ciphertextB64 = container.ciphertext;
   const sign = container.sign;
 
-  console.debug('[Vault] 解密启动，privateKey 指纹：', await keyFingerprint(privateKey));
-  console.debug('[Vault] v=', v, 'encrypted=', encrypted, 'iv?=', typeof ivB64, 'ct?=', typeof ciphertextB64, 'sign?=', typeof sign);
+  if (__DEBUG_BUILD__) {
+    console.debug('[Vault] 解密启动，privateKey 指纹：', await keyFingerprint(privateKey));
+    console.debug('[Vault] v=', v, 'encrypted=', encrypted, 'iv?=', typeof ivB64, 'ct?=', typeof ciphertextB64, 'sign?=', typeof sign);
+  }
 
   // 格式校验：任何字段缺失/类型不符 → 统一「文件无效」
   if (v !== 2 || encrypted !== true ||
       typeof ivB64 !== 'string' || typeof ciphertextB64 !== 'string' ||
       typeof sign !== 'string') {
-    console.debug('[Vault] ❌ 格式校验失败', { v, encrypted, ivT: typeof ivB64, ctT: typeof ciphertextB64, signT: typeof sign });
+    if (__DEBUG_BUILD__) console.debug('[Vault] ❌ 格式校验失败', { v, encrypted, ivT: typeof ivB64, ctT: typeof ciphertextB64, signT: typeof sign });
     throw new VaultError();
   }
 
   let key: CryptoKey;
   try {
     key = await deriveKey(privateKey);
-    console.debug('[Vault] ✅ PBKDF2 密钥派生成功');
+    if (__DEBUG_BUILD__) console.debug('[Vault] ✅ PBKDF2 密钥派生成功');
   } catch (e) {
-    console.debug('[Vault] ❌ PBKDF2 密钥派生失败', e);
+    if (__DEBUG_BUILD__) console.debug('[Vault] ❌ PBKDF2 密钥派生失败', e);
     throw new VaultError();
   }
 
@@ -169,16 +177,16 @@ export async function decryptPayload(
   try {
     const iv = base64ToBytes(ivB64);
     const ciphertext = base64ToBytes(ciphertextB64);
-    console.debug('[Vault] iv 字节数=', iv.length, '（需=12），ciphertext 字节数=', ciphertext.length);
+    if (__DEBUG_BUILD__) console.debug('[Vault] iv 字节数=', iv.length, '（需=12），ciphertext 字节数=', ciphertext.length);
     const buf = await crypto.subtle.decrypt(
       { name: 'AES-GCM', iv: iv as BufferSource },
       key,
       ciphertext as BufferSource,
     );
     plaintext = new Uint8Array(buf);
-    console.debug('[Vault] ✅ AES-GCM 解密成功，明文 ', plaintext.length, '字节');
+    if (__DEBUG_BUILD__) console.debug('[Vault] ✅ AES-GCM 解密成功，明文 ', plaintext.length, '字节');
   } catch (e) {
-    console.debug('[Vault] ❌ AES-GCM 解密失败（最常见原因：密钥不匹配 / 数据被篡改 / auth tag 不匹配）', e);
+    if (__DEBUG_BUILD__) console.debug('[Vault] ❌ AES-GCM 解密失败（最常见原因：密钥不匹配 / 数据被篡改 / auth tag 不匹配）', e);
     throw new VaultError();
   }
 
@@ -188,9 +196,9 @@ export async function decryptPayload(
   try {
     payloadStr = new TextDecoder().decode(plaintext);
     payload = JSON.parse(payloadStr);
-    console.debug('[Vault] ✅ JSON 解析成功，字段：', Object.keys(payload));
+    if (__DEBUG_BUILD__) console.debug('[Vault] ✅ JSON 解析成功，字段：', Object.keys(payload));
   } catch (e) {
-    console.debug('[Vault] ❌ 明文解析失败', e);
+    if (__DEBUG_BUILD__) console.debug('[Vault] ❌ 明文解析失败', e);
     throw new VaultError();
   }
 
@@ -201,9 +209,9 @@ export async function decryptPayload(
   } catch {
     throw new VaultError();
   }
-  console.debug('[Vault] 验签 computed=', computed.slice(0, 16), '… container.sign=', sign.slice(0, 16), '… match=', computed === sign);
+  if (__DEBUG_BUILD__) console.debug('[Vault] 验签 computed=', computed.slice(0, 16), '… container.sign=', sign.slice(0, 16), '… match=', computed === sign);
   if (computed !== sign) {
-    console.debug('[Vault] ❌ 验签失败：computed=', computed, '  container.sign=', sign);
+    if (__DEBUG_BUILD__) console.debug('[Vault] ❌ 验签失败：computed=', computed, '  container.sign=', sign);
     throw new VaultError();
   }
 

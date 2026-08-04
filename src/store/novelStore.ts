@@ -5,9 +5,12 @@ import { scanMentions, parseNovelTxt, type ParsedChapter } from '../lib/txtParse
 import type { Character } from '../types';
 import { isOperationVerified } from '../lib/operationKey';
 import { needVerify } from '../lib/operationKeyGuard';
+import { useBindingStore } from './bindingStore';
 
 /** 写操作执行器：已验证则立即执行，未验证则入队返回 false */
 async function guardWrite<T>(execute: () => Promise<T>): Promise<T | false> {
+  // 双重校验：机器码绑定 + 密钥B操作验证
+  if (!useBindingStore.getState().isBound) return false;
   if (isOperationVerified()) {
     return await execute();
   }
