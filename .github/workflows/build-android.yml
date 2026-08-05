@@ -92,7 +92,12 @@ jobs:
         run: npx cap sync android
 
       - name: 配置 Android 工程（仅 proguard + manifest，不改 build.gradle）
-        run: node scripts/setup-android.mjs
+        run: |
+          node scripts/setup-android.mjs
+          echo ""
+          echo "=== AndroidManifest.xml 内容预览 ==="
+          cat android/app/src/main/AndroidManifest.xml
+          echo "=== 预览结束 ==="
 
       - name: 注入启动图标（Logo → 各分辨率 mipmap）
         run: |
@@ -246,10 +251,13 @@ jobs:
           echo "✅ Manifest 图标引用正确"
 
           echo ""
-          echo "=== 验证 manifest 结构（只有一个 <application>） ==="
-          APP_COUNT=$(grep -c '<application ' android/app/src/main/AndroidManifest.xml || true)
+          echo "=== 验证 manifest 结构（恰好 1 个 <application> 开标签） ==="
+          # 匹配 <application 后紧跟空格或 > 的行（排除 </application> 闭合标签）
+          APP_COUNT=$(grep -cE '<application[ >]' android/app/src/main/AndroidManifest.xml || true)
           if [ "$APP_COUNT" != "1" ]; then
-            echo "❌ manifest 有 $APP_COUNT 个 <application> 标签，结构异常！"
+            echo "❌ manifest 有 $APP_COUNT 个 <application> 开标签，结构异常！"
+            echo "   manifest 内容前 500 字符:"
+            head -c 500 android/app/src/main/AndroidManifest.xml
             exit 1
           fi
           echo "✅ manifest 结构正常"

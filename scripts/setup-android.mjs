@@ -2,9 +2,9 @@
 /**
  * Android 工程生成后自动配置：
  *   1. 写入 ProGuard 规则文件
- *   2. 更新 AndroidManifest.xml（权限 + 文件 Intent + 图标引用）
+ *   2. 添加权限 + Intent-filter + allowBackup 修改
  *
- * 原则：只追加/修改属性，绝不破坏 XML 结构
+ * 重要：绝不修改 <application> 标签！Capacitor 模板已正确设置 icon/roundIcon
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -75,38 +75,41 @@ try {
     hasError = true;
   } else {
     let manifest = fs.readFileSync(manifestPath, 'utf-8');
+    const original = manifest;
 
-    // --- 2a. 验证 manifest 结构完整性 ---
-    const appTagMatches = manifest.match(/<application\s/g);
-    if (!appTagMatches || appTagMatches.length === 0) {
-      console.error('❌ manifest 无 <application> 标签，结构异常');
+    // --- 2a. 验证 manifest 基本结构 ---
+    const appStart = manifest.indexOf('<application');
+    const appEnd = manifest.indexOf('</application>');
+    if (appStart === -1 || appEnd === -1) {
+      console.error('❌ manifest 缺少 <application> 标签，结构异常');
       hasError = true;
-    } else if (appTagMatches.length > 1) {
-      console.error('❌ manifest 有多个 <application> 标签，结构异常！');
-      console.error('   标签位置:', manifest.split('<application').map((_, i) => i).join(', '));
-      hasError = true;
+    } else {
+      console.log('✅ <application> 标签存在');
     }
 
-    // --- 2b. 确保有 icon 和 roundIcon 属性 ---
-    const hasIcon = manifest.includes('android:icon=');
-    const hasRoundIcon = manifest.includes('android:roundIcon=');
+    // --- 2b. 确保 icon/roundIcon 属性存在（只补不删） ---
+    // 找到 <application 标签内的最后一个属性前，插入缺失的属性
+    if (appStart !== -1) {
+      const appTagEnd = manifest.indexOf('>', appStart);
+      const appTag = manifest.substring(appStart, appTagEnd + 1);
 
-    // 找到 <application 标签并补充缺失的属性
-    manifest = manifest.replace(
-      /<application([^>]*)>/,
-      (match, attrs) => {
-        let newAttrs = attrs;
-        if (!hasIcon && !newAttrs.includes('android:icon=')) {
-          newAttrs += ' android:icon="@mipmap/ic_launcher"';
-        }
-        if (!hasRoundIcon && !newAttrs.includes('android:roundIcon=')) {
-          newAttrs += ' android:roundIcon="@mipmap/ic_launcher_round"';
-        }
-        return `<application${newAttrs}>`;
+      const needIcon = !appTag.includes('android:icon=');
+      const needRound = !appTag.includes('android:roundIcon=');
+
+      if (needIcon || needRound) {
+        // 找到 <application 标签的最后一个字符（>之前），插入属性
+        let insertAttrs = '';
+        if (needIcon) insertAttrs += ' android:icon="@mipmap/ic_launcher"';
+        if (needRound) insertAttrs += ' android:roundIcon="@mipmap/ic_launcher_round"';
+
+        manifest = manifest.substring(0, appTagEnd) + insertAttrs + manifest.substring(appTagEnd);
+        console.log(`  补充属性:${needIcon ? ' android:icon' : ''}${needRound ? ' android:roundIcon' : ''}`);
+      } else {
+        console.log('✅ icon/roundIcon 属性已存在');
       }
-    );
+    }
 
-    // --- 2c. 添加缺失的权限 ---
+    // --- 2c. 在 <application> 标签之前插入缺失的权限 ---
     const permissions = [
       '<uses-permission android:name="android.permission.INTERNET" />',
       '<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />',
@@ -114,24 +117,33 @@ try {
       '<uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />',
       '<uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />',
     ];
-    const manifestTagMatch = manifest.match(/<manifest[^>]*>/);
-    if (manifestTagMatch) {
-      const manifestTag = manifestTagMatch[0];
-      for (const perm of permissions) {
-        if (!manifest.includes(perm)) {
-          manifest = manifest.replace(manifestTag, `${manifestTag}\n    ${perm}`);
-        }
+
+    // 重新定位 appStart（因为 manifest 可能已被修改）
+    const appStart2 = manifest.indexOf('<application');
+    const permsToAdd = [];
+    for (const perm of permissions) {
+      if (!manifest.includes(perm)) {
+        permsToAdd.push(perm);
       }
+    }
+    if (permsToAdd.length > 0) {
+      manifest = manifest.substring(0, appStart2) + permsToAdd.map(p => `    ${p}`).join('\n') + '\n' + manifest.substring(appStart2);
+      console.log(`  添加了 ${permsToAdd.length} 个权限`);
+    } else {
+      console.log('✅ 所有权限已存在');
     }
 
     // --- 2d. 修改 allowBackup ---
-    manifest = manifest.replace(
-      'android:allowBackup="true"',
-      'android:allowBackup="false"'
-    );
+    if (manifest.includes('android:allowBackup="true"')) {
+      manifest = manifest.replace('android:allowBackup="true"', 'android:allowBackup="false"');
+      console.log('✅ allowBackup 已改为 false');
+    } else {
+      console.log('✅ allowBackup 已是 false 或不存在');
+    }
 
     // --- 2e. 注入文件 Intent-filter ---
-    const intentFilterBlock = `
+    if (!manifest.includes('android.intent.action.VIEW')) {
+      const intentFilterBlock = `
         <!-- 接收外部 JSON 文件：打开方式 / 分享 -->
         <intent-filter android:autoVerify="true">
             <action android:name="android.intent.action.VIEW" />
@@ -145,26 +157,30 @@ try {
             <data android:scheme="file" />
         </intent-filter>`;
 
-    if (!manifest.includes('android.intent.action.VIEW')) {
-      // 找到第一个 </activity> 前的位置插入
-      manifest = manifest.replace(
-        /(<\/activity>)/,
-        `    ${intentFilterBlock}\n    $1`
-      );
+      const activityClose = manifest.indexOf('</activity>');
+      if (activityClose !== -1) {
+        manifest = manifest.substring(0, activityClose) + `    ${intentFilterBlock}\n    ` + manifest.substring(activityClose);
+        console.log('✅ 文件 Intent-filter 已注入');
+      } else {
+        console.warn('⚠️ 未找到 </activity> 标签，跳过 Intent-filter 注入');
+      }
+    } else {
+      console.log('✅ 文件 Intent-filter 已存在');
     }
 
-    // --- 2f. 验证修改后结构仍正确 ---
-    const finalAppTags = manifest.match(/<application\s/g);
-    if (finalAppTags && finalAppTags.length !== 1) {
-      console.error('❌ 修改后 manifest 结构异常（<application> 数量不对）');
+    // --- 2f. 最终验证 ---
+    const finalAppStart = manifest.indexOf('<application');
+    const finalAppEnd = manifest.indexOf('</application>');
+    if (finalAppStart === -1 || finalAppEnd === -1) {
+      console.error('❌ 修改后 manifest 结构异常：<application> 标签丢失！');
+      console.error('   manifest 内容前 500 字符:', manifest.substring(0, 500));
       hasError = true;
+    } else {
+      console.log('✅ 修改后 manifest 结构正常');
     }
 
     fs.writeFileSync(manifestPath, manifest);
     console.log('✅ AndroidManifest.xml 已更新');
-    console.log('   icon:', manifest.includes('android:icon="@mipmap/ic_launcher"') ? '已设置' : '未设置');
-    console.log('   roundIcon:', manifest.includes('android:roundIcon="@mipmap/ic_launcher_round"') ? '已设置' : '未设置');
-    console.log('   structure:', finalAppTags && finalAppTags.length === 1 ? '正常' : '异常');
   }
 } catch (e) {
   console.error('⚠️ AndroidManifest.xml 更新失败:', e.message);
