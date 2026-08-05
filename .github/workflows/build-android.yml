@@ -325,9 +325,27 @@ jobs:
 
       - name: 清理 + 构建 Release APK
         run: |
-          echo "=== 清理旧缓存 ==="
           cd android
+          echo "=== 构建前检查 res 目录状态 ==="
+          RES_DIR="app/src/main/res"
+          echo "mipmap 文件夹列表:"
+          ls -la "$RES_DIR"/mipmap-*/ 2>/dev/null || echo "❌ 没有 mipmap 文件夹！"
+          echo ""
+          echo "mipmap-anydpi-v26 内容:"
+          ls -la "$RES_DIR/mipmap-anydpi-v26/" 2>/dev/null || echo "❌ 没有 mipmap-anydpi-v26！"
+          echo ""
+          echo "drawable 内容:"
+          ls -la "$RES_DIR/drawable/" 2>/dev/null | head -20
+
+          echo ""
+          echo "=== 清理旧缓存 ==="
           ./gradlew clean
+
+          echo ""
+          echo "=== clean 后再次检查 ==="
+          echo "mipmap 文件夹列表:"
+          ls -la "$RES_DIR"/mipmap-*/ 2>/dev/null || echo "❌ clean 后没有 mipmap！"
+
           echo ""
           echo "=== 开始构建 APK ==="
           ./gradlew assembleRelease \
@@ -335,10 +353,15 @@ jobs:
             -PRELEASE_STORE_PASSWORD=OrpheusArchive2026 \
             -PRELEASE_KEY_ALIAS=orpheus \
             -PRELEASE_KEY_PASSWORD=OrpheusArchive2026
-          cd ..
+
+          echo ""
+          echo "=== 构建后检查 res 目录 ==="
+          ls -la "$RES_DIR"/mipmap-*/ 2>/dev/null || echo "❌ 构建后没有 mipmap！"
+
+          echo ""
           echo "=== 构建完成 ==="
-          echo "APK 文件列表："
-          find android/app/build/outputs/apk/release -name "*.apk" -ls
+          find app/build/outputs/apk/release -name "*.apk" -ls
+          cd ..
 
       - name: 验证 APK 包含图标资源
         run: |
@@ -347,13 +370,34 @@ jobs:
             APK="$(find android/app/build/outputs/apk/release -name "*.apk" | head -1)"
           fi
           echo "检查 APK $APK 中的 mipmap 资源..."
+          echo ""
+          echo "=== unzip 检查 ==="
           if unzip -l "$APK" | grep -q "mipmap"; then
             echo "✅ APK 包含 mipmap 资源"
-            unzip -l "$APK" | grep "mipmap" | head -15
+            unzip -l "$APK" | grep "mipmap" | head -20
           else
-            echo "❌ APK 中没有 mipmap 资源！"
-            exit 1
+            echo "❌ unzip 检查：APK 中没有 mipmap 资源！"
           fi
+
+          echo ""
+          echo "=== aapt 资源检查 ==="
+          AAPT="$ANDROID_HOME/build-tools/34.0.0/aapt"
+          if [ -x "$AAPT" ]; then
+            echo "APK 中所有 drawable/mipmap 资源:"
+            "$AAPT" dump resources "$APK" 2>/dev/null | grep -i "launcher\|icon\|mipmap" | head -20 || echo "aapt dump 无结果"
+            echo ""
+            echo "APK 中 res 类型统计:"
+            unzip -l "$APK" | grep -oP 'res/[a-z-]+' | sort | uniq -c | sort -rn
+          else
+            echo "aapt 不在 PATH，跳过"
+          fi
+
+          echo ""
+          echo "=== APK 总文件列表（前 30 行）==="
+          unzip -l "$APK" | head -30
+
+          echo ""
+          echo "如果上面的 unzip 检查显示没有 mipmap，说明问题在 AAPT 资源合并阶段。"
 
       - name: 重命名 APK
         run: |
