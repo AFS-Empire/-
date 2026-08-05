@@ -95,9 +95,22 @@ jobs:
         run: |
           node scripts/setup-android.mjs
           echo ""
-          echo "=== AndroidManifest.xml 内容预览 ==="
+          echo "=== AndroidManifest.xml 完整内容 ==="
           cat android/app/src/main/AndroidManifest.xml
           echo "=== 预览结束 ==="
+
+          echo ""
+          echo "=== 关键标签存在性校验（标签名必须为英文） ==="
+          grep -q '<application' android/app/src/main/AndroidManifest.xml || { echo "❌ 缺少 <application 开标签"; exit 1; }
+          grep -q '</application>' android/app/src/main/AndroidManifest.xml || { echo "❌ 缺少 </application> 闭标签"; exit 1; }
+          grep -q '<manifest' android/app/src/main/AndroidManifest.xml || { echo "❌ 缺少 <manifest 开标签"; exit 1; }
+          grep -q '</manifest>' android/app/src/main/AndroidManifest.xml || { echo "❌ 缺少 </manifest> 闭标签"; exit 1; }
+          # 绝对不能出现中文标签
+          if grep -q '<应用' android/app/src/main/AndroidManifest.xml; then
+            echo "❌ 检测到中文标签 <应用！manifest 被篡改！"
+            exit 1
+          fi
+          echo "✅ 所有标签名均为英文，无中文标签"
 
       - name: 注入启动图标（Logo → 各分辨率 mipmap）
         run: |
