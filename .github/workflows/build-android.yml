@@ -153,6 +153,12 @@ jobs:
           rm -f "${MF}.bak" "${MF}.bak2"
 
           echo ""
+          echo "=== 修改图标引用：mipmap → drawable ==="
+          sed -i 's|android:icon="@mipmap/ic_launcher"|android:icon="@drawable/ic_launcher"|g' "$MF"
+          sed -i 's|android:roundIcon="@mipmap/ic_launcher_round"|android:roundIcon="@drawable/ic_launcher_round"|g' "$MF"
+          echo "✅ 图标引用已改为 drawable"
+
+          echo ""
           echo "=== 处理后 manifest 完整内容 ==="
           cat "$MF"
 
@@ -163,8 +169,8 @@ jobs:
           grep -q '<manifest' "$MF" || { echo "❌ 缺少 <manifest 开标签"; exit 1; }
           grep -q '</manifest>' "$MF" || { echo "❌ 缺少 </manifest> 闭标签"; exit 1; }
           grep -q '<activity' "$MF" || { echo "❌ 缺少 <activity 标签"; exit 1; }
-          grep -q 'android:icon="@mipmap/ic_launcher"' "$MF" || { echo "❌ 缺少 mipmap/ic_launcher 引用"; exit 1; }
-          grep -q 'android:roundIcon="@mipmap/ic_launcher_round"' "$MF" || { echo "❌ 缺少 mipmap/ic_launcher_round 引用"; exit 1; }
+          grep -q 'android:icon="@drawable/ic_launcher"' "$MF" || { echo "❌ 缺少 drawable/ic_launcher 引用"; exit 1; }
+          grep -q 'android:roundIcon="@drawable/ic_launcher_round"' "$MF" || { echo "❌ 缺少 drawable/ic_launcher_round 引用"; exit 1; }
           # 中文标签绝对禁止
           if grep -P '[\p{Han}]' "$MF"; then
             echo "❌ 检测到中文字符！manifest 被篡改！"
@@ -172,7 +178,7 @@ jobs:
           fi
           echo "✅ 所有标签校验通过"
 
-      - name: 注入启动图标（Logo → 各分辨率 mipmap）
+      - name: 注入启动图标（Logo → drawable）
         run: |
           echo "=== 检查 ImageMagick ==="
           if command -v convert >/dev/null 2>&1; then
@@ -192,69 +198,33 @@ jobs:
 
           echo ""
           echo "=== 清理 Capacitor 默认图标资源 ==="
-          # 删除所有默认图标，避免残留文件冲突
           rm -f "$RES_DIR"/mipmap-*/ic_launcher*.png
           rm -f "$RES_DIR"/mipmap-*/ic_launcher*.xml
-          rm -f "$RES_DIR"/drawable/ic_launcher_foreground.*
-          rm -f "$RES_DIR"/values/ic_launcher_background.xml
+          rm -f "$RES_DIR"/drawable/ic_launcher*.png
+          rm -f "$RES_DIR"/drawable/ic_launcher*.xml
           echo "✅ 默认图标资源已清理"
 
           echo ""
-          echo "=== 缩放 Logo 到各分辨率 ==="
-          for pair in "mipmap-mdpi:48" "mipmap-hdpi:72" "mipmap-xhdpi:96" "mipmap-xxhdpi:144" "mipmap-xxxhdpi:192"; do
-            DIR="${pair%%:*}"
-            SIZE="${pair##*:}"
-            mkdir -p "$RES_DIR/$DIR"
-            convert "$SRC" -resize "${SIZE}x${SIZE}" -gravity center -extent "${SIZE}x${SIZE}" \
-              "$RES_DIR/$DIR/ic_launcher.png"
-            cp "$RES_DIR/$DIR/ic_launcher.png" "$RES_DIR/$DIR/ic_launcher_round.png"
-            echo "  $DIR → ${SIZE}px  完成"
-          done
-
-          echo ""
-          echo "=== 生成自适应图标前景层 ==="
+          echo "=== 生成单尺寸 drawable 图标（512x512）==="
           mkdir -p "$RES_DIR/drawable"
-          # 用 -alpha set 确保 PNG 有透明通道，自适应图标系统才能正确处理
-          convert "$SRC" -resize 432x432 -gravity center -extent 432x432 \
-            -alpha set -background none \
-            "$RES_DIR/drawable/ic_launcher_foreground.png"
-          echo "✅ drawable/ic_launcher_foreground.png 生成"
-
-          echo ""
-          echo "=== 创建自适应图标配置 ==="
-          mkdir -p "$RES_DIR/mipmap-anydpi-v26"
-          cat > "$RES_DIR/mipmap-anydpi-v26/ic_launcher.xml" << 'XMLEOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-              <background android:drawable="@color/ic_launcher_background"/>
-              <foreground android:drawable="@drawable/ic_launcher_foreground"/>
-          </adaptive-icon>
-          XMLEOF
-          cp "$RES_DIR/mipmap-anydpi-v26/ic_launcher.xml" "$RES_DIR/mipmap-anydpi-v26/ic_launcher_round.xml"
-          echo "✅ mipmap-anydpi-v26/ic_launcher.xml 创建"
-
-          # 背景色（深黑金主题）
-          mkdir -p "$RES_DIR/values"
-          cat > "$RES_DIR/values/ic_launcher_background.xml" << 'XMLEOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <resources>
-              <color name="ic_launcher_background">#0d0d0f</color>
-          </resources>
-          XMLEOF
-          echo "✅ ic_launcher_background.xml 创建（#0d0d0f）"
+          convert "$SRC" -resize 512x512 -gravity center -extent 512x512 \
+            "$RES_DIR/drawable/ic_launcher.png"
+          cp "$RES_DIR/drawable/ic_launcher.png" "$RES_DIR/drawable/ic_launcher_round.png"
+          echo "✅ drawable/ic_launcher.png 生成"
 
           echo ""
           echo "=== 验证图标文件 ==="
-          for pair in "mipmap-mdpi:48" "mipmap-hdpi:72" "mipmap-xhdpi:96" "mipmap-xxhdpi:144" "mipmap-xxxhdpi:192"; do
-            DIR="${pair%%:*}"
-            SIZE="${pair##*:}"
-            if [ ! -f "$RES_DIR/$DIR/ic_launcher.png" ]; then
-              echo "❌ $DIR/ic_launcher.png 生成失败"
-              exit 1
-            fi
-            ACTUAL_SIZE=$(identify -format "%wx%h" "$RES_DIR/$DIR/ic_launcher.png" 2>/dev/null || echo "unknown")
-            echo "  $DIR/ic_launcher.png → ${ACTUAL_SIZE}"
-          done
+          if [ ! -f "$RES_DIR/drawable/ic_launcher.png" ]; then
+            echo "❌ drawable/ic_launcher.png 生成失败"
+            exit 1
+          fi
+          ACTUAL_SIZE=$(identify -format "%wx%h" "$RES_DIR/drawable/ic_launcher.png" 2>/dev/null || echo "unknown")
+          FILE_SIZE=$(stat -c%s "$RES_DIR/drawable/ic_launcher.png" 2>/dev/null || echo "0")
+          echo "  drawable/ic_launcher.png → ${ACTUAL_SIZE}, 文件大小: ${FILE_SIZE} bytes"
+          if [ "$FILE_SIZE" -lt 1000 ]; then
+            echo "❌ 图标文件太小（<1KB），可能生成失败"
+            exit 1
+          fi
 
       - name: 注入签名配置 + 混淆配置
         run: |
@@ -295,7 +265,7 @@ jobs:
           cat > android/app/src/main/res/raw/keep.xml << 'KEEPEOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources xmlns:tools="http://schemas.android.com/tools"
-              tools:keep="@mipmap/ic_launcher,@mipmap/ic_launcher_round,@drawable/ic_launcher_foreground,@mipmap/ic_launcher,@mipmap/ic_launcher_round" />
+              tools:keep="@drawable/ic_launcher,@drawable/ic_launcher_round" />
           KEEPEOF
           echo "✅ res/raw/keep.xml 已创建"
 
@@ -319,56 +289,34 @@ jobs:
       - name: 验证图标资源 + Manifest 引用
         run: |
           RES_DIR="android/app/src/main/res"
-          echo "=== 验证 mipmap 图标资源 ==="
-          for pair in "mipmap-mdpi:48" "mipmap-hdpi:72" "mipmap-xhdpi:96" "mipmap-xxhdpi:144" "mipmap-xxxhdpi:192"; do
-            DIR="${pair%%:*}"
-            if [ ! -f "$RES_DIR/$DIR/ic_launcher.png" ]; then
-              echo "❌ $DIR/ic_launcher.png 缺失！"
-              exit 1
-            fi
-            if [ ! -f "$RES_DIR/$DIR/ic_launcher_round.png" ]; then
-              echo "❌ $DIR/ic_launcher_round.png 缺失！"
-              exit 1
-            fi
-          done
-          if [ ! -f "$RES_DIR/drawable/ic_launcher_foreground.png" ]; then
-            echo "❌ drawable/ic_launcher_foreground.png 缺失！"
+          echo "=== 验证 drawable 图标资源 ==="
+          if [ ! -f "$RES_DIR/drawable/ic_launcher.png" ]; then
+            echo "❌ drawable/ic_launcher.png 缺失！"
             exit 1
           fi
-          if [ ! -f "$RES_DIR/mipmap-anydpi-v26/ic_launcher.xml" ]; then
-            echo "❌ mipmap-anydpi-v26/ic_launcher.xml 缺失！"
+          if [ ! -f "$RES_DIR/drawable/ic_launcher_round.png" ]; then
+            echo "❌ drawable/ic_launcher_round.png 缺失！"
             exit 1
           fi
-          echo "✅ 所有图标资源验证通过"
+          echo "✅ drawable 图标资源验证通过"
 
           echo ""
           echo "=== 验证 AndroidManifest.xml 图标引用 ==="
-          grep -q 'android:icon="@mipmap/ic_launcher"' android/app/src/main/AndroidManifest.xml || { echo "❌ manifest 未引用 mipmap/ic_launcher"; exit 1; }
-          grep -q 'android:roundIcon="@mipmap/ic_launcher_round"' android/app/src/main/AndroidManifest.xml || { echo "❌ manifest 未引用 mipmap/ic_launcher_round"; exit 1; }
+          grep -q 'android:icon="@drawable/ic_launcher"' android/app/src/main/AndroidManifest.xml || { echo "❌ manifest 未引用 drawable/ic_launcher"; exit 1; }
+          grep -q 'android:roundIcon="@drawable/ic_launcher_round"' android/app/src/main/AndroidManifest.xml || { echo "❌ manifest 未引用 drawable/ic_launcher_round"; exit 1; }
           echo "✅ Manifest 图标引用正确"
 
       - name: 清理 + 构建 Release APK
         run: |
           cd android
-          echo "=== 构建前检查 res 目录状态 ==="
           RES_DIR="app/src/main/res"
-          echo "mipmap 文件夹列表:"
-          ls -la "$RES_DIR"/mipmap-*/ 2>/dev/null || echo "❌ 没有 mipmap 文件夹！"
+          echo "=== 构建前检查 ==="
+          echo "drawable 图标:"
+          ls -la "$RES_DIR/drawable/ic_launcher"*.png 2>/dev/null || echo "❌ 没有 drawable 图标！"
           echo ""
-          echo "mipmap-anydpi-v26 内容:"
-          ls -la "$RES_DIR/mipmap-anydpi-v26/" 2>/dev/null || echo "❌ 没有 mipmap-anydpi-v26！"
-          echo ""
-          echo "drawable 内容:"
-          ls -la "$RES_DIR/drawable/" 2>/dev/null | head -20
 
-          echo ""
           echo "=== 清理旧缓存 ==="
           ./gradlew clean
-
-          echo ""
-          echo "=== clean 后再次检查 ==="
-          echo "mipmap 文件夹列表:"
-          ls -la "$RES_DIR"/mipmap-*/ 2>/dev/null || echo "❌ clean 后没有 mipmap！"
 
           echo ""
           echo "=== 开始构建 APK ==="
@@ -377,10 +325,6 @@ jobs:
             -PRELEASE_STORE_PASSWORD=OrpheusArchive2026 \
             -PRELEASE_KEY_ALIAS=orpheus \
             -PRELEASE_KEY_PASSWORD=OrpheusArchive2026
-
-          echo ""
-          echo "=== 构建后检查 res 目录 ==="
-          ls -la "$RES_DIR"/mipmap-*/ 2>/dev/null || echo "❌ 构建后没有 mipmap！"
 
           echo ""
           echo "=== 构建完成 ==="
@@ -393,39 +337,33 @@ jobs:
           if [ -z "$APK" ]; then
             APK="$(find android/app/build/outputs/apk/release -name "*.apk" | head -1)"
           fi
-          echo "检查 APK $APK 中的 mipmap 资源..."
+          echo "检查 APK $APK 中的图标资源..."
+
           echo ""
-          echo "=== unzip 检查 ==="
-          if unzip -l "$APK" | grep -q "mipmap"; then
-            echo "✅ APK 包含 mipmap 资源"
-            unzip -l "$APK" | grep "mipmap" | head -20
-          else
-            echo "❌ unzip 检查：APK 中没有 mipmap 资源！"
-          fi
+          echo "=== APK 中 res 类型统计 ==="
+          unzip -l "$APK" | grep -oP 'res/[a-z-]+' | sort | uniq -c | sort -rn
+
+          echo ""
+          echo "=== APK 中所有 launcher/icon 资源 ==="
+          unzip -l "$APK" | grep -i "launcher\|ic_launcher" | head -20 || echo "无 launcher 相关文件"
 
           echo ""
           echo "=== aapt 资源检查 ==="
           AAPT="$ANDROID_HOME/build-tools/34.0.0/aapt"
           if [ -x "$AAPT" ]; then
-            echo "APK 中所有 drawable/mipmap 资源:"
-            "$AAPT" dump resources "$APK" 2>/dev/null | grep -i "launcher\|icon\|mipmap" | head -20 || echo "aapt dump 无结果"
-            echo ""
-            echo "APK 中 res 类型统计:"
-            unzip -l "$APK" | grep -oP 'res/[a-z-]+' | sort | uniq -c | sort -rn
+            "$AAPT" dump resources "$APK" 2>/dev/null | grep -i "launcher\|icon" | head -20 || echo "aapt 无 launcher 资源"
           else
             echo "aapt 不在 PATH，跳过"
           fi
 
           echo ""
-          echo "=== APK 总文件列表（前 30 行）==="
-          unzip -l "$APK" | head -30
-
-          echo ""
-          echo "=== 最终校验：APK 必须包含 mipmap ==="
-          if unzip -l "$APK" | grep -q "mipmap"; then
-            echo "✅ APK 包含 mipmap 资源，修复成功！"
+          echo "=== 最终校验：APK 必须包含 drawable/ic_launcher ==="
+          if unzip -l "$APK" | grep -q 'res/drawable.*ic_launcher'; then
+            echo "✅ APK 包含 drawable/ic_launcher，修复成功！"
           else
-            echo "❌ APK 中仍然没有 mipmap 资源！"
+            echo "❌ APK 中没有 drawable/ic_launcher！"
+            echo "=== APK 全部文件列表（前 50 行）==="
+            unzip -l "$APK" | head -50
             exit 1
           fi
 
