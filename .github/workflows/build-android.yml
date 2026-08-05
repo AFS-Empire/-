@@ -214,10 +214,53 @@ jobs:
           echo "🔍 验证密钥信息..."
           keytool -list -keystore android/app/release.keystore -storepass OrpheusArchive2026 -J 2>&1 | head -20 || echo "⚠️ 验证警告（不影响构建）"
 
-      - name: 构建 Release APK
+      - name: 验证图标资源 + Manifest 引用
         run: |
-          echo "=== 开始构建 APK ==="
+          RES_DIR="android/app/src/main/res"
+          echo "=== 验证 mipmap 图标资源 ==="
+          for pair in "mipmap-mdpi:48" "mipmap-hdpi:72" "mipmap-xhdpi:96" "mipmap-xxhdpi:144" "mipmap-xxxhdpi:192"; do
+            DIR="${pair%%:*}"
+            if [ ! -f "$RES_DIR/$DIR/ic_launcher.png" ]; then
+              echo "❌ $DIR/ic_launcher.png 缺失！"
+              exit 1
+            fi
+            if [ ! -f "$RES_DIR/$DIR/ic_launcher_round.png" ]; then
+              echo "❌ $DIR/ic_launcher_round.png 缺失！"
+              exit 1
+            fi
+          done
+          if [ ! -f "$RES_DIR/drawable/ic_launcher_foreground.png" ]; then
+            echo "❌ drawable/ic_launcher_foreground.png 缺失！"
+            exit 1
+          fi
+          if [ ! -f "$RES_DIR/mipmap-anydpi-v26/ic_launcher.xml" ]; then
+            echo "❌ mipmap-anydpi-v26/ic_launcher.xml 缺失！"
+            exit 1
+          fi
+          echo "✅ 所有图标资源验证通过"
+
+          echo ""
+          echo "=== 验证 AndroidManifest.xml 图标引用 ==="
+          grep -q 'android:icon="@mipmap/ic_launcher"' android/app/src/main/AndroidManifest.xml || { echo "❌ manifest 未引用 mipmap/ic_launcher"; exit 1; }
+          grep -q 'android:roundIcon="@mipmap/ic_launcher_round"' android/app/src/main/AndroidManifest.xml || { echo "❌ manifest 未引用 mipmap/ic_launcher_round"; exit 1; }
+          echo "✅ Manifest 图标引用正确"
+
+          echo ""
+          echo "=== 验证 manifest 结构（只有一个 <application>） ==="
+          APP_COUNT=$(grep -c '<application ' android/app/src/main/AndroidManifest.xml || true)
+          if [ "$APP_COUNT" != "1" ]; then
+            echo "❌ manifest 有 $APP_COUNT 个 <application> 标签，结构异常！"
+            exit 1
+          fi
+          echo "✅ manifest 结构正常"
+
+      - name: 清理 + 构建 Release APK
+        run: |
+          echo "=== 清理旧缓存 ==="
           cd android
+          ./gradlew clean
+          echo ""
+          echo "=== 开始构建 APK ==="
           ./gradlew assembleRelease \
             -PRELEASE_STORE_FILE=release.keystore \
             -PRELEASE_STORE_PASSWORD=OrpheusArchive2026 \
@@ -227,6 +270,21 @@ jobs:
           echo "=== 构建完成 ==="
           echo "APK 文件列表："
           find android/app/build/outputs/apk/release -name "*.apk" -ls
+
+      - name: 验证 APK 包含图标资源
+        run: |
+          APK="$(find android/app/build/outputs/apk/release -name "*.apk" -not -name "*unsigned*" | head -1)"
+          if [ -z "$APK" ]; then
+            APK="$(find android/app/build/outputs/apk/release -name "*.apk" | head -1)"
+          fi
+          echo "检查 APK $APK 中的 mipmap 资源..."
+          if unzip -l "$APK" | grep -q "mipmap"; then
+            echo "✅ APK 包含 mipmap 资源"
+            unzip -l "$APK" | grep "mipmap" | head -15
+          else
+            echo "❌ APK 中没有 mipmap 资源！"
+            exit 1
+          fi
 
       - name: 重命名 APK
         run: |
