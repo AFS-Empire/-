@@ -272,8 +272,32 @@ jobs:
           python3 scripts/inject-signing.py android/app/build.gradle
 
           echo ""
+          echo "=== 强制关闭 shrinkResources + minifyEnabled ==="
+          # 不管 inject-signing.py 是否成功，用 sed 全局强制替换
+          sed -i 's/shrinkResources true/shrinkResources false/g' android/app/build.gradle
+          sed -i 's/minifyEnabled true/minifyEnabled false/g' android/app/build.gradle
+
+          echo ""
           echo "=== build.gradle 关键段落 ==="
           grep -n "signingConfigs\|buildTypes\|signingConfig\|ORPHEUS\|minifyEnabled\|shrinkResources\|proguard" android/app/build.gradle
+
+          echo ""
+          echo "=== 确认 shrinkResources 全部为 false ==="
+          if grep -q "shrinkResources true" android/app/build.gradle; then
+            echo "❌ 仍存在 shrinkResources true！"
+            exit 1
+          fi
+          echo "✅ shrinkResources 已全部关闭"
+
+          echo ""
+          echo "=== 创建资源 keep 规则（双重保险）==="
+          mkdir -p android/app/src/main/res/raw
+          cat > android/app/src/main/res/raw/keep.xml << 'KEEPEOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources xmlns:tools="http://schemas.android.com/tools"
+              tools:keep="@mipmap/ic_launcher,@mipmap/ic_launcher_round,@drawable/ic_launcher_foreground,@mipmap/ic_launcher,@mipmap/ic_launcher_round" />
+          KEEPEOF
+          echo "✅ res/raw/keep.xml 已创建"
 
       # ========== 临时禁用：干净构建，排除缓存污染 ==========
       # - name: 缓存签名密钥
@@ -397,7 +421,13 @@ jobs:
           unzip -l "$APK" | head -30
 
           echo ""
-          echo "如果上面的 unzip 检查显示没有 mipmap，说明问题在 AAPT 资源合并阶段。"
+          echo "=== 最终校验：APK 必须包含 mipmap ==="
+          if unzip -l "$APK" | grep -q "mipmap"; then
+            echo "✅ APK 包含 mipmap 资源，修复成功！"
+          else
+            echo "❌ APK 中仍然没有 mipmap 资源！"
+            exit 1
+          fi
 
       - name: 重命名 APK
         run: |
