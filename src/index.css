@@ -3,7 +3,7 @@
 /* ===== 主题变量：深色（默认） ===== */
 :root {
   --bg-base: #0d0d0f;
-  --bg-surface: #1a1a1e;
+  --bg-surface: #121215;
   --bg-elevated: #161619;
   --bg-input: #1e1e22;
   --text-primary: #e2e2e4;
@@ -20,7 +20,7 @@
   --select-text: #e2e2e4;
   --autofill-bg: #1a1a1e;
   --autofill-text: #e8e4dc;
-  --rune-opacity: 1;
+  --rune-opacity: 0.6;
 
   /* ink 色板（深模式） */
   --ink-50: #f6f6f7;
@@ -39,39 +39,39 @@
 
 /* ===== 主题变量：浅色 ===== */
 :root.light {
-  --bg-base: #f0f1f3;
-  --bg-surface: #ffffff;
-  --bg-elevated: #f7f8fa;
-  --bg-input: #eef0f2;
-  --text-primary: #1a1a1a;
-  --text-secondary: #4a4a4a;
-  --text-tertiary: #6b6b6b;
-  --border-default: #d5d7db;
-  --border-subtle: #e4e6ea;
-  --scrollbar-track: #f0f1f3;
-  --scrollbar-thumb: #c4a76a;
+  --bg-base: #f5f1e8;
+  --bg-surface: #faf6ed;
+  --bg-elevated: #ede6d6;
+  --bg-input: #ede6d6;
+  --text-primary: #2a2520;
+  --text-secondary: #5a5040;
+  --text-tertiary: #7a7060;
+  --border-default: #c8c0b0;
+  --border-subtle: #d8d0c0;
+  --scrollbar-track: #ede6d6;
+  --scrollbar-thumb: #b89050;
   --scrollbar-thumb-hover: #8f591c;
-  --accent-glow: rgba(180, 140, 40, 0.05);
-  --select-bg: #ffffff;
-  --select-border: #c8c8cc;
-  --select-text: #333333;
-  --autofill-bg: #ffffff;
-  --autofill-text: #333333;
-  --rune-opacity: 0.25;
+  --accent-glow: rgba(180, 140, 40, 0.08);
+  --select-bg: #faf6ed;
+  --select-border: #c8c0b0;
+  --select-text: #2a2520;
+  --autofill-bg: #faf6ed;
+  --autofill-text: #2a2520;
+  --rune-opacity: 0.45;
 
   /* ink 色板（浅模式）：深色文字在浅色背景上 */
-  --ink-50: #f7f7f8;
-  --ink-100: #e8e9eb;
-  --ink-200: #d2d4d8;
-  --ink-300: #a8acb3;
-  --ink-400: #7a7e85;
-  --ink-500: #5a5e64;
-  --ink-600: #44474d;
-  --ink-700: #33363b;
-  --ink-800: #282b30;
-  --ink-850: #1e2025;
-  --ink-900: #15171b;
-  --ink-950: #0e0f12;
+  --ink-50: #faf6ed;
+  --ink-100: #ede6d6;
+  --ink-200: #d8d0c0;
+  --ink-300: #b8b0a0;
+  --ink-400: #9a9280;
+  --ink-500: #7a7060;
+  --ink-600: #5a5040;
+  --ink-700: #454030;
+  --ink-800: #353025;
+  --ink-850: #2a2520;
+  --ink-900: #1e1a15;
+  --ink-950: #121008;
 }
 
 @theme {
@@ -373,7 +373,7 @@
     color: rgba(236, 217, 160, 0.9);
   }
   :root.light .section-title {
-    color: #8f591c;
+    color: #7a5020;
   }
   .tag {
     @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border;
@@ -473,11 +473,11 @@
    顶栏 & 侧边栏：深/浅模式自适应
    ====================================================================== */
 .app-header {
-  background-color: color-mix(in srgb, var(--bg-surface) 92%, transparent);
+  background-color: var(--bg-surface);
   border-bottom: 1px solid var(--border-default);
 }
 .app-sidebar {
-  background-color: color-mix(in srgb, var(--bg-surface) 88%, transparent);
+  background-color: var(--bg-surface);
   border-right: 1px solid var(--border-default);
 }
 .app-sidebar-mobile {
@@ -485,7 +485,7 @@
   border-right: 1px solid var(--border-default);
 }
 .app-nav-item {
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   border-left-color: transparent;
 }
 .app-nav-item:hover {
@@ -543,4 +543,10 @@
 /* 遮罩层 - 深浅模式均保持半透明 */
 .modal-overlay {
   background-color: rgba(0, 0, 0, 0.5);
+}
+.sidebar-overlay {
+  background-color: rgba(0, 0, 0, 0.55);
+}
+:root.light .sidebar-overlay {
+  background-color: rgba(0, 0, 0, 0.35);
 }

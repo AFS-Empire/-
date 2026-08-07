@@ -7,14 +7,17 @@ import { useBindingStore } from '../store/bindingStore';
 import { IS_WEB_BUILD } from '../lib/buildTarget';
 import { platform } from '../platform';
 import { ConfirmDialog, PromptDialog, AlertDialog } from '../components/Dialog';
-import type { NovelChapter } from '../types';
+import type { NovelChapter, NovelVolume } from '../types';
+
+const EMPTY_CHAPTERS: NovelChapter[] = [];
+const EMPTY_VOLUMES: NovelVolume[] = [];
 
 export default function NovelDetail() {
   const { bookId } = useParams<{ bookId: string }>();
   const navigate = useNavigate();
   const isBound = useBindingStore(s => s.isBound);
-  const bookChapters = useNovelStore(s => bookId ? (s.chapters[bookId] || []) : []);
-  const bookVolumes = useNovelStore(s => bookId ? (s.volumes[bookId] || []) : []);
+  const bookChapters = useNovelStore(s => bookId ? (s.chapters[bookId] || EMPTY_CHAPTERS) : EMPTY_CHAPTERS);
+  const bookVolumes = useNovelStore(s => bookId ? (s.volumes[bookId] || EMPTY_VOLUMES) : EMPTY_VOLUMES);
   const books = useNovelStore(s => s.books);
   const createVolume = useNovelStore(s => s.createVolume);
   const deleteVolume = useNovelStore(s => s.deleteVolume);

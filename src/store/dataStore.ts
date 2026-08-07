@@ -23,17 +23,39 @@ interface DataState {
 
 /** 写操作执行器：已验证则立即执行并 await，未验证则入队返回 false */
 async function guardWrite(execute: () => Promise<void>): Promise<boolean> {
-  // 双重校验：机器码绑定 + 密钥B操作验证
   if (!useBindingStore.getState().isBound) return false;
   if (isOperationVerified()) {
     await execute();
     return true;
   }
-  // 未验证：入队等待密钥B验证通过后执行
   needVerify(() => {
     void execute();
   });
   return false;
+}
+
+function entriesEqual(a: AnyEntry[], b: AnyEntry[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i].id !== b[i].id || a[i].updatedAt !== b[i].updatedAt) return false;
+  }
+  return true;
+}
+
+function erasEqual(a: Era[], b: Era[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i].id !== b[i].id || a[i].updatedAt !== b[i].updatedAt) return false;
+  }
+  return true;
+}
+
+function sectionsEqual(a: CustomSection[], b: CustomSection[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i].id !== b[i].id || a[i].updatedAt !== b[i].updatedAt) return false;
+  }
+  return true;
 }
 
 export const useDataStore = create<DataState>((set, get) => ({
@@ -48,6 +70,15 @@ export const useDataStore = create<DataState>((set, get) => ({
       db.getAllEras(),
       db.getCustomSections(),
     ]);
+
+    const cur = get();
+    if (cur.loaded &&
+      entriesEqual(cur.entries, entries) &&
+      erasEqual(cur.eras, eras) &&
+      sectionsEqual(cur.customSections, customSections)) {
+      return;
+    }
+
     set({ entries, eras, customSections, loaded: true });
   },
 

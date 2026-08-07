@@ -13,12 +13,24 @@ interface CommentState {
   getByTarget: (targetCode: string) => Comment[];
 }
 
+function commentsEqual(a: Comment[], b: Comment[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i].id !== b[i].id || a[i].createdAt !== b[i].createdAt || a[i].isPinned !== b[i].isPinned) return false;
+  }
+  return true;
+}
+
 export const useCommentStore = create<CommentState>((set, get) => ({
   comments: [],
   loaded: false,
 
   refresh: async () => {
     const comments = await db.getAllComments();
+    const cur = get();
+    if (cur.loaded && commentsEqual(cur.comments, comments)) {
+      return;
+    }
     set({ comments, loaded: true });
   },
 

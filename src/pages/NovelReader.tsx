@@ -5,7 +5,9 @@ import { useNovelStore } from '../store/novelStore';
 import { useDataStore } from '../store/dataStore';
 import { useBindingStore } from '../store/bindingStore';
 import { IS_WEB_BUILD } from '../lib/buildTarget';
-import type { Character } from '../types';
+import type { Character, NovelChapter } from '../types';
+
+const EMPTY_CHAPTERS: NovelChapter[] = [];
 
 /* ============================================================
    阅读模式配置：5 种背景主题 + 5 级字号 + 3 级行距
@@ -131,12 +133,16 @@ export default function NovelReader() {
   const { bookId, chapterId } = useParams<{ bookId: string; chapterId: string }>();
   const navigate = useNavigate();
   const isBound = useBindingStore(s => s.isBound);
-  const chapters = useNovelStore(s => bookId ? (s.chapters[bookId] || []) : []);
+  const chapters = useNovelStore(s => bookId ? (s.chapters[bookId] || EMPTY_CHAPTERS) : EMPTY_CHAPTERS);
   const books = useNovelStore(s => s.books);
   const markChapterRead = useNovelStore(s => s.markChapterRead);
   const saveProgress = useNovelStore(s => s.saveProgress);
   const updateChapter = useNovelStore(s => s.updateChapter);
-  const allCharacters = useDataStore(s => s.entries.filter(e => e.type === 'character'));
+  const entries = useDataStore(s => s.entries);
+  const allCharacters = useMemo(
+    () => entries.filter(e => e.type === 'character') as Character[],
+    [entries]
+  );
 
   const book = books.find(b => b.id === bookId);
   const bookChapters = useMemo(

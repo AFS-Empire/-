@@ -256,7 +256,7 @@ export default function Layout() {
         {sidebarOpen && (
           <>
             <div
-              className="lg:hidden fixed inset-0 top-14 z-30 bg-black/60"
+              className="lg:hidden fixed inset-0 top-14 z-30 sidebar-overlay"
               onClick={() => setSidebarOpen(false)}
             />
             <aside className="lg:hidden fixed left-0 top-14 bottom-0 z-40 w-56 app-sidebar-mobile p-4 overflow-y-auto animate-slide-up">
