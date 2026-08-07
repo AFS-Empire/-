@@ -44,7 +44,7 @@ export default function Character() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">
           <Users className="w-7 h-7 text-gold-400 mt-1" />

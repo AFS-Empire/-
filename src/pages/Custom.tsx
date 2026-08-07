@@ -82,7 +82,7 @@ export default function Custom() {
   // ---- Section detail view ----
   if (selectedId && selected) {
     return (
-      <div className="space-y-6 animate-fade-in">
+      <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3">
             <span className="text-3xl">{selected.icon || '📁'}</span>
@@ -142,7 +142,7 @@ export default function Custom() {
 
   // ---- Section list view ----
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">
           <Layers className="w-7 h-7 text-gold-400 mt-1" />

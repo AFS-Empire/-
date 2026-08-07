@@ -41,7 +41,7 @@ export default function AllIndex() {
   SECTIONS.forEach(s => { typeLabel[s.type] = s.name; });
 
   return (
-    <div className="animate-fade-in">
+    <div className="max-w-5xl mx-auto animate-fade-in">
       {/* 顶部 */}
       <div className="flex items-center gap-3 mb-6">
         <button onClick={() => navigate(-1)} className="btn-ghost p-2">
