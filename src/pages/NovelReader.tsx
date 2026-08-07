@@ -67,25 +67,58 @@ const READER_THEMES: Record<ReaderTheme, ReaderThemeConfig> = {
   },
   parchment: {
     label: '牛皮纸',
-    swatch: '#c6b48a',
-    titleColor: '#4a2e0c',
-    accentColor: '#4a2e0c',
+    swatch: '#c9b586',
+    titleColor: '#4d2e0e',
+    accentColor: '#4d2e0e',
     vars: {
-      '--bg-base': '#c6b48a',
-      '--bg-surface': '#c6b48a',
-      '--bg-elevated': '#b8a67a',
-      '--text-primary': '#3a2a18',
-      '--text-secondary': '#5a4a38',
-      '--text-tertiary': '#7a6a58',
-      '--border-default': '#a89678',
-      '--border-subtle': '#b4a282',
-      '--rune-opacity': '0.28',
-      '--rune-filter': 'brightness(1.1) saturate(0.6)',
+      // 基础底色不是纯黄，是带灰调的羊皮米色 — 避免简单的黄色滤镜感
+      '--bg-base': '#c9b586',
+      '--bg-surface': '#c9b586',
+      '--bg-elevated': '#b8a272',
+      '--text-primary': '#382818',
+      '--text-secondary': '#5a4832',
+      '--text-tertiary': '#7a6850',
+      '--border-default': '#a5906a',
+      '--border-subtle': '#b59f78',
+      '--rune-opacity': '0.24',
+      '--rune-filter': 'brightness(1.05) saturate(0.55)',
     },
-    // 做旧双层叠加：1) 纸纤维细纹  2) 边缘老化暗角（肉眼明显可见）
+    // 五层叠加 — 从下往上依次：
+    //   1) 中心提亮、四角泛黄褐：模拟"长期摆放四角风化"（要求②）
+    //   2) 细密天然纸纤维（横向细纹 0.6px 高频率）：要求①第一层
+    //   3) 45° 斜向粗纤维条：要求①第二层（天然不单调）
+    //   4) SVG 稀疏尘埃状斑点（<20 个点，不密集）：要求③ "少量稀疏自然斑驳污渍"
+    //   5) 四向线性渐变做四边磨损暗边：要求③ "四边轻微磨损暗边"
     bgOverlay: [
-      'repeating-linear-gradient(115deg, rgba(120,85,30,0.05) 0px, rgba(120,85,30,0.05) 1px, transparent 1px, transparent 4px)',
-      'radial-gradient(ellipse 90% 78% at 50% 45%, transparent 0%, rgba(110,65,15,0.16) 50%, rgba(75,40,5,0.34) 100%)',
+      // 5) 四边磨损暗边（0-3% 最暗 → 6% 变淡）：top/right/bottom/left 各自一条
+      'linear-gradient(180deg, rgba(70,45,10,0.26) 0%, rgba(70,45,10,0.12) 3%, rgba(70,45,10,0) 7%)',
+      'linear-gradient(90deg, rgba(70,45,10,0.26) 0%, rgba(70,45,10,0.12) 3%, rgba(70,45,10,0) 7%)',
+      'linear-gradient(0deg, rgba(70,45,10,0.26) 0%, rgba(70,45,10,0.12) 3%, rgba(70,45,10,0) 7%)',
+      'linear-gradient(270deg, rgba(70,45,10,0.26) 0%, rgba(70,45,10,0.12) 3%, rgba(70,45,10,0) 7%)',
+      // 4) 稀疏尘埃斑点：用内联 SVG <circle> 随机撒 12 个点，viewBox 300×300 铺满整屏平铺
+      `url("data:image/svg+xml;utf8,${encodeURIComponent(
+        `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 300' width='300' height='300'>
+           <circle cx='42' cy='68' r='2.2' fill='%238a5a18' opacity='0.28'/>
+           <circle cx='210' cy='35' r='1.4' fill='%236a3e10' opacity='0.32'/>
+           <circle cx='172' cy='185' r='0.8' fill='%235a3210' opacity='0.4'/>
+           <circle cx='78' cy='248' r='3.1' fill='%236a4418' opacity='0.22'/>
+           <circle cx='265' cy='148' r='1.7' fill='%234a2810' opacity='0.3'/>
+           <circle cx='14' cy='150' r='1.2' fill='%237a4e18' opacity='0.35'/>
+           <circle cx='258' cy='270' r='2.6' fill='%235a3610' opacity='0.25'/>
+           <circle cx='132' cy='112' r='0.7' fill='%238a5820' opacity='0.3'/>
+           <circle cx='220' cy='228' r='1.9' fill='%236a4015' opacity='0.27'/>
+           <circle cx='50' cy='192' r='1.0' fill='%235a3410' opacity='0.38'/>
+           <circle cx='180' cy='10' r='0.9' fill='%237a4a18' opacity='0.35'/>
+           <circle cx='110' cy='285' r='2.0' fill='%234a2a10' opacity='0.28'/>
+           <circle cx='280' cy='80' r='0.6' fill='%236a4215' opacity='0.45'/>
+         </svg>`
+      )}")`,
+      // 3) 135° 粗纤维条（每 18px 一条 0.7px 线，只加 8% alpha 做隐约手感）
+      'repeating-linear-gradient(135deg, rgba(110,70,20,0.08) 0px, rgba(110,70,20,0.08) 0.7px, transparent 0.7px, transparent 18px)',
+      // 2) 0° 横向细密纤维（每 3px 一条 0.5px，alpha 6% 高频打底）
+      'repeating-linear-gradient(0deg, rgba(120,80,25,0.06) 0px, rgba(120,80,25,0.06) 0.5px, transparent 0.5px, transparent 3px)',
+      // 1) 径向明暗：中心提亮(overlay+20%白)，四角泛黄褐
+      'radial-gradient(ellipse 82% 72% at 50% 45%, rgba(255,245,215,0.22) 0%, rgba(255,240,200,0.06) 35%, rgba(120,70,15,0.08) 62%, rgba(90,50,10,0.24) 88%, rgba(70,40,5,0.36) 100%)',
     ].join(', '),
   },
 };
@@ -292,42 +325,79 @@ export default function NovelReader() {
     return () => ro.disconnect();
   }, [readMode]);
 
-  // ===== 翻页模式：计算总页数 =====
+  // ===== 翻页模式：计算总页数（测量 + 强制重置 + 双重验证） =====
   useEffect(() => {
     if (readMode !== 'page' || pageDims.w === 0) return;
     const content = contentRef.current;
     if (!content) return;
     let rafId1: number | null = null;
     let rafId2: number | null = null;
+    let rafId3: number | null = null;
+
+    // —— 第 1 帧：强制清除 contentWidth，保证浏览器用原生 column-width 重排
+    // （如果带着旧 width 直接测，scrollWidth=旧值，排页边界会错位）
+    setContentWidth(0);
+    content.style.width = 'auto';
+    content.style.transform = 'translateX(0px)';
 
     rafId1 = requestAnimationFrame(() => {
-      // 第一帧：清除之前的 width，让浏览器用原生 column 排，再读 scrollWidth
-      content.style.width = 'auto';
-      rafId2 = requestAnimationFrame(() => {
-        const scrollW = content.scrollWidth;
-        const pageW = pageDims.w;
-        const total = Math.max(1, Math.ceil(scrollW / Math.max(1, pageW)));
-        const alignW = total * pageW;
-        setContentWidth(alignW);
-        setTotalPages(total);
+      // —— 第 2 帧：浏览器已重新排版，读真实 scrollWidth
+      const scrollW1 = content.scrollWidth;
+      const pageW = Math.max(1, pageDims.w);
+      const rawPages = scrollW1 / pageW;
+      const rawCeil = Math.ceil(rawPages);
 
-        if (goToLastPageRef.current) {
-          setCurrentPage(Math.max(0, total - 1));
-          goToLastPageRef.current = false;
-        } else if (pendingRestoreRatioRef.current !== null) {
-          const page = Math.round(pendingRestoreRatioRef.current * Math.max(1, total - 1));
-          setCurrentPage(Math.max(0, Math.min(page, total - 1)));
-          pendingRestoreRatioRef.current = null;
-        } else {
-          setCurrentPage(prev => Math.min(prev, total - 1));
-        }
+      rafId2 = requestAnimationFrame(() => {
+        // —— 第 3 帧：双重验证，如果 scrollWidth 抖动则再测一次取大值
+        const scrollW2 = content.scrollWidth;
+        const finalW = Math.max(scrollW1, scrollW2);
+        let total = Math.max(1, Math.ceil(finalW / pageW));
+
+        // 安全兜底：如果 scrollWidth/pageW 离"刚好装满整数页"只差 <3px，
+        // 说明是浏览器 subpixel 误差导致多算出一页（文字没有真的溢到那页），
+        // 但必须对齐，不能少算 —— 所以 total 只向上不向下
+        const alignedWidth = total * pageW;
+
+        // 设置 content 实际宽度 —— 对齐到整数页，保证 translate(x*pageW) 正好是每页的列头
+        setContentWidth(alignedWidth);
+
+        rafId3 = requestAnimationFrame(() => {
+          // —— 第 4 帧：写 width 后再校验一次 content.scrollWidth 是不是 ≥ alignedWidth
+          // 如果写入 alignedWidth 后，CSS column 再多排出一小段，
+          // scrollWidth 变大则需要再补一页（长篇文字常见情况）
+          const contentEl = contentRef.current;
+          if (!contentEl) return;
+          const newScrollW = contentEl.scrollWidth;
+          if (newScrollW > alignedWidth + 1) {
+            const realTotal = Math.max(total, Math.ceil(newScrollW / pageW));
+            const realAlign = realTotal * pageW;
+            setTotalPages(realTotal);
+            setContentWidth(realAlign);
+            total = realTotal;
+          } else {
+            setTotalPages(total);
+          }
+
+          // 进度/跳转恢复（放在最后一次校验通过之后）
+          if (goToLastPageRef.current) {
+            setCurrentPage(Math.max(0, total - 1));
+            goToLastPageRef.current = false;
+          } else if (pendingRestoreRatioRef.current !== null) {
+            const page = Math.round(pendingRestoreRatioRef.current * Math.max(1, total - 1));
+            setCurrentPage(Math.max(0, Math.min(page, total - 1)));
+            pendingRestoreRatioRef.current = null;
+          } else {
+            setCurrentPage(prev => Math.min(prev, total - 1));
+          }
+        });
       });
     });
     return () => {
       if (rafId1) cancelAnimationFrame(rafId1);
       if (rafId2) cancelAnimationFrame(rafId2);
+      if (rafId3) cancelAnimationFrame(rafId3);
     };
-  }, [readMode, pageDims, chapter?.id, fontSize, lineHeight]);
+  }, [readMode, pageDims.w, pageDims.h, chapter?.id, fontSize, lineHeight, paragraphs.length]);
 
   // 加载阅读进度 + 标记已读（仅首次加载该章节时执行）
   useEffect(() => {
