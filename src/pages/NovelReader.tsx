@@ -67,23 +67,26 @@ const READER_THEMES: Record<ReaderTheme, ReaderThemeConfig> = {
   },
   parchment: {
     label: '牛皮纸',
-    swatch: '#d4c4a0',
-    titleColor: '#4a300c',
-    accentColor: '#4a300c',
+    swatch: '#c6b48a',
+    titleColor: '#4a2e0c',
+    accentColor: '#4a2e0c',
     vars: {
-      '--bg-base': '#d4c4a0',
-      '--bg-surface': '#d4c4a0',
-      '--bg-elevated': '#c8b896',
-      '--text-primary': '#3a2f24',
-      '--text-secondary': '#5a4f44',
-      '--text-tertiary': '#7a6e64',
-      '--border-default': '#b0a088',
-      '--border-subtle': '#bfae96',
-      '--rune-opacity': '0.30',
-      '--rune-filter': 'brightness(1.15) saturate(0.65)',
+      '--bg-base': '#c6b48a',
+      '--bg-surface': '#c6b48a',
+      '--bg-elevated': '#b8a67a',
+      '--text-primary': '#3a2a18',
+      '--text-secondary': '#5a4a38',
+      '--text-tertiary': '#7a6a58',
+      '--border-default': '#a89678',
+      '--border-subtle': '#b4a282',
+      '--rune-opacity': '0.28',
+      '--rune-filter': 'brightness(1.1) saturate(0.6)',
     },
-    // 做旧渐变：中心透亮，边缘泛黄褐，模拟牛皮纸老化效果
-    bgOverlay: 'radial-gradient(ellipse 85% 65% at 50% 40%, transparent 0%, rgba(120, 80, 30, 0.07) 55%, rgba(80, 50, 15, 0.14) 100%)',
+    // 做旧双层叠加：1) 纸纤维细纹  2) 边缘老化暗角（肉眼明显可见）
+    bgOverlay: [
+      'repeating-linear-gradient(115deg, rgba(120,85,30,0.05) 0px, rgba(120,85,30,0.05) 1px, transparent 1px, transparent 4px)',
+      'radial-gradient(ellipse 90% 78% at 50% 45%, transparent 0%, rgba(110,65,15,0.16) 50%, rgba(75,40,5,0.34) 100%)',
+    ].join(', '),
   },
 };
 
@@ -210,6 +213,8 @@ export default function NovelReader() {
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [pageDims, setPageDims] = useState({ w: 0, h: 0 });
+  const [contentWidth, setContentWidth] = useState(0);
+  const [flipDir, setFlipDir] = useState<'left' | 'right' | null>(null);
   const pagedWrapperRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -292,25 +297,36 @@ export default function NovelReader() {
     if (readMode !== 'page' || pageDims.w === 0) return;
     const content = contentRef.current;
     if (!content) return;
+    let rafId1: number | null = null;
+    let rafId2: number | null = null;
 
-    const raf = requestAnimationFrame(() => {
-      const scrollW = content.scrollWidth;
-      const total = Math.max(1, Math.round(scrollW / pageDims.w));
-      setTotalPages(prev => prev !== total ? total : prev);
+    rafId1 = requestAnimationFrame(() => {
+      // 第一帧：清除之前的 width，让浏览器用原生 column 排，再读 scrollWidth
+      content.style.width = 'auto';
+      rafId2 = requestAnimationFrame(() => {
+        const scrollW = content.scrollWidth;
+        const pageW = pageDims.w;
+        const total = Math.max(1, Math.ceil(scrollW / Math.max(1, pageW)));
+        const alignW = total * pageW;
+        setContentWidth(alignW);
+        setTotalPages(total);
 
-      // 恢复进度或跳转到最后一页
-      if (goToLastPageRef.current) {
-        setCurrentPage(Math.max(0, total - 1));
-        goToLastPageRef.current = false;
-      } else if (pendingRestoreRatioRef.current !== null) {
-        const page = Math.round(pendingRestoreRatioRef.current * Math.max(1, total - 1));
-        setCurrentPage(Math.max(0, Math.min(page, total - 1)));
-        pendingRestoreRatioRef.current = null;
-      } else {
-        setCurrentPage(prev => Math.min(prev, total - 1));
-      }
+        if (goToLastPageRef.current) {
+          setCurrentPage(Math.max(0, total - 1));
+          goToLastPageRef.current = false;
+        } else if (pendingRestoreRatioRef.current !== null) {
+          const page = Math.round(pendingRestoreRatioRef.current * Math.max(1, total - 1));
+          setCurrentPage(Math.max(0, Math.min(page, total - 1)));
+          pendingRestoreRatioRef.current = null;
+        } else {
+          setCurrentPage(prev => Math.min(prev, total - 1));
+        }
+      });
     });
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      if (rafId1) cancelAnimationFrame(rafId1);
+      if (rafId2) cancelAnimationFrame(rafId2);
+    };
   }, [readMode, pageDims, chapter?.id, fontSize, lineHeight]);
 
   // 加载阅读进度 + 标记已读（仅首次加载该章节时执行）
@@ -435,8 +451,12 @@ export default function NovelReader() {
     if (isPageAnimatingRef.current) return;
     if (currentPage < totalPages - 1) {
       isPageAnimatingRef.current = true;
+      setFlipDir('left');
       setCurrentPage(p => p + 1);
-      setTimeout(() => { isPageAnimatingRef.current = false; }, 380);
+      setTimeout(() => {
+        isPageAnimatingRef.current = false;
+        setFlipDir(null);
+      }, 350);
     } else if (nextChapter) {
       navigate(`/novel/${bookId}/chapter/${nextChapter.id}`, { replace: true });
     }
@@ -446,8 +466,12 @@ export default function NovelReader() {
     if (isPageAnimatingRef.current) return;
     if (currentPage > 0) {
       isPageAnimatingRef.current = true;
+      setFlipDir('right');
       setCurrentPage(p => p - 1);
-      setTimeout(() => { isPageAnimatingRef.current = false; }, 380);
+      setTimeout(() => {
+        isPageAnimatingRef.current = false;
+        setFlipDir(null);
+      }, 350);
     } else if (prevChapter) {
       goToLastPageRef.current = true;
       navigate(`/novel/${bookId}/chapter/${prevChapter.id}`, { replace: true });
@@ -511,15 +535,16 @@ export default function NovelReader() {
 
   // 翻页模式内容样式
   const isPageMode = readMode === 'page';
-  const pagedContentStyle: React.CSSProperties = isPageMode && pageDims.w > 0 ? {
+  const pagedContentStyle: React.CSSProperties = isPageMode && pageDims.w > 0 && contentWidth > 0 ? {
     columnWidth: `${pageDims.w}px`,
     columnGap: '0px',
     columnFill: 'auto',
     height: `${pageDims.h}px`,
+    width: `${contentWidth}px`,
     maxWidth: 'none',
     transform: `translateX(-${currentPage * pageDims.w}px)`,
-    transition: 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
-    overflow: 'hidden',
+    transition: 'transform 0.32s cubic-bezier(0.33, 0.12, 0.3, 1)',
+    overflow: 'visible',
   } : isPageMode ? { visibility: 'hidden', maxWidth: 'none' } : {};
 
   return (
@@ -628,6 +653,34 @@ export default function NovelReader() {
           <div
             className="absolute right-0 top-0 w-1/4 h-full z-10"
             onClick={goNextPage}
+          />
+
+          {/* 翻页动画：阴影叠层 — 翻左边（下一页）暗左边缘，翻右边（上一页）暗右边缘 */}
+          <div
+            className="pointer-events-none absolute inset-0 z-[15] transition-opacity duration-300"
+            style={{
+              opacity: flipDir === 'left' ? 1 : 0,
+              background: 'linear-gradient(90deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.14) 18%, transparent 45%, rgba(0,0,0,0.04) 100%)',
+            }}
+          />
+          <div
+            className="pointer-events-none absolute inset-0 z-[15] transition-opacity duration-300"
+            style={{
+              opacity: flipDir === 'right' ? 1 : 0,
+              background: 'linear-gradient(270deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.14) 18%, transparent 45%, rgba(0,0,0,0.04) 100%)',
+            }}
+          />
+          {/* 翻页中缝高光 */}
+          <div
+            className="pointer-events-none absolute top-0 h-full z-[16] transition-all duration-300"
+            style={{
+              left: flipDir === 'left' ? '0%' : flipDir === 'right' ? '100%' : '50%',
+              width: '2px',
+              opacity: flipDir ? 0.5 : 0,
+              transform: flipDir === 'right' ? 'translateX(-100%)' : 'none',
+              background: 'linear-gradient(180deg, transparent 0%, rgba(255,255,255,0.35) 40%, rgba(255,255,255,0.25) 60%, transparent 100%)',
+              boxShadow: '0 0 6px rgba(255,255,255,0.15)',
+            }}
           />
 
           {/* 页码指示器 */}
