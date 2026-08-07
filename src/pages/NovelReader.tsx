@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, List, Settings2, X } from 'lucide-react';
 import { useNovelStore } from '../store/novelStore';
 import { useDataStore } from '../store/dataStore';
@@ -10,90 +10,77 @@ import type { Character, NovelChapter } from '../types';
 const EMPTY_CHAPTERS: NovelChapter[] = [];
 
 /* ============================================================
-   阅读模式配置：5 种背景主题 + 5 级字号 + 3 级行距
+   阅读模式：3 套主题
+   不叠加蒙板，而是直接覆盖全局 CSS 变量
+   让整个页面（包括 Layout 的 rune-bg 符文水印）统一变色
    ============================================================ */
-type BgTheme = 'dark' | 'parchment' | 'green' | 'beige' | 'paper';
-type FontSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+type ReaderTheme = 'dark' | 'light' | 'parchment';
+type FontSize = 'sm' | 'md' | 'lg' | 'xl';
 type LineHeight = 'compact' | 'normal' | 'loose';
 
 interface ReaderThemeConfig {
   label: string;
-  swatch: string;     // 色板预览色
-  bg: string;         // 页面背景
-  surface: string;    // 顶/底栏背景
-  text: string;       // 正文
-  title: string;      // 标题
-  sub: string;        // 次要文字
-  border: string;     // 分隔线
-  accent: string;     // 强调色（进度条/高亮）
-  vignette: boolean;  // 是否加厚重内阴影
+  swatch: string;
+  titleColor: string;
+  accentColor: string;
+  vars: Record<string, string>;
 }
 
-const READER_THEMES: Record<BgTheme, ReaderThemeConfig> = {
+const READER_THEMES: Record<ReaderTheme, ReaderThemeConfig> = {
   dark: {
-    label: '深夜',
-    swatch: '#0d0d0f',
-    bg: '#0d0d0f',
-    surface: '#0d0d0f',
-    text: '#e2e2e4',
-    title: '#e0c068',
-    sub: '#76767e',
-    border: 'rgba(143,89,28,0.2)',
-    accent: '#c8902a',
-    vignette: false,
+    label: '深色',
+    swatch: '#0c0c0c',
+    titleColor: '#c9a84c',
+    accentColor: '#c9a84c',
+    vars: {
+      '--bg-base': '#0c0c0c',
+      '--bg-surface': '#0c0c0c',
+      '--bg-elevated': '#161616',
+      '--text-primary': '#c8c2b4',
+      '--text-secondary': '#9a9488',
+      '--text-tertiary': '#6e6a60',
+      '--border-default': '#2a2a28',
+      '--border-subtle': '#1e1e1c',
+      '--rune-opacity': '0.2',
+    },
+  },
+  light: {
+    label: '浅色',
+    swatch: '#f7f2e6',
+    titleColor: '#8a6a20',
+    accentColor: '#8a6a20',
+    vars: {
+      '--bg-base': '#f7f2e6',
+      '--bg-surface': '#f7f2e6',
+      '--bg-elevated': '#f0eadc',
+      '--text-primary': '#443e34',
+      '--text-secondary': '#6b6558',
+      '--text-tertiary': '#8a8478',
+      '--border-default': '#d8d0c0',
+      '--border-subtle': '#e0d8c8',
+      '--rune-opacity': '0.25',
+    },
   },
   parchment: {
-    label: '羊皮纸',
-    swatch: '#e8dab8',
-    bg: '#e8dab8',
-    surface: '#e0d0a8',
-    text: '#3a2a15',
-    title: '#5a3a18',
-    sub: '#6a5230',
-    border: 'rgba(90,58,24,0.25)',
-    accent: '#8f591c',
-    vignette: true,
-  },
-  green: {
-    label: '护眼绿',
-    swatch: '#c7edcc',
-    bg: '#c7edcc',
-    surface: '#b8e0bd',
-    text: '#2a3a2a',
-    title: '#1a4a2a',
-    sub: '#4a5a4a',
-    border: 'rgba(26,74,42,0.2)',
-    accent: '#3a7a4a',
-    vignette: false,
-  },
-  beige: {
-    label: '米黄',
-    swatch: '#faf3e0',
-    bg: '#faf3e0',
-    surface: '#f0e8d0',
-    text: '#4a3520',
-    title: '#5a3a18',
-    sub: '#7a6a4a',
-    border: 'rgba(90,58,24,0.2)',
-    accent: '#8f591c',
-    vignette: false,
-  },
-  paper: {
-    label: '浅白',
-    swatch: '#f5f5f7',
-    bg: '#f5f5f7',
-    surface: '#eeeef0',
-    text: '#1a1a1a',
-    title: '#3a3a3a',
-    sub: '#666666',
-    border: 'rgba(0,0,0,0.1)',
-    accent: '#8f591c',
-    vignette: false,
+    label: '牛皮纸',
+    swatch: '#d4c4a0',
+    titleColor: '#6b4a1e',
+    accentColor: '#6b4a1e',
+    vars: {
+      '--bg-base': '#d4c4a0',
+      '--bg-surface': '#d4c4a0',
+      '--bg-elevated': '#c8b890',
+      '--text-primary': '#3a2e1e',
+      '--text-secondary': '#5a4e3e',
+      '--text-tertiary': '#7a6e5e',
+      '--border-default': '#b8a878',
+      '--border-subtle': '#c4b488',
+      '--rune-opacity': '0.15',
+    },
   },
 };
 
 const FONT_SIZES: Record<FontSize, { label: string; px: number }> = {
-  xs: { label: '特小', px: 14 },
   sm: { label: '小', px: 16 },
   md: { label: '中', px: 18 },
   lg: { label: '大', px: 20 },
@@ -101,26 +88,26 @@ const FONT_SIZES: Record<FontSize, { label: string; px: number }> = {
 };
 
 const LINE_HEIGHTS: Record<LineHeight, { label: string; value: number }> = {
-  compact: { label: '紧凑', value: 1.7 },
+  compact: { label: '紧凑', value: 1.8 },
   normal: { label: '标准', value: 2.0 },
-  loose: { label: '宽松', value: 2.5 },
+  loose: { label: '宽松', value: 2.4 },
 };
 
 const READER_SETTINGS_KEY = 'readerSettings';
 interface ReaderSettings {
-  bgTheme: BgTheme;
+  theme: ReaderTheme;
   fontSize: FontSize;
   lineHeight: LineHeight;
 }
 
 function loadReaderSettings(): ReaderSettings {
-  const defaults: ReaderSettings = { bgTheme: 'dark', fontSize: 'md', lineHeight: 'normal' };
+  const defaults: ReaderSettings = { theme: 'dark', fontSize: 'md', lineHeight: 'normal' };
   try {
     const raw = localStorage.getItem(READER_SETTINGS_KEY);
     if (!raw) return defaults;
     const p = JSON.parse(raw) as Partial<ReaderSettings>;
     return {
-      bgTheme: p.bgTheme && READER_THEMES[p.bgTheme] ? p.bgTheme : 'dark',
+      theme: p.theme && READER_THEMES[p.theme] ? p.theme : 'dark',
       fontSize: p.fontSize && FONT_SIZES[p.fontSize] ? p.fontSize : 'md',
       lineHeight: p.lineHeight && LINE_HEIGHTS[p.lineHeight] ? p.lineHeight : 'normal',
     };
@@ -152,18 +139,51 @@ export default function NovelReader() {
   const currentIndex = bookChapters.findIndex(c => c.id === chapterId);
   const chapter = currentIndex >= 0 ? bookChapters[currentIndex] : undefined;
 
-  // 阅读模式设置（从 localStorage 初始化）
+  // 阅读设置
   const initial = useRef<ReaderSettings>(loadReaderSettings());
-  const [bgTheme, setBgTheme] = useState<BgTheme>(initial.current.bgTheme);
+  const [readerTheme, setReaderTheme] = useState<ReaderTheme>(initial.current.theme);
   const [fontSize, setFontSize] = useState<FontSize>(initial.current.fontSize);
   const [lineHeight, setLineHeight] = useState<LineHeight>(initial.current.lineHeight);
 
-  // 设置变更即持久化
+  // 持久化阅读设置
   useEffect(() => {
-    const s: ReaderSettings = { bgTheme, fontSize, lineHeight };
-    try { localStorage.setItem(READER_SETTINGS_KEY, JSON.stringify(s)); } catch { /* ignore */ }
-  }, [bgTheme, fontSize, lineHeight]);
+    try {
+      localStorage.setItem(READER_SETTINGS_KEY, JSON.stringify({ theme: readerTheme, fontSize, lineHeight }));
+    } catch { /* ignore */ }
+  }, [readerTheme, fontSize, lineHeight]);
 
+  // 核心：覆盖全局 CSS 变量，让整个页面统一变色
+  // 退出时恢复原值，不污染其他页面
+  const savedVarsRef = useRef<Record<string, string>>({});
+  useEffect(() => {
+    const root = document.documentElement;
+    const vars = READER_THEMES[readerTheme].vars;
+
+    // 首次进入：保存原始值
+    if (Object.keys(savedVarsRef.current).length === 0) {
+      for (const key of Object.keys(vars)) {
+        savedVarsRef.current[key] = root.style.getPropertyValue(key);
+      }
+    }
+
+    // 覆盖
+    for (const [key, value] of Object.entries(vars)) {
+      root.style.setProperty(key, value);
+    }
+
+    return () => {
+      // 恢复
+      for (const [key, original] of Object.entries(savedVarsRef.current)) {
+        if (original) {
+          root.style.setProperty(key, original);
+        } else {
+          root.style.removeProperty(key);
+        }
+      }
+    };
+  }, [readerTheme]);
+
+  // UI 状态
   const [showToc, setShowToc] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showEditor, setShowEditor] = useState(false);
@@ -172,16 +192,17 @@ export default function NovelReader() {
   const [activeChar, setActiveChar] = useState<Character | null>(null);
   const [scrollRatio, setScrollRatio] = useState(0);
 
-  const containerRef = useRef<HTMLDivElement>(null);
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const markedReadRef = useRef<string | null>(null);
+  const restoredRef = useRef<string | null>(null);
 
-  const theme = READER_THEMES[bgTheme];
+  const theme = READER_THEMES[readerTheme];
 
-  // 剧透保护状态
+  // 剧透保护
   const isSpoilerUnlocked = book ? (book.completedChapters >= book.totalChapters && book.totalChapters > 0) : false;
   const showMentions = book ? (book.spoilerMode === 'open' || isSpoilerUnlocked) : true;
 
-  // 获取角色档案
+  // 角色映射
   const charMap = useMemo(() => {
     const map: Record<string, Character> = {};
     for (const e of allCharacters) {
@@ -190,17 +211,17 @@ export default function NovelReader() {
     return map;
   }, [allCharacters]);
 
+  // 段落
   const paragraphs = useMemo(() => {
     if (!chapter) return [] as string[];
     return chapter.content.split(/\n\n+/).filter(p => p.length > 0);
   }, [chapter]);
 
-  // 计算 mention 位置（段落级）
+  // 角色提及位置
   const mentionIndices = useMemo(() => {
     if (!chapter || !showMentions) return new Map<number, Array<{ name: string; charId: string }>>();
     const map = new Map<number, Array<{ name: string; charId: string }>>();
     const processed = new Set<string>();
-
     for (let pi = 0; pi < paragraphs.length; pi++) {
       const para = paragraphs[pi];
       for (const m of chapter.mentions) {
@@ -216,44 +237,65 @@ export default function NovelReader() {
     return map;
   }, [chapter, paragraphs, showMentions]);
 
-  const markedReadRef = useRef<string | null>(null);
-
-  // 加载进度
+  // 加载阅读进度 + 标记已读（仅首次加载该章节时执行）
   useEffect(() => {
-    if (!chapter || !containerRef.current) return;
-    const progress = useNovelStore.getState().progress[bookId!];
-    if (progress && progress.lastChapterId === chapterId) {
-      requestAnimationFrame(() => {
-        if (containerRef.current) {
-          const scrollable = containerRef.current;
-          scrollable.scrollTop = progress.scrollRatio * scrollable.scrollHeight;
-        }
-      });
+    if (!chapter || !bookId || !chapterId) return;
+
+    // 恢复滚动位置
+    if (restoredRef.current !== chapterId) {
+      restoredRef.current = chapterId;
+      const progress = useNovelStore.getState().progress[bookId];
+      if (progress && progress.lastChapterId === chapterId) {
+        requestAnimationFrame(() => {
+          const target = progress.scrollRatio * (document.body.scrollHeight - window.innerHeight);
+          window.scrollTo({ top: Math.max(0, target) });
+        });
+      }
     }
-    // 仅在章节首次加载时标记已读，防止重复调用导致循环
+
+    // 标记已读
     if (!chapter.read && book && markedReadRef.current !== chapterId) {
-      markedReadRef.current = chapterId!;
-      markChapterRead(bookId!, chapterId!);
+      markedReadRef.current = chapterId;
+      markChapterRead(bookId, chapterId);
     }
-  }, [chapter, book, markChapterRead, bookId, chapterId]);
+  }, [chapter, book, bookId, chapterId, markChapterRead]);
 
-  // 滚动监听（保存进度）
-  const handleScroll = useCallback(() => {
-    if (!containerRef.current || !chapter) return;
-    const el = containerRef.current;
-    const ratio = el.scrollHeight > el.clientHeight ? el.scrollTop / (el.scrollHeight - el.clientHeight) : 0;
-    setScrollRatio(ratio);
+  // 滚动监听：更新进度条 + 防抖保存进度
+  useEffect(() => {
+    if (!chapter || !bookId || !chapterId) return;
 
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const max = document.body.scrollHeight - window.innerHeight;
+        const ratio = max > 0 ? window.scrollY / max : 0;
+        setScrollRatio(Math.min(1, Math.max(0, ratio)));
+        ticking = false;
+      });
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [chapter, bookId, chapterId]);
+
+  // 防抖保存进度
+  useEffect(() => {
+    if (!bookId || !chapterId || scrollRatio === 0) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
       saveProgress({
-        bookId: bookId!,
-        lastChapterId: chapterId!,
-        scrollRatio: ratio,
+        bookId,
+        lastChapterId: chapterId,
+        scrollRatio,
         updatedAt: Date.now(),
       });
-    }, 1000);
-  }, [chapter, bookId, chapterId, saveProgress]);
+    }, 1500);
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, [scrollRatio, bookId, chapterId, saveProgress]);
 
   // 键盘导航
   useEffect(() => {
@@ -270,9 +312,9 @@ export default function NovelReader() {
 
   if (!chapter || !book) {
     return (
-      <div className="text-center py-20 text-ink-500">
-        <p>章节不存在</p>
-        <button onClick={() => navigate('/novel')} className="btn-gold mt-4">返回书架</button>
+      <div className="text-center py-20" style={{ color: 'var(--text-tertiary)' }}>
+        <p className="text-lg mb-4">章节不存在</p>
+        <button onClick={() => navigate('/novel')} className="btn-gold">返回书架</button>
       </div>
     );
   }
@@ -288,7 +330,6 @@ export default function NovelReader() {
 
     const parts: React.ReactNode[] = [];
     let key = 0;
-
     const firstMention = mentionsInPara[0];
     if (firstMention) {
       const idx = para.indexOf(firstMention.name);
@@ -298,6 +339,7 @@ export default function NovelReader() {
           <span
             key={key++}
             className="mention-highlight"
+            style={{ borderBottomColor: theme.accentColor }}
             onClick={(e) => {
               e.stopPropagation();
               const char = charMap[firstMention.charId];
@@ -316,166 +358,131 @@ export default function NovelReader() {
     } else {
       parts.push(<span key={key++}>{para}</span>);
     }
-
     return <p key={pi} className="novel-para">{parts}</p>;
   };
 
-  // 容器注入阅读主题 CSS 变量，供 mention-highlight 等使用
-  const readerStyleVars: React.CSSProperties = {
-    // @ts-expect-error 自定义 CSS 属性
-    '--reader-accent': theme.accent,
-    backgroundColor: theme.bg,
-    color: theme.text,
-  };
-
   return (
-    <div
-      className={`min-h-screen flex flex-col ${theme.vignette ? 'reader-vignette' : ''}`}
-      style={readerStyleVars}
-    >
-      {/* 顶部栏 */}
-      <header
-        className="sticky top-0 z-20 backdrop-blur border-b"
-        style={{ backgroundColor: theme.surface, borderColor: theme.border }}
-      >
-        <div className="flex items-center justify-between px-4 h-12">
-          <div className="flex items-center gap-2">
-            <button onClick={() => navigate(`/novel/${bookId}`)} className="btn-ghost p-2">
-              <ChevronLeft size={18} />
-            </button>
-            <span className="text-sm font-medium truncate max-w-[200px]" style={{ color: theme.title }}>{chapter.title}</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <button onClick={() => setShowToc(true)} className="btn-ghost p-2" title="目录">
-              <List size={18} />
-            </button>
-            <button onClick={() => setShowSettings(true)} className="btn-ghost p-2" title="设置">
-              <Settings2 size={18} />
-            </button>
-          </div>
-        </div>
-        {/* 阅读进度条 */}
-        <div className="h-0.5 bg-transparent">
-          <div className="h-full transition-all" style={{ width: `${scrollRatio * 100}%`, backgroundColor: theme.accent }} />
-        </div>
-      </header>
-
-      {/* 阅读区 */}
-      <main
-        ref={containerRef}
-        onScroll={handleScroll}
-        className="flex-1 overflow-y-auto"
-        style={{ maxWidth: '48rem', margin: '0 auto', width: '100%', padding: '2rem 1.5rem' }}
-      >
-        {/* 章节标题 */}
-        <h2 className="text-center text-xl font-bold mb-8" style={{ color: theme.title }}>{chapter.title}</h2>
-
-        {/* 顶光影 */}
-        <div
-          className="pointer-events-none fixed inset-x-0 top-12 h-12"
-          style={{ background: `linear-gradient(to bottom, ${theme.bg}, transparent)` }}
-        />
-
-        {/* 正文 */}
-        <div
-          className="novel-content space-y-4"
-          style={{
-            fontSize: `${FONT_SIZES[fontSize].px}px`,
-            lineHeight: LINE_HEIGHTS[lineHeight].value,
-            textIndent: '2em',
-          }}
+    <div className="max-w-2xl mx-auto pb-20">
+      {/* 顶部工具栏 */}
+      <div className="flex items-center justify-between py-3 mb-4">
+        <button
+          onClick={() => navigate(`/novel/${bookId}`)}
+          className="btn-ghost p-2"
         >
-          {paragraphs.map((para, pi) => renderParagraph(para, pi))}
-        </div>
-
-        {/* 底光影 */}
-        <div
-          className="pointer-events-none fixed inset-x-0 bottom-0 h-12"
-          style={{ background: `linear-gradient(to top, ${theme.bg}, transparent)` }}
-        />
-
-        {/* 章节末尾导航 */}
-        <div className="flex items-center justify-between mt-12 pt-6" style={{ borderTopColor: theme.border, borderTopWidth: 1 }}>
-          <button
-            onClick={() => prevChapter && navigate(`/novel/${bookId}/chapter/${prevChapter.id}`, { replace: true })}
-            disabled={!prevChapter}
-            className="btn-ghost text-sm disabled:opacity-30"
-          >
-            <ChevronLeft size={16} /> 上一章
+          <ChevronLeft size={20} />
+        </button>
+        <span
+          className="text-sm font-medium truncate flex-1 text-center px-2"
+          style={{ color: theme.titleColor }}
+        >
+          {chapter.title}
+        </span>
+        <div className="flex items-center gap-1">
+          <button onClick={() => setShowToc(true)} className="btn-ghost p-2" title="目录">
+            <List size={18} />
           </button>
-          <span className="text-xs" style={{ color: theme.sub }}>{currentIndex + 1} / {bookChapters.length}</span>
-          <button
-            onClick={() => nextChapter && navigate(`/novel/${bookId}/chapter/${nextChapter.id}`, { replace: true })}
-            disabled={!nextChapter}
-            className="btn-ghost text-sm disabled:opacity-30"
-          >
-            下一章 <ChevronRight size={16} />
-          </button>
-        </div>
-      </main>
-
-      {/* 底部导航栏 */}
-      <div
-        className="sticky bottom-0 z-20 border-t"
-        style={{ backgroundColor: theme.surface, borderColor: theme.border }}
-      >
-        <div className="flex items-center justify-center gap-8 h-14">
-          <button
-            onClick={() => prevChapter && navigate(`/novel/${bookId}/chapter/${prevChapter.id}`, { replace: true })}
-            disabled={!prevChapter}
-            className="flex flex-col items-center disabled:opacity-30"
-            style={{ color: theme.sub }}
-            aria-label="上一章"
-          >
-            <ChevronLeft size={20} />
-            <span className="text-xs mt-0.5">上一章</span>
-          </button>
-          <button
-            onClick={() => setShowToc(true)}
-            className="flex flex-col items-center"
-            style={{ color: theme.sub }}
-            aria-label="目录"
-          >
-            <List size={20} />
-            <span className="text-xs mt-0.5">目录</span>
-          </button>
-          <button
-            onClick={() => setShowSettings(true)}
-            className="flex flex-col items-center"
-            style={{ color: theme.sub }}
-            aria-label="设置"
-          >
-            <Settings2 size={20} />
-            <span className="text-xs mt-0.5">设置</span>
-          </button>
-          <button
-            onClick={() => nextChapter && navigate(`/novel/${bookId}/chapter/${nextChapter.id}`, { replace: true })}
-            disabled={!nextChapter}
-            className="flex flex-col items-center disabled:opacity-30"
-            style={{ color: theme.sub }}
-            aria-label="下一章"
-          >
-            <ChevronRight size={20} />
-            <span className="text-xs mt-0.5">下一章</span>
+          <button onClick={() => setShowSettings(true)} className="btn-ghost p-2" title="设置">
+            <Settings2 size={18} />
           </button>
         </div>
       </div>
 
+      {/* 阅读进度条 */}
+      <div className="h-0.5 mb-8 rounded-full" style={{ backgroundColor: 'var(--border-subtle)' }}>
+        <div
+          className="h-full rounded-full transition-all duration-200"
+          style={{
+            width: `${scrollRatio * 100}%`,
+            backgroundColor: theme.accentColor,
+            opacity: 0.6,
+          }}
+        />
+      </div>
+
+      {/* 章节标题 */}
+      <h1
+        className="text-center mb-3"
+        style={{
+          color: theme.titleColor,
+          fontSize: `${Math.round(FONT_SIZES[fontSize].px * 1.5)}px`,
+          letterSpacing: '0.08em',
+          fontWeight: 600,
+        }}
+      >
+        {chapter.title}
+      </h1>
+
+      {/* 标题装饰线 */}
+      <div
+        className="w-12 h-px mx-auto mb-10"
+        style={{ backgroundColor: `${theme.accentColor}60` }}
+      />
+
+      {/* 正文 */}
+      <div
+        className="novel-content chapter-enter"
+        style={{
+          fontSize: `${FONT_SIZES[fontSize].px}px`,
+          lineHeight: LINE_HEIGHTS[lineHeight].value,
+        }}
+      >
+        {paragraphs.map((para, pi) => renderParagraph(para, pi))}
+      </div>
+
+      {/* 章节结尾分隔 */}
+      <div className="flex items-center justify-center gap-3 my-10">
+        <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border-subtle)' }} />
+        <span
+          className="text-xs tracking-widest"
+          style={{ color: 'var(--text-tertiary)' }}
+        >
+          · 本章完 ·
+        </span>
+        <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border-subtle)' }} />
+      </div>
+
+      {/* 章节导航 */}
+      <div className="flex items-center justify-between text-sm">
+        <button
+          onClick={() => prevChapter && navigate(`/novel/${bookId}/chapter/${prevChapter.id}`, { replace: true })}
+          disabled={!prevChapter}
+          className="flex items-center gap-1 disabled:opacity-30 transition-opacity"
+          style={{ color: prevChapter ? theme.accentColor : 'var(--text-tertiary)' }}
+        >
+          <ChevronLeft size={16} /> 上一章
+        </button>
+        <span style={{ color: 'var(--text-tertiary)', fontSize: '0.8rem' }}>
+          {currentIndex + 1} / {bookChapters.length}
+        </span>
+        <button
+          onClick={() => nextChapter && navigate(`/novel/${bookId}/chapter/${nextChapter.id}`, { replace: true })}
+          disabled={!nextChapter}
+          className="flex items-center gap-1 disabled:opacity-30 transition-opacity"
+          style={{ color: nextChapter ? theme.accentColor : 'var(--text-tertiary)' }}
+        >
+          下一章 <ChevronRight size={16} />
+        </button>
+      </div>
+
       {/* 目录抽屉 */}
       {showToc && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex justify-end" onClick={() => setShowToc(false)}>
+        <div
+          className="fixed inset-0 z-50 flex"
+          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+          onClick={() => setShowToc(false)}
+        >
           <div
-            className="w-80 max-w-full h-full overflow-y-auto p-4"
-            style={{ backgroundColor: theme.bg }}
+            className="ml-auto w-80 max-w-full h-full overflow-y-auto animate-slide-up"
+            style={{ backgroundColor: 'var(--bg-surface)' }}
             onClick={e => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold" style={{ color: theme.title }}>目录</h3>
+            <div className="flex items-center justify-between px-4 h-12 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+              <h3 className="font-bold" style={{ color: theme.titleColor }}>目录</h3>
               <button onClick={() => setShowToc(false)} className="btn-ghost p-1">
                 <X size={18} />
               </button>
             </div>
-            <div className="space-y-1">
+            <div className="py-2">
               {bookChapters.map((c, i) => (
                 <button
                   key={c.id}
@@ -483,15 +490,20 @@ export default function NovelReader() {
                     setShowToc(false);
                     navigate(`/novel/${bookId}/chapter/${c.id}`, { replace: true });
                   }}
-                  className="w-full text-left px-3 py-2 rounded text-sm transition-colors"
-                  style={
-                    c.id === chapterId
-                      ? { backgroundColor: `${theme.accent}22`, color: theme.accent }
-                      : { color: theme.text }
-                  }
+                  className="w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center gap-3"
+                  style={{
+                    backgroundColor: c.id === chapterId ? `${theme.accentColor}18` : 'transparent',
+                    color: c.id === chapterId ? theme.accentColor : 'var(--text-primary)',
+                  }}
                 >
-                  {c.read && <span style={{ color: theme.accent }} className="mr-1">✓</span>}
-                  {i + 1}. {c.title}
+                  <span
+                    className="text-xs w-6 shrink-0"
+                    style={{ color: c.id === chapterId ? theme.accentColor : 'var(--text-tertiary)' }}
+                  >
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                  <span className="flex-1 truncate">{c.title}</span>
+                  {c.read && <span style={{ color: theme.accentColor, fontSize: '0.7rem' }}>✓</span>}
                 </button>
               ))}
             </div>
@@ -501,65 +513,70 @@ export default function NovelReader() {
 
       {/* 设置抽屉 */}
       {showSettings && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex justify-end" onClick={() => setShowSettings(false)}>
+        <div
+          className="fixed inset-0 z-50 flex"
+          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+          onClick={() => setShowSettings(false)}
+        >
           <div
-            className="w-72 h-full p-4 overflow-y-auto"
-            style={{ backgroundColor: theme.bg }}
+            className="ml-auto w-72 h-full overflow-y-auto animate-slide-up"
+            style={{ backgroundColor: 'var(--bg-surface)' }}
             onClick={e => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="font-bold" style={{ color: theme.title }}>阅读设置</h3>
+            <div className="flex items-center justify-between px-4 h-12 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+              <h3 className="font-bold" style={{ color: theme.titleColor }}>阅读设置</h3>
               <button onClick={() => setShowSettings(false)} className="btn-ghost p-1">
                 <X size={18} />
               </button>
             </div>
-            <div className="space-y-6">
-              {/* 背景色 */}
+            <div className="p-4 space-y-6">
+              {/* 主题 */}
               <div>
-                <label className="text-sm font-medium" style={{ color: theme.title }}>背景</label>
-                <div className="flex gap-2 mt-2 flex-wrap">
-                  {(Object.keys(READER_THEMES) as BgTheme[]).map(key => {
+                <label className="text-sm font-medium mb-3 block" style={{ color: 'var(--text-primary)' }}>阅读主题</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(Object.keys(READER_THEMES) as ReaderTheme[]).map(key => {
                     const t = READER_THEMES[key];
-                    const active = bgTheme === key;
+                    const active = readerTheme === key;
                     return (
                       <button
                         key={key}
-                        onClick={() => setBgTheme(key)}
-                        title={t.label}
-                        className="w-9 h-9 rounded-full border-2 transition-all flex items-center justify-center"
+                        onClick={() => setReaderTheme(key)}
+                        className="flex flex-col items-center gap-1.5 py-2 rounded-lg transition-all"
                         style={{
-                          backgroundColor: t.swatch,
-                          borderColor: active ? theme.accent : theme.border,
-                          boxShadow: active ? `0 0 0 2px ${theme.accent}55` : 'none',
+                          border: `1px solid ${active ? t.accentColor : 'var(--border-default)'}`,
+                          backgroundColor: active ? `${t.accentColor}15` : 'transparent',
                         }}
                       >
-                        {active && (
-                          <span
-                            className="w-2 h-2 rounded-full"
-                            style={{ backgroundColor: theme.accent }}
-                          />
-                        )}
+                        <span
+                          className="w-8 h-8 rounded-full border-2"
+                          style={{
+                            backgroundColor: t.swatch,
+                            borderColor: active ? t.accentColor : 'var(--border-default)',
+                          }}
+                        />
+                        <span className="text-xs" style={{ color: active ? t.accentColor : 'var(--text-tertiary)' }}>
+                          {t.label}
+                        </span>
                       </button>
                     );
                   })}
                 </div>
-                <p className="text-[11px] mt-1.5" style={{ color: theme.sub }}>{READER_THEMES[bgTheme].label}</p>
               </div>
 
               {/* 字号 */}
               <div>
-                <label className="text-sm font-medium" style={{ color: theme.title }}>字号</label>
-                <div className="flex gap-1.5 mt-2">
+                <label className="text-sm font-medium mb-3 block" style={{ color: 'var(--text-primary)' }}>字号</label>
+                <div className="flex gap-1.5">
                   {(Object.keys(FONT_SIZES) as FontSize[]).map(s => (
                     <button
                       key={s}
                       onClick={() => setFontSize(s)}
-                      className="flex-1 py-2 rounded border text-sm transition-all"
-                      style={
-                        fontSize === s
-                          ? { borderColor: theme.accent, backgroundColor: `${theme.accent}1a`, color: theme.accent }
-                          : { borderColor: theme.border, color: theme.sub }
-                      }
+                      className="flex-1 py-2 rounded text-sm transition-all"
+                      style={{
+                        backgroundColor: fontSize === s ? `${theme.accentColor}20` : 'transparent',
+                        color: fontSize === s ? theme.accentColor : 'var(--text-tertiary)',
+                        border: `1px solid ${fontSize === s ? theme.accentColor : 'var(--border-default)'}`,
+                      }}
                     >
                       {FONT_SIZES[s].label}
                     </button>
@@ -569,18 +586,18 @@ export default function NovelReader() {
 
               {/* 行距 */}
               <div>
-                <label className="text-sm font-medium" style={{ color: theme.title }}>行距</label>
-                <div className="flex gap-2 mt-2">
+                <label className="text-sm font-medium mb-3 block" style={{ color: 'var(--text-primary)' }}>行距</label>
+                <div className="flex gap-2">
                   {(Object.keys(LINE_HEIGHTS) as LineHeight[]).map(l => (
                     <button
                       key={l}
                       onClick={() => setLineHeight(l)}
-                      className="flex-1 py-2 rounded border text-sm transition-all"
-                      style={
-                        lineHeight === l
-                          ? { borderColor: theme.accent, backgroundColor: `${theme.accent}1a`, color: theme.accent }
-                          : { borderColor: theme.border, color: theme.sub }
-                      }
+                      className="flex-1 py-2 rounded text-sm transition-all"
+                      style={{
+                        backgroundColor: lineHeight === l ? `${theme.accentColor}20` : 'transparent',
+                        color: lineHeight === l ? theme.accentColor : 'var(--text-tertiary)',
+                        border: `1px solid ${lineHeight === l ? theme.accentColor : 'var(--border-default)'}`,
+                      }}
                     >
                       {LINE_HEIGHTS[l].label}
                     </button>
@@ -590,19 +607,20 @@ export default function NovelReader() {
 
               {book?.spoilerMode === 'unlock' && !isSpoilerUnlocked && (
                 <div
-                  className="text-xs p-3 rounded"
+                  className="p-3 rounded text-xs"
                   style={{
-                    backgroundColor: `${theme.accent}11`,
-                    border: `1px solid ${theme.border}`,
-                    color: theme.sub,
+                    backgroundColor: `${theme.accentColor}10`,
+                    border: `1px solid ${theme.accentColor}30`,
+                    color: 'var(--text-secondary)',
                   }}
                 >
-                  <p className="font-medium mb-1" style={{ color: theme.accent }}>解锁模式</p>
+                  <p className="font-medium mb-1" style={{ color: theme.accentColor }}>解锁模式</p>
                   <p>读完本书后，角色名下划线和卡片才会显示。当前进度 {book.completedChapters}/{book.totalChapters}</p>
                 </div>
               )}
+
               {!IS_WEB_BUILD && (
-                <div className="pt-4" style={{ borderTopColor: theme.border, borderTopWidth: 1 }}>
+                <div className="pt-4 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
                   <button
                     onClick={() => {
                       if (!isBound) return;
@@ -622,22 +640,27 @@ export default function NovelReader() {
         </div>
       )}
 
-      {/* 章节编辑器弹窗 */}
+      {/* 章节编辑器 */}
       {showEditor && chapter && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setShowEditor(false)}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}
+          onClick={() => setShowEditor(false)}
+        >
           <div
-            className="panel-gold w-full max-w-4xl max-h-[90vh] flex flex-col"
+            className="w-full max-w-4xl max-h-[90vh] flex flex-col rounded-xl overflow-hidden"
+            style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}
             onClick={e => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between p-4 border-b border-gold-900/30">
-              <h3 className="gold-title font-bold">编辑章节</h3>
+            <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+              <h3 className="font-bold" style={{ color: theme.titleColor }}>编辑章节</h3>
               <button onClick={() => setShowEditor(false)} className="btn-ghost p-1">
                 <X size={18} />
               </button>
             </div>
             <div className="p-4 space-y-4 overflow-y-auto flex-1">
               <div>
-                <label className="block text-sm text-ink-400 mb-1.5">章节标题</label>
+                <label className="block text-sm mb-1.5" style={{ color: 'var(--text-secondary)' }}>章节标题</label>
                 <input
                   className="input-field w-full"
                   value={editTitle}
@@ -646,35 +669,27 @@ export default function NovelReader() {
                 />
               </div>
               <div>
-                <label className="block text-sm text-ink-400 mb-1.5">章节正文（段落之间空一行）</label>
+                <label className="block text-sm mb-1.5" style={{ color: 'var(--text-secondary)' }}>章节正文（段落之间空一行）</label>
                 <textarea
                   className="input-field w-full font-serif leading-relaxed"
                   value={editContent}
                   onChange={e => setEditContent(e.target.value)}
                   rows={20}
-                  placeholder={"写的真实是为了让你看清脚下的路……\n\n离得太近会看不清……"}
                 />
-                <div className="flex justify-between mt-2 text-xs text-ink-600">
+                <div className="flex justify-between mt-2 text-xs" style={{ color: 'var(--text-tertiary)' }}>
                   <span>{editContent.length} 字</span>
                   <span>{editContent.split(/\n\n+/).filter(p => p.trim()).length} 段落</span>
                 </div>
               </div>
             </div>
-            <div className="flex justify-end gap-2 p-4 border-t border-gold-900/30">
-              <button
-                onClick={() => setShowEditor(false)}
-                className="btn-ghost text-sm"
-              >
-                取消
-              </button>
+            <div className="flex justify-end gap-2 p-4 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+              <button onClick={() => setShowEditor(false)} className="btn-ghost text-sm">取消</button>
               <button
                 onClick={async () => {
                   const charList = allCharacters as Character[];
-                  const titleToSave = editTitle.trim();
-                  const contentToSave = editContent;
                   await updateChapter(chapter.id, {
-                    title: titleToSave,
-                    content: contentToSave,
+                    title: editTitle.trim(),
+                    content: editContent,
                   }, charList);
                   setShowEditor(false);
                 }}
@@ -687,32 +702,34 @@ export default function NovelReader() {
         </div>
       )}
 
-      {/* 角色卡片弹窗 */}
+      {/* 角色卡片 */}
       {activeChar && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={() => setActiveChar(null)}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}
+          onClick={() => setActiveChar(null)}
+        >
           <div
-            className="panel-gold max-w-md w-full p-5 animate-fade-in"
+            className="max-w-md w-full p-5 rounded-xl animate-fade-in"
+            style={{ backgroundColor: 'var(--bg-surface)', border: `1px solid ${theme.accentColor}40` }}
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-3">
-              <h3 className="gold-title text-lg font-bold">{activeChar.title}</h3>
+              <h3 className="text-lg font-bold" style={{ color: theme.titleColor }}>{activeChar.title}</h3>
               <button onClick={() => setActiveChar(null)} className="btn-ghost p-1">
                 <X size={16} />
               </button>
             </div>
             {activeChar.summary && (
-              <p className="text-sm text-ink-400 mb-3">{activeChar.summary}</p>
+              <p className="text-sm mb-3" style={{ color: 'var(--text-primary)' }}>{activeChar.summary}</p>
             )}
             {activeChar.content && (
-              <p className="text-sm text-ink-300 leading-relaxed max-h-48 overflow-y-auto">
+              <p className="text-sm leading-relaxed max-h-48 overflow-y-auto" style={{ color: 'var(--text-secondary)' }}>
                 {activeChar.content.length > 300 ? activeChar.content.slice(0, 300) + '...' : activeChar.content}
               </p>
             )}
             <button
-              onClick={() => {
-                setActiveChar(null);
-                navigate(`/character`);
-              }}
+              onClick={() => { setActiveChar(null); navigate('/character'); }}
               className="btn-gold w-full mt-4 text-sm"
             >
               查看完整档案
@@ -720,7 +737,6 @@ export default function NovelReader() {
           </div>
         </div>
       )}
-
     </div>
   );
 }

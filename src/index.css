@@ -1,81 +1,103 @@
 @import "tailwindcss";
 
-/* ===== 主题变量：深色（默认） ===== */
 :root {
+  /* ======================
+     全局基础变量（暗色为默认）
+     ====================== */
   --bg-base: #0d0d0f;
-  --bg-surface: #121215;
-  --bg-elevated: #161619;
-  --bg-input: #1e1e22;
-  --text-primary: #e2e2e4;
-  --text-secondary: #9f9fa6;
-  --text-tertiary: #76767e;
-  --border-default: #2a2a2e;
-  --border-subtle: #1e1e22;
-  --scrollbar-track: #0d0d0f;
-  --scrollbar-thumb: #653e1c;
-  --scrollbar-thumb-hover: #8f591c;
-  --accent-glow: rgba(200, 144, 42, 0.06);
-  --select-bg: #1a1a1e;
-  --select-border: #47474d;
-  --select-text: #e2e2e4;
-  --autofill-bg: #1a1a1e;
-  --autofill-text: #e8e4dc;
-  --rune-opacity: 0.6;
+  --bg-surface: #151518;
+  --bg-elevated: #1c1c20;
+  --bg-input: #222228;
 
-  /* ink 色板（深模式） */
-  --ink-50: #f6f6f7;
-  --ink-100: #e2e2e4;
-  --ink-200: #c5c5c9;
-  --ink-300: #9f9fa6;
-  --ink-400: #76767e;
-  --ink-500: #5a5a62;
-  --ink-600: #47474d;
-  --ink-700: #3a3a3f;
-  --ink-800: #2a2a2e;
-  --ink-850: #1e1e22;
-  --ink-900: #161619;
-  --ink-950: #0d0d0f;
+  /* 文字：确保 WCAG AA 对比度 (4.5:1) */
+  --text-primary: #f0f0f3;
+  --text-secondary: #bcbcc4;
+  --text-tertiary: #8e8e97;
+  --text-disabled: #5a5a62;
+
+  /* 边框：层次分明 */
+  --border-default: #2d2d33;
+  --border-subtle: #20202a;
+  --border-strong: #3d3d45;
+
+  /* 滚动条 */
+  --scrollbar-track: #0d0d0f;
+  --scrollbar-thumb: #4a4a52;
+  --scrollbar-thumb-hover: #6a6a74;
+
+  /* 主题色辅助 */
+  --accent-glow: rgba(200, 144, 42, 0.04);
+  --select-bg: #1c1c20;
+  --select-border: #3d3d45;
+  --select-text: #f0f0f3;
+  --autofill-bg: #1c1c20;
+  --autofill-text: #fff8e8;
+  --rune-opacity: 0.25;
+
+  /* ======================
+     Tailwind 主题 token 运行时值（暗色模式）
+     @theme 中的 --color-ink-* 会引用这些变量
+     ====================== */
+  --color-ink-50-runtime: #f0f0f3;
+  --color-ink-100-runtime: #e0e0e5;
+  --color-ink-200-runtime: #bcbcc4;
+  --color-ink-300-runtime: #8e8e97;
+  --color-ink-400-runtime: #6e6e77;
+  --color-ink-500-runtime: #54545d;
+  --color-ink-600-runtime: #3d3d45;
+  --color-ink-700-runtime: #2d2d33;
+  --color-ink-800-runtime: #202026;
+  --color-ink-900-runtime: #151518;
+  --color-ink-950-runtime: #0d0d0f;
 }
 
-/* ===== 主题变量：浅色 ===== */
 :root.light {
   --bg-base: #f5f1e8;
-  --bg-surface: #faf6ed;
-  --bg-elevated: #ede6d6;
-  --bg-input: #ede6d6;
-  --text-primary: #2a2520;
-  --text-secondary: #5a5040;
-  --text-tertiary: #7a7060;
-  --border-default: #c8c0b0;
-  --border-subtle: #d8d0c0;
-  --scrollbar-track: #ede6d6;
-  --scrollbar-thumb: #b89050;
-  --scrollbar-thumb-hover: #8f591c;
-  --accent-glow: rgba(180, 140, 40, 0.08);
-  --select-bg: #faf6ed;
-  --select-border: #c8c0b0;
-  --select-text: #2a2520;
-  --autofill-bg: #faf6ed;
-  --autofill-text: #2a2520;
-  --rune-opacity: 0.45;
+  --bg-surface: #faf7f0;
+  --bg-elevated: #ede8d8;
+  --bg-input: #e8e0cc;
 
-  /* ink 色板（浅模式）：深色文字在浅色背景上 */
-  --ink-50: #faf6ed;
-  --ink-100: #ede6d6;
-  --ink-200: #d8d0c0;
-  --ink-300: #b8b0a0;
-  --ink-400: #9a9280;
-  --ink-500: #7a7060;
-  --ink-600: #5a5040;
-  --ink-700: #454030;
-  --ink-800: #353025;
-  --ink-850: #2a2520;
-  --ink-900: #1e1a15;
-  --ink-950: #121008;
+  --text-primary: #1a1816;
+  --text-secondary: #3d3830;
+  --text-tertiary: #635e55;
+  --text-disabled: #9a9488;
+
+  --border-default: #c8c0b0;
+  --border-subtle: #d8d2c5;
+  --border-strong: #a8a090;
+
+  --scrollbar-track: #ede8d8;
+  --scrollbar-thumb: #b8ae98;
+  --scrollbar-thumb-hover: #8f8570;
+
+  --accent-glow: rgba(180, 130, 40, 0.06);
+  --select-bg: #faf7f0;
+  --select-border: #c8c0b0;
+  --select-text: #1a1816;
+  --autofill-bg: #faf7f0;
+  --autofill-text: #1a1816;
+  --rune-opacity: 0.3;
+
+  /* ink 色阶运行时值（浅色模式）
+     @theme 中的 --color-ink-* 会引用这些变量 */
+  --color-ink-50-runtime: #f8f4ea;
+  --color-ink-100-runtime: #ede6d4;
+  --color-ink-200-runtime: #d8cfb8;
+  --color-ink-300-runtime: #b8ad96;
+  --color-ink-400-runtime: #948a72;
+  --color-ink-500-runtime: #706650;
+  --color-ink-600-runtime: #5a5240;
+  --color-ink-700-runtime: #433e32;
+  --color-ink-800-runtime: #302c24;
+  --color-ink-900-runtime: #1e1b15;
+  --color-ink-950-runtime: #121008;
 }
 
+/* ======================
+   Tailwind @theme — 颜色 token 必须在此定义才能生成工具类
+   颜色值由 :root / :root.light 中的对应 CSS 变量控制（浅/深切换时自动生效）
+   ====================== */
 @theme {
-  /* 黑金主题色板（金色调在深浅模式共用） */
   --color-gold-50: #fbf8ef;
   --color-gold-100: #f5ecd0;
   --color-gold-200: #ecd9a0;
@@ -87,19 +109,17 @@
   --color-gold-800: #76491c;
   --color-gold-900: #653e1c;
 
-  /* ink 色板：引用 CSS 变量以支持深/浅模式切换 */
-  --color-ink-50: var(--ink-50);
-  --color-ink-100: var(--ink-100);
-  --color-ink-200: var(--ink-200);
-  --color-ink-300: var(--ink-300);
-  --color-ink-400: var(--ink-400);
-  --color-ink-500: var(--ink-500);
-  --color-ink-600: var(--ink-600);
-  --color-ink-700: var(--ink-700);
-  --color-ink-800: var(--ink-800);
-  --color-ink-850: var(--ink-850);
-  --color-ink-900: var(--ink-900);
-  --color-ink-950: var(--ink-950);
+  --color-ink-50: var(--color-ink-50-runtime);
+  --color-ink-100: var(--color-ink-100-runtime);
+  --color-ink-200: var(--color-ink-200-runtime);
+  --color-ink-300: var(--color-ink-300-runtime);
+  --color-ink-400: var(--color-ink-400-runtime);
+  --color-ink-500: var(--color-ink-500-runtime);
+  --color-ink-600: var(--color-ink-600-runtime);
+  --color-ink-700: var(--color-ink-700-runtime);
+  --color-ink-800: var(--color-ink-800-runtime);
+  --color-ink-900: var(--color-ink-900-runtime);
+  --color-ink-950: var(--color-ink-950-runtime);
 
   --animate-fade-in: fadeIn 0.5s ease-out;
   --animate-slide-up: slideUp 0.4s ease-out;
@@ -142,8 +162,9 @@
   90% { transform: translateX(4px); }
 }
 
-/* 涟漪 + :active 点击反馈统一由 effects.css 管理，此处不再重复定义 */
-
+/* ======================
+   基础层
+   ====================== */
 @layer base {
   html {
     font-family: 'Noto Serif SC', 'Songti SC', 'STSong', serif;
@@ -152,7 +173,6 @@
   body {
     color: var(--text-primary);
     background-color: var(--bg-base);
-    /* 顶部暗金渐变光（固定，全屏居中） */
     background-image: radial-gradient(ellipse 80% 50% at 50% -20%, var(--accent-glow), transparent);
     background-repeat: no-repeat;
     background-attachment: fixed;
@@ -161,7 +181,6 @@
     min-height: 100vh;
     transition: background-color 0.3s ease, color 0.3s ease;
   }
-  /* 暗金铭文背景：挂在内容容器上，自动与内容居中对齐，随页面滚动重复 */
   .rune-bg {
     background-image: url('/runes.svg');
     background-repeat: repeat;
@@ -175,16 +194,13 @@
   ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
   ::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
 
-  /* 移动端触摸优化 */
   button, a, [role="button"] {
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
   }
-  /* 输入框字体不小于 16px，避免 iOS 自动放大 */
   input, textarea, select {
     font-size: 16px;
   }
-  /* 下拉框全局样式 */
   select {
     appearance: none;
     -webkit-appearance: none;
@@ -209,78 +225,87 @@
     opacity: 0.5;
     cursor: not-allowed;
   }
-  /* 下拉选项样式 */
   select option {
     background-color: var(--select-bg);
     color: var(--select-text);
     padding: 0.5rem;
   }
-  /* 长按不选中文本（避免误触） */
   body {
     -webkit-user-select: none;
     user-select: none;
   }
-  /* 输入框允许选中（要复制粘贴） */
   input, textarea, [contenteditable] {
     -webkit-user-select: text;
     user-select: text;
   }
 }
 
+/* ======================
+   组件层
+   ====================== */
 @layer components {
   .btn-gold {
-    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-b from-gold-400 to-gold-600 text-ink-950 font-semibold tracking-wide relative overflow-hidden;
-    box-shadow: 0 2px 8px rgba(200, 144, 42, 0.2), inset 0 1px 0 rgba(255,255,255,0.15);
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg font-semibold tracking-wide relative overflow-hidden;
+    background-image: linear-gradient(180deg, #d4a843 0%, #b07420 100%);
+    color: #1a1208;
+    box-shadow: 0 2px 8px rgba(200, 144, 42, 0.25), inset 0 1px 0 rgba(255,255,255,0.2);
+    transition: box-shadow 0.2s, transform 0.15s;
   }
   .btn-gold:hover {
-    box-shadow: 0 4px 16px rgba(200, 144, 42, 0.35), inset 0 1px 0 rgba(255,255,255,0.25);
-    @apply from-gold-300 to-gold-500 -translate-y-0.5;
+    box-shadow: 0 4px 16px rgba(200, 144, 42, 0.4), inset 0 1px 0 rgba(255,255,255,0.3);
+    transform: translateY(-1px);
+  }
+  .btn-gold:active {
+    transform: translateY(0);
   }
   .btn-ghost {
     @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-colors relative overflow-hidden;
     color: var(--text-tertiary);
   }
   .btn-ghost:hover {
-    color: #e0c068;
-    background-color: color-mix(in srgb, var(--bg-surface) 50%, transparent);
+    color: var(--color-gold-400);
+    background-color: color-mix(in srgb, var(--bg-elevated) 60%, transparent);
   }
   .btn-outline {
-    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-gold-800/60 text-gold-400 hover:border-gold-600 transition-all relative overflow-hidden;
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg border transition-all relative overflow-hidden;
+    border-color: rgba(143, 89, 28, 0.5);
+    color: var(--color-gold-400);
   }
-  /* 浅色模式下 btn-outline 调整 */
+  .btn-outline:hover {
+    border-color: var(--color-gold-600);
+    background-color: color-mix(in srgb, var(--color-gold-500) 8%, transparent);
+  }
   :root.light .btn-outline {
-    border-color: rgba(143, 89, 28, 0.3);
-    color: #8f591c;
+    border-color: rgba(140, 90, 30, 0.4);
+    color: #7c531a;
   }
   :root.light .btn-outline:hover {
-    border-color: #b07420;
-    background-color: rgba(200, 144, 42, 0.08);
+    border-color: #8f591c;
+    background-color: color-mix(in srgb, var(--color-gold-500) 10%, transparent);
   }
-  /* 骨架屏闪烁 */
+
   .skeleton-block {
     @apply border;
     background-color: color-mix(in srgb, var(--bg-surface) 60%, transparent);
     border-color: var(--border-subtle);
     animation: skeletonPulse 1.6s ease-in-out infinite;
   }
-  /* 页面切换过渡 */
-  .page-enter {
-    animation: pageEnter 0.35s ease-out;
-  }
-  /* Logo 光晕 */
+
   .logo-ring {
     box-shadow: 0 0 0 1px var(--color-gold-700), 0 0 12px rgba(200, 144, 42, 0.25);
   }
+
+  /* panel：无边框，用背景色区分层次 */
   .panel {
-    @apply rounded-xl backdrop-blur-sm relative overflow-hidden border;
-    background-color: color-mix(in srgb, var(--bg-elevated) 60%, transparent);
-    border-color: var(--border-default);
+    @apply rounded-xl relative overflow-hidden;
+    background-color: var(--bg-elevated);
   }
   .panel-gold {
-    @apply rounded-xl backdrop-blur-sm relative overflow-hidden border;
-    background-color: color-mix(in srgb, var(--bg-elevated) 60%, transparent);
-    border-color: rgba(101, 62, 28, 0.4);
+    @apply rounded-xl relative overflow-hidden border;
+    background-color: var(--bg-elevated);
+    border-color: rgba(101, 62, 28, 0.35);
   }
+
   .input-field {
     @apply w-full px-4 py-2.5 rounded-lg border transition-all;
     background-color: var(--bg-input);
@@ -295,7 +320,6 @@
     border-color: #8f591c;
     box-shadow: 0 0 0 1px rgba(143, 89, 28, 0.5);
   }
-  /* Android WebView / Chrome 自动填充时不使用默认浅色背景 */
   .input-field:-webkit-autofill,
   .input-field:-webkit-autofill:hover,
   .input-field:-webkit-autofill:focus,
@@ -305,18 +329,19 @@
     caret-color: var(--autofill-text) !important;
     transition: background-color 5000s ease-in-out 0s;
   }
+
   .label-text {
     @apply block text-sm font-medium mb-1.5 tracking-wide;
     color: var(--color-gold-500);
   }
   :root.light .label-text {
-    color: var(--color-gold-700);
+    color: #7c531a;
   }
+
   .gold-divider {
     @apply h-px;
     background: linear-gradient(to right, transparent, rgba(143, 89, 28, 0.4), transparent);
   }
-  /* 鎏金字体：多层渐变 + 微光流动 + 描边光晕 */
   .gold-text {
     @apply text-transparent bg-clip-text;
     background-image: linear-gradient(
@@ -330,9 +355,8 @@
     background-size: 200% auto;
     animation: shimmer 6s linear infinite;
     -webkit-text-fill-color: transparent;
-    filter: drop-shadow(0 0 1px rgba(200, 144, 42, 0.6)) drop-shadow(0 0 3px rgba(200, 144, 42, 0.25));
+    filter: drop-shadow(0 0 1px rgba(200, 144, 42, 0.6));
   }
-  /* 鎏金大标题：更深沉的渐变 + 描边 */
   .gold-title {
     @apply text-transparent bg-clip-text;
     background-image: linear-gradient(
@@ -344,9 +368,8 @@
     );
     -webkit-text-fill-color: transparent;
     letter-spacing: 0.15em;
-    filter: drop-shadow(0 0 1px rgba(224, 192, 104, 0.5)) drop-shadow(0 0 4px rgba(200, 144, 42, 0.2));
+    filter: drop-shadow(0 0 1px rgba(224, 192, 104, 0.5));
   }
-  /* 浅色模式下鎏金标题调整：降低亮度，避免浅色背景上过亮 */
   :root.light .gold-title {
     background-image: linear-gradient(
       180deg,
@@ -355,7 +378,6 @@
       #8f591c 60%,
       #653e1c 100%
     );
-    filter: drop-shadow(0 0 1px rgba(143, 89, 28, 0.3));
   }
   :root.light .gold-text {
     background-image: linear-gradient(
@@ -366,53 +388,119 @@
       #8f591c 75%,
       #653e1c 100%
     );
-    filter: drop-shadow(0 0 1px rgba(143, 89, 28, 0.3));
   }
+
   .section-title {
     @apply text-xl font-bold tracking-wider;
-    color: rgba(236, 217, 160, 0.9);
+    color: #e8d27a;
   }
   :root.light .section-title {
     color: #7a5020;
   }
+
   .tag {
     @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border;
-    background-color: color-mix(in srgb, var(--bg-surface) 80%, transparent);
-    color: var(--text-tertiary);
+    background-color: var(--bg-surface);
+    color: var(--text-secondary);
     border-color: var(--border-default);
   }
   .tag-gold {
     @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border;
     background-color: rgba(101, 62, 28, 0.15);
-    color: rgba(212, 168, 67, 0.9);
+    color: #e0c068;
     border-color: rgba(118, 73, 28, 0.4);
   }
   :root.light .tag-gold {
-    background-color: rgba(200, 144, 42, 0.1);
-    color: #8f591c;
-    border-color: rgba(143, 89, 28, 0.3);
+    background-color: rgba(200, 144, 42, 0.12);
+    color: #7c531a;
+    border-color: rgba(140, 90, 30, 0.35);
   }
+
+  /* card-entry：轻边框，不用重底色形成方框 */
   .card-entry {
-    @apply rounded-xl backdrop-blur-sm p-4 cursor-pointer transition-all duration-300 relative overflow-hidden border;
-    background-color: color-mix(in srgb, var(--bg-elevated) 60%, transparent);
-    border-color: var(--border-default);
+    @apply rounded-xl cursor-pointer transition-all duration-300 relative overflow-hidden;
+    background-color: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
   }
   .card-entry:hover {
-    border-color: rgba(118, 73, 28, 0.6);
-    background-color: color-mix(in srgb, var(--bg-input) 60%, transparent);
+    border-color: var(--color-gold-700);
+    background-color: color-mix(in srgb, var(--bg-elevated) 80%, var(--color-gold-900));
   }
-  /* 暗金边框装饰 */
+
   .gold-border {
-    border: 1px solid rgba(143, 89, 28, 0.25);
+    border: 1px solid rgba(143, 89, 28, 0.3);
   }
   .gold-border-top {
-    border-top: 1px solid rgba(143, 89, 28, 0.3);
+    border-top: 1px solid rgba(143, 89, 28, 0.35);
+  }
+
+  /* 布局组件 */
+  .app-header {
+    background-color: var(--bg-surface);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .app-sidebar {
+    background-color: var(--bg-surface);
+    border-right: 1px solid var(--border-subtle);
+  }
+  .app-sidebar-mobile {
+    background-color: var(--bg-surface);
+    border-right: 1px solid var(--border-subtle);
+  }
+  .app-nav-item {
+    color: var(--text-secondary);
+    border-left-color: transparent;
+  }
+  .app-nav-item:hover {
+    color: var(--color-gold-400);
+    background-color: color-mix(in srgb, var(--bg-elevated) 50%, transparent);
+  }
+  .app-nav-item.active {
+    color: var(--color-gold-300);
+    background-color: color-mix(in srgb, var(--color-gold-500) 12%, transparent);
+    border-left-color: var(--color-gold-500);
+  }
+  :root.light .app-nav-item:hover {
+    color: #7c531a;
+  }
+  :root.light .app-nav-item.active {
+    color: #7c531a;
+    background-color: color-mix(in srgb, var(--color-gold-500) 10%, transparent);
+  }
+
+  .tab-bar {
+    border-bottom: 1px solid var(--border-default);
+  }
+  .tab-item {
+    color: var(--text-tertiary);
+    border-bottom: 2px solid transparent;
+  }
+  .tab-item:hover {
+    color: var(--text-primary);
+  }
+  .tab-item.active {
+    color: var(--color-gold-400);
+    border-bottom-color: var(--color-gold-500);
+  }
+
+  .modal-overlay {
+    background-color: rgba(0, 0, 0, 0.5);
+  }
+  .sidebar-overlay {
+    background-color: rgba(0, 0, 0, 0.5);
+  }
+  :root.light .sidebar-overlay {
+    background-color: rgba(0, 0, 0, 0.35);
+  }
+
+  :root.light .btn-ghost:hover {
+    color: #7c531a;
   }
 }
 
-/* ======================================================================
-   小说馆 · 阅读器样式
-   ====================================================================== */
+/* ======================
+   小说阅读全局样式
+   ====================== */
 .novel-content {
   max-width: 42rem;
   margin: 0 auto;
@@ -430,28 +518,17 @@
 .mention-highlight {
   border-bottom: 1px dashed currentColor;
   cursor: pointer;
-  color: var(--reader-accent, var(--color-gold-400));
   transition: opacity 0.2s;
   text-indent: 0;
 }
 .mention-highlight:hover {
   opacity: 0.7;
-  background: color-mix(in srgb, var(--reader-accent, #d4a843) 12%, transparent);
-  border-radius: 2px;
 }
-/* 羊皮纸/米黄：厚重复古的内阴影晕染 */
-.reader-vignette {
-  box-shadow: inset 0 0 80px rgba(90, 58, 24, 0.1);
-}
-
-/* 小说书架网格 */
 .novel-shelf-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 1rem;
 }
-
-/* 阅读器滚动条美化 */
 .novel-reader-scroll::-webkit-scrollbar {
   width: 3px;
 }
@@ -459,94 +536,10 @@
   background: rgba(200, 144, 42, 0.3);
   border-radius: 2px;
 }
-
-/* 章节过渡动效 */
 @keyframes chapterFadeIn {
   0% { opacity: 0; transform: translateY(8px); }
   100% { opacity: 1; transform: translateY(0); }
 }
 .chapter-enter {
   animation: chapterFadeIn 0.4s ease-out;
-}
-
-/* ======================================================================
-   顶栏 & 侧边栏：深/浅模式自适应
-   ====================================================================== */
-.app-header {
-  background-color: var(--bg-surface);
-  border-bottom: 1px solid var(--border-default);
-}
-.app-sidebar {
-  background-color: var(--bg-surface);
-  border-right: 1px solid var(--border-default);
-}
-.app-sidebar-mobile {
-  background-color: var(--bg-surface);
-  border-right: 1px solid var(--border-default);
-}
-.app-nav-item {
-  color: var(--text-secondary);
-  border-left-color: transparent;
-}
-.app-nav-item:hover {
-  color: var(--color-gold-400);
-  background-color: color-mix(in srgb, var(--bg-elevated) 50%, transparent);
-}
-.app-nav-item.active {
-  color: var(--color-gold-300);
-  background-color: color-mix(in srgb, var(--color-gold-500) 15%, transparent);
-  border-left-color: var(--color-gold-500);
-}
-
-/* 浅色模式导航微调 */
-:root.light .app-nav-item:hover {
-  color: var(--color-gold-700);
-}
-:root.light .app-nav-item.active {
-  color: var(--color-gold-700);
-  background-color: color-mix(in srgb, var(--color-gold-500) 12%, transparent);
-}
-
-/* 标签页 / Tab 样式 */
-.tab-bar {
-  border-bottom: 1px solid var(--border-default);
-}
-.tab-item {
-  color: var(--text-tertiary);
-  border-bottom: 2px solid transparent;
-}
-.tab-item:hover {
-  color: var(--text-primary);
-}
-.tab-item.active {
-  color: var(--color-gold-400);
-  border-bottom-color: var(--color-gold-500);
-}
-
-/* 通用卡片/容器在浅色模式下的细节调整 */
-:root.light .panel {
-  background-color: color-mix(in srgb, var(--bg-surface) 95%, transparent);
-}
-:root.light .card-entry {
-  background-color: var(--bg-surface);
-  border-color: var(--border-default);
-}
-:root.light .card-entry:hover {
-  border-color: color-mix(in srgb, var(--color-gold-500) 40%, var(--border-default));
-}
-
-/* 通用文字颜色微调：确保浅色模式下文字清晰 */
-:root.light .text-ink-300 { color: var(--ink-300); }
-:root.light .text-ink-400 { color: var(--ink-400); }
-:root.light .text-ink-500 { color: var(--ink-500); }
-
-/* 遮罩层 - 深浅模式均保持半透明 */
-.modal-overlay {
-  background-color: rgba(0, 0, 0, 0.5);
-}
-.sidebar-overlay {
-  background-color: rgba(0, 0, 0, 0.55);
-}
-:root.light .sidebar-overlay {
-  background-color: rgba(0, 0, 0, 0.35);
 }
