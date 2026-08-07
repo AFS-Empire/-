@@ -45,7 +45,7 @@ export const useBindingStore = create<BindingState>((set) => ({
       // bound && match 才允许写；只 bound 但不 match（设备不匹配）→ 锁死
       set({ isBound: !!(result.bound && result.match) });
       return result;
-    } catch (e) {
+    } catch {
       const errResult: BindingResult = { bound: false, deviceId: null, match: false, reason: '绑定校验异常' };
       set({ result: errResult, isBound: false, loading: false });
       return errResult;

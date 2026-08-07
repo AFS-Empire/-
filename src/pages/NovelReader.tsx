@@ -7,24 +7,157 @@ import { useBindingStore } from '../store/bindingStore';
 import { IS_WEB_BUILD } from '../lib/buildTarget';
 import type { Character } from '../types';
 
+/* ============================================================
+   阅读模式配置：5 种背景主题 + 5 级字号 + 3 级行距
+   ============================================================ */
+type BgTheme = 'dark' | 'parchment' | 'green' | 'beige' | 'paper';
+type FontSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+type LineHeight = 'compact' | 'normal' | 'loose';
+
+interface ReaderThemeConfig {
+  label: string;
+  swatch: string;     // 色板预览色
+  bg: string;         // 页面背景
+  surface: string;    // 顶/底栏背景
+  text: string;       // 正文
+  title: string;      // 标题
+  sub: string;        // 次要文字
+  border: string;     // 分隔线
+  accent: string;     // 强调色（进度条/高亮）
+  vignette: boolean;  // 是否加厚重内阴影
+}
+
+const READER_THEMES: Record<BgTheme, ReaderThemeConfig> = {
+  dark: {
+    label: '深夜',
+    swatch: '#0d0d0f',
+    bg: '#0d0d0f',
+    surface: '#0d0d0f',
+    text: '#e2e2e4',
+    title: '#e0c068',
+    sub: '#76767e',
+    border: 'rgba(143,89,28,0.2)',
+    accent: '#c8902a',
+    vignette: false,
+  },
+  parchment: {
+    label: '羊皮纸',
+    swatch: '#e8dab8',
+    bg: '#e8dab8',
+    surface: '#e0d0a8',
+    text: '#3a2a15',
+    title: '#5a3a18',
+    sub: '#6a5230',
+    border: 'rgba(90,58,24,0.25)',
+    accent: '#8f591c',
+    vignette: true,
+  },
+  green: {
+    label: '护眼绿',
+    swatch: '#c7edcc',
+    bg: '#c7edcc',
+    surface: '#b8e0bd',
+    text: '#2a3a2a',
+    title: '#1a4a2a',
+    sub: '#4a5a4a',
+    border: 'rgba(26,74,42,0.2)',
+    accent: '#3a7a4a',
+    vignette: false,
+  },
+  beige: {
+    label: '米黄',
+    swatch: '#faf3e0',
+    bg: '#faf3e0',
+    surface: '#f0e8d0',
+    text: '#4a3520',
+    title: '#5a3a18',
+    sub: '#7a6a4a',
+    border: 'rgba(90,58,24,0.2)',
+    accent: '#8f591c',
+    vignette: false,
+  },
+  paper: {
+    label: '浅白',
+    swatch: '#f5f5f7',
+    bg: '#f5f5f7',
+    surface: '#eeeef0',
+    text: '#1a1a1a',
+    title: '#3a3a3a',
+    sub: '#666666',
+    border: 'rgba(0,0,0,0.1)',
+    accent: '#8f591c',
+    vignette: false,
+  },
+};
+
+const FONT_SIZES: Record<FontSize, { label: string; px: number }> = {
+  xs: { label: '特小', px: 14 },
+  sm: { label: '小', px: 16 },
+  md: { label: '中', px: 18 },
+  lg: { label: '大', px: 20 },
+  xl: { label: '特大', px: 23 },
+};
+
+const LINE_HEIGHTS: Record<LineHeight, { label: string; value: number }> = {
+  compact: { label: '紧凑', value: 1.7 },
+  normal: { label: '标准', value: 2.0 },
+  loose: { label: '宽松', value: 2.5 },
+};
+
+const READER_SETTINGS_KEY = 'readerSettings';
+interface ReaderSettings {
+  bgTheme: BgTheme;
+  fontSize: FontSize;
+  lineHeight: LineHeight;
+}
+
+function loadReaderSettings(): ReaderSettings {
+  const defaults: ReaderSettings = { bgTheme: 'dark', fontSize: 'md', lineHeight: 'normal' };
+  try {
+    const raw = localStorage.getItem(READER_SETTINGS_KEY);
+    if (!raw) return defaults;
+    const p = JSON.parse(raw) as Partial<ReaderSettings>;
+    return {
+      bgTheme: p.bgTheme && READER_THEMES[p.bgTheme] ? p.bgTheme : 'dark',
+      fontSize: p.fontSize && FONT_SIZES[p.fontSize] ? p.fontSize : 'md',
+      lineHeight: p.lineHeight && LINE_HEIGHTS[p.lineHeight] ? p.lineHeight : 'normal',
+    };
+  } catch {
+    return defaults;
+  }
+}
+
 export default function NovelReader() {
   const { bookId, chapterId } = useParams<{ bookId: string; chapterId: string }>();
   const navigate = useNavigate();
   const isBound = useBindingStore(s => s.isBound);
-  const chapters = useNovelStore(s => s.chapters);
+  const chapters = useNovelStore(s => bookId ? (s.chapters[bookId] || []) : []);
   const books = useNovelStore(s => s.books);
   const markChapterRead = useNovelStore(s => s.markChapterRead);
   const saveProgress = useNovelStore(s => s.saveProgress);
   const updateChapter = useNovelStore(s => s.updateChapter);
-  const allEntries = useDataStore(s => s.entries);
+  const allCharacters = useDataStore(s => s.entries.filter(e => e.type === 'character'));
 
   const book = books.find(b => b.id === bookId);
-  const bookChapters = bookId ? (chapters[bookId] || []).sort((a, b) => a.order - b.order) : [];
+  const bookChapters = useMemo(
+    () => [...chapters].sort((a, b) => a.order - b.order),
+    [chapters]
+  );
   const currentIndex = bookChapters.findIndex(c => c.id === chapterId);
   const chapter = currentIndex >= 0 ? bookChapters[currentIndex] : undefined;
 
-  const [fontSize, setFontSize] = useState<'sm' | 'md' | 'lg'>('md');
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  // 阅读模式设置（从 localStorage 初始化）
+  const initial = useRef<ReaderSettings>(loadReaderSettings());
+  const [bgTheme, setBgTheme] = useState<BgTheme>(initial.current.bgTheme);
+  const [fontSize, setFontSize] = useState<FontSize>(initial.current.fontSize);
+  const [lineHeight, setLineHeight] = useState<LineHeight>(initial.current.lineHeight);
+
+  // 设置变更即持久化
+  useEffect(() => {
+    const s: ReaderSettings = { bgTheme, fontSize, lineHeight };
+    try { localStorage.setItem(READER_SETTINGS_KEY, JSON.stringify(s)); } catch { /* ignore */ }
+  }, [bgTheme, fontSize, lineHeight]);
+
   const [showToc, setShowToc] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showEditor, setShowEditor] = useState(false);
@@ -36,6 +169,8 @@ export default function NovelReader() {
   const containerRef = useRef<HTMLDivElement>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const theme = READER_THEMES[bgTheme];
+
   // 剧透保护状态
   const isSpoilerUnlocked = book ? (book.completedChapters >= book.totalChapters && book.totalChapters > 0) : false;
   const showMentions = book ? (book.spoilerMode === 'open' || isSpoilerUnlocked) : true;
@@ -43,11 +178,11 @@ export default function NovelReader() {
   // 获取角色档案
   const charMap = useMemo(() => {
     const map: Record<string, Character> = {};
-    for (const e of allEntries) {
-      if (e.type === 'character') map[e.id] = e as Character;
+    for (const e of allCharacters) {
+      map[e.id] = e as Character;
     }
     return map;
-  }, [allEntries]);
+  }, [allCharacters]);
 
   const paragraphs = useMemo(() => {
     if (!chapter) return [] as string[];
@@ -58,7 +193,7 @@ export default function NovelReader() {
   const mentionIndices = useMemo(() => {
     if (!chapter || !showMentions) return new Map<number, Array<{ name: string; charId: string }>>();
     const map = new Map<number, Array<{ name: string; charId: string }>>();
-    const processed = new Set<string>(); // 记录已处理角色，避免突变源数据
+    const processed = new Set<string>();
 
     for (let pi = 0; pi < paragraphs.length; pi++) {
       const para = paragraphs[pi];
@@ -80,7 +215,6 @@ export default function NovelReader() {
     if (!chapter || !containerRef.current) return;
     const progress = useNovelStore.getState().progress[bookId!];
     if (progress && progress.lastChapterId === chapterId) {
-      // 延迟一帧滚动到位置
       requestAnimationFrame(() => {
         if (containerRef.current) {
           const scrollable = containerRef.current;
@@ -88,11 +222,10 @@ export default function NovelReader() {
         }
       });
     }
-    // 标记为已读
     if (!chapter.read && book) {
       markChapterRead(bookId!, chapterId!);
     }
-  }, [chapterId]);
+  }, [chapter, book, markChapterRead, bookId, chapterId]);
 
   // 滚动监听（保存进度）
   const handleScroll = useCallback(() => {
@@ -112,7 +245,7 @@ export default function NovelReader() {
     }, 1000);
   }, [chapter, bookId, chapterId, saveProgress]);
 
-  // 键盘导航（replace 替换历史记录，back 直接回到详情页）
+  // 键盘导航
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft' && currentIndex > 0) {
@@ -134,10 +267,6 @@ export default function NovelReader() {
     );
   }
 
-  const fontSizeClass = { sm: 'text-sm', md: 'text-base', lg: 'text-lg' }[fontSize];
-  const themeClass = theme === 'light' ? 'bg-stone-50 text-stone-800' : 'bg-ink-950 text-ink-200';
-  const titleClass = theme === 'light' ? 'text-stone-900' : 'text-gold-300';
-
   const prevChapter = currentIndex > 0 ? bookChapters[currentIndex - 1] : null;
   const nextChapter = currentIndex < bookChapters.length - 1 ? bookChapters[currentIndex + 1] : null;
 
@@ -147,11 +276,9 @@ export default function NovelReader() {
       return <p key={pi} className="novel-para">{para}</p>;
     }
 
-    // 找到所有需要高亮的位置
     const parts: React.ReactNode[] = [];
     let key = 0;
 
-    // 只取第一个匹配（首次出现）
     const firstMention = mentionsInPara[0];
     if (firstMention) {
       const idx = para.indexOf(firstMention.name);
@@ -183,16 +310,30 @@ export default function NovelReader() {
     return <p key={pi} className="novel-para">{parts}</p>;
   };
 
+  // 容器注入阅读主题 CSS 变量，供 mention-highlight 等使用
+  const readerStyleVars: React.CSSProperties = {
+    // @ts-expect-error 自定义 CSS 属性
+    '--reader-accent': theme.accent,
+    backgroundColor: theme.bg,
+    color: theme.text,
+  };
+
   return (
-    <div className={`min-h-screen flex flex-col ${themeClass}`}>
+    <div
+      className={`min-h-screen flex flex-col ${theme.vignette ? 'reader-vignette' : ''}`}
+      style={readerStyleVars}
+    >
       {/* 顶部栏 */}
-      <header className={`sticky top-0 z-20 backdrop-blur border-b ${theme === 'light' ? 'bg-stone-50/90 border-stone-200' : 'bg-ink-950/90 border-gold-900/20'}`}>
+      <header
+        className="sticky top-0 z-20 backdrop-blur border-b"
+        style={{ backgroundColor: theme.surface, borderColor: theme.border }}
+      >
         <div className="flex items-center justify-between px-4 h-12">
           <div className="flex items-center gap-2">
             <button onClick={() => navigate(`/novel/${bookId}`)} className="btn-ghost p-2">
               <ChevronLeft size={18} />
             </button>
-            <span className={`text-sm font-medium truncate max-w-[200px] ${titleClass}`}>{chapter.title}</span>
+            <span className="text-sm font-medium truncate max-w-[200px]" style={{ color: theme.title }}>{chapter.title}</span>
           </div>
           <div className="flex items-center gap-1">
             <button onClick={() => setShowToc(true)} className="btn-ghost p-2" title="目录">
@@ -205,7 +346,7 @@ export default function NovelReader() {
         </div>
         {/* 阅读进度条 */}
         <div className="h-0.5 bg-transparent">
-          <div className="h-full bg-gold-500 transition-all" style={{ width: `${scrollRatio * 100}%` }} />
+          <div className="h-full transition-all" style={{ width: `${scrollRatio * 100}%`, backgroundColor: theme.accent }} />
         </div>
       </header>
 
@@ -217,21 +358,34 @@ export default function NovelReader() {
         style={{ maxWidth: '48rem', margin: '0 auto', width: '100%', padding: '2rem 1.5rem' }}
       >
         {/* 章节标题 */}
-        <h2 className={`text-center text-xl font-bold mb-8 ${titleClass}`}>{chapter.title}</h2>
+        <h2 className="text-center text-xl font-bold mb-8" style={{ color: theme.title }}>{chapter.title}</h2>
 
         {/* 顶光影 */}
-        <div className={`pointer-events-none fixed inset-x-0 top-12 h-12 ${theme === 'light' ? 'bg-gradient-to-b from-stone-50 to-transparent' : 'bg-gradient-to-b from-ink-950 to-transparent'}`} />
+        <div
+          className="pointer-events-none fixed inset-x-0 top-12 h-12"
+          style={{ background: `linear-gradient(to bottom, ${theme.bg}, transparent)` }}
+        />
 
         {/* 正文 */}
-        <div className={`novel-content ${fontSizeClass} leading-relaxed space-y-4`} style={{ textIndent: '2em' }}>
+        <div
+          className="novel-content space-y-4"
+          style={{
+            fontSize: `${FONT_SIZES[fontSize].px}px`,
+            lineHeight: LINE_HEIGHTS[lineHeight].value,
+            textIndent: '2em',
+          }}
+        >
           {paragraphs.map((para, pi) => renderParagraph(para, pi))}
         </div>
 
         {/* 底光影 */}
-        <div className={`pointer-events-none fixed inset-x-0 bottom-0 h-12 ${theme === 'light' ? 'bg-gradient-to-t from-stone-50 to-transparent' : 'bg-gradient-to-t from-ink-950 to-transparent'}`} />
+        <div
+          className="pointer-events-none fixed inset-x-0 bottom-0 h-12"
+          style={{ background: `linear-gradient(to top, ${theme.bg}, transparent)` }}
+        />
 
         {/* 章节末尾导航 */}
-        <div className="flex items-center justify-between mt-12 pt-6 border-t border-ink-800/30">
+        <div className="flex items-center justify-between mt-12 pt-6" style={{ borderTopColor: theme.border, borderTopWidth: 1 }}>
           <button
             onClick={() => prevChapter && navigate(`/novel/${bookId}/chapter/${prevChapter.id}`, { replace: true })}
             disabled={!prevChapter}
@@ -239,7 +393,7 @@ export default function NovelReader() {
           >
             <ChevronLeft size={16} /> 上一章
           </button>
-          <span className="text-xs text-ink-500">{currentIndex + 1} / {bookChapters.length}</span>
+          <span className="text-xs" style={{ color: theme.sub }}>{currentIndex + 1} / {bookChapters.length}</span>
           <button
             onClick={() => nextChapter && navigate(`/novel/${bookId}/chapter/${nextChapter.id}`, { replace: true })}
             disabled={!nextChapter}
@@ -251,12 +405,16 @@ export default function NovelReader() {
       </main>
 
       {/* 底部导航栏 */}
-      <div className={`sticky bottom-0 z-20 border-t ${theme === 'light' ? 'bg-stone-50 border-stone-200' : 'bg-ink-950/95 border-gold-900/20'}`}>
+      <div
+        className="sticky bottom-0 z-20 border-t"
+        style={{ backgroundColor: theme.surface, borderColor: theme.border }}
+      >
         <div className="flex items-center justify-center gap-8 h-14">
           <button
             onClick={() => prevChapter && navigate(`/novel/${bookId}/chapter/${prevChapter.id}`, { replace: true })}
             disabled={!prevChapter}
             className="flex flex-col items-center disabled:opacity-30"
+            style={{ color: theme.sub }}
             aria-label="上一章"
           >
             <ChevronLeft size={20} />
@@ -265,6 +423,7 @@ export default function NovelReader() {
           <button
             onClick={() => setShowToc(true)}
             className="flex flex-col items-center"
+            style={{ color: theme.sub }}
             aria-label="目录"
           >
             <List size={20} />
@@ -273,6 +432,7 @@ export default function NovelReader() {
           <button
             onClick={() => setShowSettings(true)}
             className="flex flex-col items-center"
+            style={{ color: theme.sub }}
             aria-label="设置"
           >
             <Settings2 size={20} />
@@ -282,6 +442,7 @@ export default function NovelReader() {
             onClick={() => nextChapter && navigate(`/novel/${bookId}/chapter/${nextChapter.id}`, { replace: true })}
             disabled={!nextChapter}
             className="flex flex-col items-center disabled:opacity-30"
+            style={{ color: theme.sub }}
             aria-label="下一章"
           >
             <ChevronRight size={20} />
@@ -294,11 +455,12 @@ export default function NovelReader() {
       {showToc && (
         <div className="fixed inset-0 z-50 bg-black/60 flex justify-end" onClick={() => setShowToc(false)}>
           <div
-            className={`w-80 max-w-full h-full overflow-y-auto ${theme === 'light' ? 'bg-stone-50' : 'bg-ink-950'} p-4`}
+            className="w-80 max-w-full h-full overflow-y-auto p-4"
+            style={{ backgroundColor: theme.bg }}
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
-              <h3 className={`font-bold ${titleClass}`}>目录</h3>
+              <h3 className="font-bold" style={{ color: theme.title }}>目录</h3>
               <button onClick={() => setShowToc(false)} className="btn-ghost p-1">
                 <X size={18} />
               </button>
@@ -311,15 +473,14 @@ export default function NovelReader() {
                     setShowToc(false);
                     navigate(`/novel/${bookId}/chapter/${c.id}`, { replace: true });
                   }}
-                  className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
+                  className="w-full text-left px-3 py-2 rounded text-sm transition-colors"
+                  style={
                     c.id === chapterId
-                      ? 'bg-gold-900/30 text-gold-300'
-                      : theme === 'light'
-                        ? 'text-stone-700 hover:bg-stone-100'
-                        : 'text-ink-300 hover:bg-ink-900/50'
-                  }`}
+                      ? { backgroundColor: `${theme.accent}22`, color: theme.accent }
+                      : { color: theme.text }
+                  }
                 >
-                  {c.read && <span className="text-gold-500 mr-1">✓</span>}
+                  {c.read && <span style={{ color: theme.accent }} className="mr-1">✓</span>}
                   {i + 1}. {c.title}
                 </button>
               ))}
@@ -332,60 +493,106 @@ export default function NovelReader() {
       {showSettings && (
         <div className="fixed inset-0 z-50 bg-black/60 flex justify-end" onClick={() => setShowSettings(false)}>
           <div
-            className={`w-72 h-full ${theme === 'light' ? 'bg-stone-50' : 'bg-ink-950'} p-4`}
+            className="w-72 h-full p-4 overflow-y-auto"
+            style={{ backgroundColor: theme.bg }}
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-6">
-              <h3 className={`font-bold ${titleClass}`}>阅读设置</h3>
+              <h3 className="font-bold" style={{ color: theme.title }}>阅读设置</h3>
               <button onClick={() => setShowSettings(false)} className="btn-ghost p-1">
                 <X size={18} />
               </button>
             </div>
             <div className="space-y-6">
+              {/* 背景色 */}
               <div>
-                <label className={`text-sm ${titleClass}`}>字号</label>
-                <div className="flex gap-2 mt-2">
-                  {(['sm', 'md', 'lg'] as const).map(s => (
+                <label className="text-sm font-medium" style={{ color: theme.title }}>背景</label>
+                <div className="flex gap-2 mt-2 flex-wrap">
+                  {(Object.keys(READER_THEMES) as BgTheme[]).map(key => {
+                    const t = READER_THEMES[key];
+                    const active = bgTheme === key;
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => setBgTheme(key)}
+                        title={t.label}
+                        className="w-9 h-9 rounded-full border-2 transition-all flex items-center justify-center"
+                        style={{
+                          backgroundColor: t.swatch,
+                          borderColor: active ? theme.accent : theme.border,
+                          boxShadow: active ? `0 0 0 2px ${theme.accent}55` : 'none',
+                        }}
+                      >
+                        {active && (
+                          <span
+                            className="w-2 h-2 rounded-full"
+                            style={{ backgroundColor: theme.accent }}
+                          />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[11px] mt-1.5" style={{ color: theme.sub }}>{READER_THEMES[bgTheme].label}</p>
+              </div>
+
+              {/* 字号 */}
+              <div>
+                <label className="text-sm font-medium" style={{ color: theme.title }}>字号</label>
+                <div className="flex gap-1.5 mt-2">
+                  {(Object.keys(FONT_SIZES) as FontSize[]).map(s => (
                     <button
                       key={s}
                       onClick={() => setFontSize(s)}
-                      className={`flex-1 py-2 rounded border text-sm ${
+                      className="flex-1 py-2 rounded border text-sm transition-all"
+                      style={
                         fontSize === s
-                          ? 'border-gold-500 bg-gold-900/20 text-gold-300'
-                          : 'border-ink-700 text-ink-400'
-                      }`}
+                          ? { borderColor: theme.accent, backgroundColor: `${theme.accent}1a`, color: theme.accent }
+                          : { borderColor: theme.border, color: theme.sub }
+                      }
                     >
-                      {s === 'sm' ? '小' : s === 'md' ? '中' : '大'}
+                      {FONT_SIZES[s].label}
                     </button>
                   ))}
                 </div>
               </div>
+
+              {/* 行距 */}
               <div>
-                <label className={`text-sm ${titleClass}`}>主题</label>
+                <label className="text-sm font-medium" style={{ color: theme.title }}>行距</label>
                 <div className="flex gap-2 mt-2">
-                  {(['dark', 'light'] as const).map(t => (
+                  {(Object.keys(LINE_HEIGHTS) as LineHeight[]).map(l => (
                     <button
-                      key={t}
-                      onClick={() => setTheme(t)}
-                      className={`flex-1 py-2 rounded border text-sm ${
-                        theme === t
-                          ? 'border-gold-500 bg-gold-900/20 text-gold-300'
-                          : 'border-ink-700 text-ink-400'
-                      }`}
+                      key={l}
+                      onClick={() => setLineHeight(l)}
+                      className="flex-1 py-2 rounded border text-sm transition-all"
+                      style={
+                        lineHeight === l
+                          ? { borderColor: theme.accent, backgroundColor: `${theme.accent}1a`, color: theme.accent }
+                          : { borderColor: theme.border, color: theme.sub }
+                      }
                     >
-                      {t === 'dark' ? '夜间' : '日间'}
+                      {LINE_HEIGHTS[l].label}
                     </button>
                   ))}
                 </div>
               </div>
+
               {book?.spoilerMode === 'unlock' && !isSpoilerUnlocked && (
-                <div className="text-xs text-ink-500 p-3 rounded bg-ink-900/40 border border-gold-900/20">
-                  <p className="text-gold-500/80 font-medium mb-1">解锁模式</p>
+                <div
+                  className="text-xs p-3 rounded"
+                  style={{
+                    backgroundColor: `${theme.accent}11`,
+                    border: `1px solid ${theme.border}`,
+                    color: theme.sub,
+                  }}
+                >
+                  <p className="font-medium mb-1" style={{ color: theme.accent }}>解锁模式</p>
                   <p>读完本书后，角色名下划线和卡片才会显示。当前进度 {book.completedChapters}/{book.totalChapters}</p>
                 </div>
               )}
               {!IS_WEB_BUILD && (
-                <div className="pt-4 border-t border-ink-800/30">
+                <div className="pt-4" style={{ borderTopColor: theme.border, borderTopWidth: 1 }}>
                   <button
                     onClick={() => {
                       if (!isBound) return;
@@ -452,7 +659,7 @@ export default function NovelReader() {
               </button>
               <button
                 onClick={async () => {
-                  const charList = allEntries.filter(e => e.type === 'character') as Character[];
+                  const charList = allCharacters as Character[];
                   const titleToSave = editTitle.trim();
                   const contentToSave = editContent;
                   await updateChapter(chapter.id, {

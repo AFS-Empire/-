@@ -4,7 +4,6 @@ import { ArrowLeft, Save, Upload, X, Search, Trash2 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
 import { useBindingStore } from '../store/bindingStore';
-import { IS_WEB_BUILD } from '../lib/buildTarget';
 import { genId } from '../data/db';
 import { AlertDialog, Picker } from '../components/Dialog';
 import { platform } from '../platform';

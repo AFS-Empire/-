@@ -54,18 +54,28 @@ export const useNovelStore = create<NovelState>((set, get) => ({
 
   refresh: async () => {
     const books = await novelDb.getAllNovelBooks();
-    const volumes: Record<string, NovelVolume[]> = {};
-    const chapters: Record<string, NovelChapter[]> = {};
-    const progress: Record<string, NovelProgress> = {};
+    const results = await Promise.all(
+      books.map(async (book) => {
+        const [volumes, chapters, progress] = await Promise.all([
+          novelDb.getNovelVolumes(book.id),
+          novelDb.getNovelChapters(book.id),
+          novelDb.getNovelProgress(book.id),
+        ]);
+        return { book, volumes, chapters, progress };
+      })
+    );
 
-    for (const book of books) {
-      volumes[book.id] = await novelDb.getNovelVolumes(book.id);
-      chapters[book.id] = await novelDb.getNovelChapters(book.id);
-      const p = await novelDb.getNovelProgress(book.id);
-      if (p) progress[book.id] = p;
+    const volumesMap: Record<string, NovelVolume[]> = {};
+    const chaptersMap: Record<string, NovelChapter[]> = {};
+    const progressMap: Record<string, NovelProgress> = {};
+
+    for (const { book, volumes, chapters, progress } of results) {
+      volumesMap[book.id] = volumes;
+      chaptersMap[book.id] = chapters;
+      if (progress) progressMap[book.id] = progress;
     }
 
-    set({ books, volumes, chapters, progress, loaded: true });
+    set({ books, volumes: volumesMap, chapters: chaptersMap, progress: progressMap, loaded: true });
   },
 
   createBook: async (title, spoilerMode = 'open') => {

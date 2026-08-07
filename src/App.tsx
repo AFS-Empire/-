@@ -167,7 +167,7 @@ export default function App() {
       await refreshComments();
       await refreshNovel();
     })();
-  }, []);
+  }, [refresh, refreshComments, refreshNovel, refreshBinding]);
 
   // 待导入文件：数据就绪 + 用户已登录时自动导入（Intent 传文件场景）
   useEffect(() => {
@@ -201,7 +201,7 @@ export default function App() {
       }
     })();
     return () => { cancelled = true; };
-  }, [pendingImport, loaded, isAuthenticated, bindingResult, isBound]);
+  }, [pendingImport, loaded, isAuthenticated, bindingResult, isBound, refresh, refreshComments, refreshNovel]);
 
   // 数据就绪后，空闲时段预加载所有路由 chunk
   // 这样用户点进二级页面时 chunk 已缓存，Suspense 不会再有空白闪烁

@@ -27,5 +27,3 @@ declare global {
     capacitor?: CapacitorGlobal;
   }
 }
-
-export {};

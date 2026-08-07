@@ -14,7 +14,6 @@ export default function NovelShelf() {
   const books = useNovelStore(s => s.books);
   const createBook = useNovelStore(s => s.createBook);
   const deleteBook = useNovelStore(s => s.deleteBook);
-  const chapters = useNovelStore(s => s.chapters);
   const progress = useNovelStore(s => s.progress);
 
   const [showNameDialog, setShowNameDialog] = useState(false);
@@ -95,7 +94,6 @@ export default function NovelShelf() {
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           {books.map(book => {
-            const bookChapters = chapters[book.id] || [];
             const prog = progress[book.id];
             const pct = book.totalChapters > 0 ? Math.round((book.completedChapters / book.totalChapters) * 100) : 0;
 
@@ -120,7 +118,7 @@ export default function NovelShelf() {
                   <span>{book.totalChapters} 章</span>
                   <span>{pct}%</span>
                 </div>
-                {bookChapters.length > 0 && prog && (
+                {book.totalChapters > 0 && prog && (
                   <div className="mt-1.5 h-1 bg-ink-800 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-gold-500 transition-all"

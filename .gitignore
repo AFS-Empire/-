@@ -10,6 +10,7 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+dist-electron
 *.local
 # 盐值环境变量严禁提交（双保险）
 .env.local

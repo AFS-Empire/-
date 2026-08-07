@@ -1,7 +1,53 @@
 @import "tailwindcss";
 
+/* ===== 主题变量：深色（默认） ===== */
+:root {
+  --bg-base: #0d0d0f;
+  --bg-surface: #1a1a1e;
+  --bg-elevated: #161619;
+  --bg-input: #1e1e22;
+  --text-primary: #e2e2e4;
+  --text-secondary: #9f9fa6;
+  --text-tertiary: #76767e;
+  --border-default: #2a2a2e;
+  --border-subtle: #1e1e22;
+  --scrollbar-track: #0d0d0f;
+  --scrollbar-thumb: #653e1c;
+  --scrollbar-thumb-hover: #8f591c;
+  --accent-glow: rgba(200, 144, 42, 0.06);
+  --select-bg: #1a1a1e;
+  --select-border: #47474d;
+  --select-text: #e2e2e4;
+  --autofill-bg: #1a1a1e;
+  --autofill-text: #e8e4dc;
+  --rune-opacity: 1;
+}
+
+/* ===== 主题变量：浅色 ===== */
+:root.light {
+  --bg-base: #f5f5f7;
+  --bg-surface: #ffffff;
+  --bg-elevated: #fafafa;
+  --bg-input: #f0f0f2;
+  --text-primary: #1a1a1a;
+  --text-secondary: #555555;
+  --text-tertiary: #888888;
+  --border-default: #e0e0e0;
+  --border-subtle: #eeeeee;
+  --scrollbar-track: #f5f5f7;
+  --scrollbar-thumb: #c4a76a;
+  --scrollbar-thumb-hover: #8f591c;
+  --accent-glow: rgba(180, 140, 40, 0.04);
+  --select-bg: #ffffff;
+  --select-border: #d0d0d0;
+  --select-text: #333333;
+  --autofill-bg: #ffffff;
+  --autofill-text: #333333;
+  --rune-opacity: 0.3;
+}
+
 @theme {
-  /* 黑金主题色板 */
+  /* 黑金主题色板（金色调在深浅模式共用） */
   --color-gold-50: #fbf8ef;
   --color-gold-100: #f5ecd0;
   --color-gold-200: #ecd9a0;
@@ -75,15 +121,16 @@
     scroll-behavior: smooth;
   }
   body {
-    @apply text-ink-100;
-    background-color: #0d0d0f;
+    color: var(--text-primary);
+    background-color: var(--bg-base);
     /* 顶部暗金渐变光（固定，全屏居中） */
-    background-image: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(200, 144, 42, 0.06), transparent);
+    background-image: radial-gradient(ellipse 80% 50% at 50% -20%, var(--accent-glow), transparent);
     background-repeat: no-repeat;
     background-attachment: fixed;
     background-position: center top;
     background-size: auto;
     min-height: 100vh;
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
   /* 暗金铭文背景：挂在内容容器上，自动与内容居中对齐，随页面滚动重复 */
   .rune-bg {
@@ -92,11 +139,12 @@
     background-attachment: scroll;
     background-position: center top;
     background-size: 320px 1000px;
+    opacity: var(--rune-opacity);
   }
   ::-webkit-scrollbar { width: 5px; height: 5px; }
-  ::-webkit-scrollbar-track { background: #0d0d0f; }
-  ::-webkit-scrollbar-thumb { background: #653e1c; border-radius: 3px; }
-  ::-webkit-scrollbar-thumb:hover { background: #8f591c; }
+  ::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+  ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
 
   /* 移动端触摸优化 */
   button, a, [role="button"] {
@@ -107,15 +155,15 @@
   input, textarea, select {
     font-size: 16px;
   }
-  /* 下拉框全局样式（暗金主题） */
+  /* 下拉框全局样式 */
   select {
     appearance: none;
     -webkit-appearance: none;
-    background-color: #1a1a1e;
-    border: 1px solid #47474d;
+    background-color: var(--select-bg);
+    border: 1px solid var(--select-border);
     border-radius: 0.5rem;
     padding: 0.5rem 2.5rem 0.5rem 0.75rem;
-    color: #e2e2e4;
+    color: var(--select-text);
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23c8902a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 0.75rem center;
@@ -134,8 +182,8 @@
   }
   /* 下拉选项样式 */
   select option {
-    background-color: #1a1a1e;
-    color: #e2e2e4;
+    background-color: var(--select-bg);
+    color: var(--select-text);
     padding: 0.5rem;
   }
   /* 长按不选中文本（避免误触） */
@@ -160,14 +208,30 @@
     @apply from-gold-300 to-gold-500 -translate-y-0.5;
   }
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-ink-400 hover:text-gold-300 hover:bg-ink-800/50 transition-colors relative overflow-hidden;
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-colors relative overflow-hidden;
+    color: var(--text-tertiary);
+  }
+  .btn-ghost:hover {
+    color: #e0c068;
+    background-color: color-mix(in srgb, var(--bg-surface) 50%, transparent);
   }
   .btn-outline {
-    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-gold-800/60 text-gold-400 hover:border-gold-600 hover:bg-gold-900/20 transition-all relative overflow-hidden;
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-gold-800/60 text-gold-400 hover:border-gold-600 transition-all relative overflow-hidden;
+  }
+  /* 浅色模式下 btn-outline 调整 */
+  :root.light .btn-outline {
+    border-color: rgba(143, 89, 28, 0.3);
+    color: #8f591c;
+  }
+  :root.light .btn-outline:hover {
+    border-color: #b07420;
+    background-color: rgba(200, 144, 42, 0.08);
   }
   /* 骨架屏闪烁 */
   .skeleton-block {
-    @apply bg-ink-800/60 border border-ink-700/40;
+    @apply border;
+    background-color: color-mix(in srgb, var(--bg-surface) 60%, transparent);
+    border-color: var(--border-subtle);
     animation: skeletonPulse 1.6s ease-in-out infinite;
   }
   /* 页面切换过渡 */
@@ -179,26 +243,42 @@
     box-shadow: 0 0 0 1px var(--color-gold-700), 0 0 12px rgba(200, 144, 42, 0.25);
   }
   .panel {
-    @apply bg-ink-900/60 border border-ink-800 rounded-xl backdrop-blur-sm relative overflow-hidden;
+    @apply rounded-xl backdrop-blur-sm relative overflow-hidden border;
+    background-color: color-mix(in srgb, var(--bg-elevated) 60%, transparent);
+    border-color: var(--border-default);
   }
   .panel-gold {
-    @apply bg-ink-900/60 border border-gold-900/40 rounded-xl backdrop-blur-sm relative overflow-hidden;
+    @apply rounded-xl backdrop-blur-sm relative overflow-hidden border;
+    background-color: color-mix(in srgb, var(--bg-elevated) 60%, transparent);
+    border-color: rgba(101, 62, 28, 0.4);
   }
   .input-field {
-    @apply w-full px-4 py-2.5 rounded-lg bg-ink-850 border border-ink-700 text-ink-100 placeholder:text-ink-500 focus:outline-none focus:border-gold-700 focus:ring-1 focus:ring-gold-700/50 transition-all;
-    /* Android WebView / Chrome 自动填充时不使用默认浅色背景 */
-    &:-webkit-autofill,
-    &:-webkit-autofill:hover,
-    &:-webkit-autofill:focus,
-    &:-webkit-autofill:active {
-      -webkit-box-shadow: 0 0 0 1000px #1a1a1e inset !important;
-      -webkit-text-fill-color: #e8e4dc !important;
-      caret-color: #e8e4dc !important;
-      transition: background-color 5000s ease-in-out 0s;
-    }
+    @apply w-full px-4 py-2.5 rounded-lg border transition-all;
+    background-color: var(--bg-input);
+    border-color: var(--border-default);
+    color: var(--text-primary);
+  }
+  .input-field::placeholder {
+    color: var(--text-tertiary);
+  }
+  .input-field:focus {
+    outline: none;
+    border-color: #8f591c;
+    box-shadow: 0 0 0 1px rgba(143, 89, 28, 0.5);
+  }
+  /* Android WebView / Chrome 自动填充时不使用默认浅色背景 */
+  .input-field:-webkit-autofill,
+  .input-field:-webkit-autofill:hover,
+  .input-field:-webkit-autofill:focus,
+  .input-field:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 1000px var(--autofill-bg) inset !important;
+    -webkit-text-fill-color: var(--autofill-text) !important;
+    caret-color: var(--autofill-text) !important;
+    transition: background-color 5000s ease-in-out 0s;
   }
   .label-text {
-    @apply block text-sm font-medium text-gold-400/80 mb-1.5 tracking-wide;
+    @apply block text-sm font-medium mb-1.5 tracking-wide;
+    color: rgba(212, 168, 67, 0.8);
   }
   .gold-divider {
     @apply h-px;
@@ -234,17 +314,60 @@
     letter-spacing: 0.15em;
     filter: drop-shadow(0 0 1px rgba(224, 192, 104, 0.5)) drop-shadow(0 0 4px rgba(200, 144, 42, 0.2));
   }
+  /* 浅色模式下鎏金标题调整：降低亮度，避免浅色背景上过亮 */
+  :root.light .gold-title {
+    background-image: linear-gradient(
+      180deg,
+      #8f591c 0%,
+      #b07420 30%,
+      #8f591c 60%,
+      #653e1c 100%
+    );
+    filter: drop-shadow(0 0 1px rgba(143, 89, 28, 0.3));
+  }
+  :root.light .gold-text {
+    background-image: linear-gradient(
+      135deg,
+      #653e1c 0%,
+      #8f591c 25%,
+      #c8902a 50%,
+      #8f591c 75%,
+      #653e1c 100%
+    );
+    filter: drop-shadow(0 0 1px rgba(143, 89, 28, 0.3));
+  }
   .section-title {
-    @apply text-xl font-bold text-gold-200/90 tracking-wider;
+    @apply text-xl font-bold tracking-wider;
+    color: rgba(236, 217, 160, 0.9);
+  }
+  :root.light .section-title {
+    color: #8f591c;
   }
   .tag {
-    @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-ink-800/80 text-ink-400 border border-ink-700;
+    @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border;
+    background-color: color-mix(in srgb, var(--bg-surface) 80%, transparent);
+    color: var(--text-tertiary);
+    border-color: var(--border-default);
   }
   .tag-gold {
-    @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gold-900/30 text-gold-400/90 border border-gold-800/40;
+    @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border;
+    background-color: rgba(101, 62, 28, 0.15);
+    color: rgba(212, 168, 67, 0.9);
+    border-color: rgba(118, 73, 28, 0.4);
+  }
+  :root.light .tag-gold {
+    background-color: rgba(200, 144, 42, 0.1);
+    color: #8f591c;
+    border-color: rgba(143, 89, 28, 0.3);
   }
   .card-entry {
-    @apply bg-ink-900/60 border border-ink-800 rounded-xl backdrop-blur-sm p-4 hover:border-gold-800/60 hover:bg-ink-850/60 cursor-pointer transition-all duration-300 relative overflow-hidden;
+    @apply rounded-xl backdrop-blur-sm p-4 cursor-pointer transition-all duration-300 relative overflow-hidden border;
+    background-color: color-mix(in srgb, var(--bg-elevated) 60%, transparent);
+    border-color: var(--border-default);
+  }
+  .card-entry:hover {
+    border-color: rgba(118, 73, 28, 0.6);
+    background-color: color-mix(in srgb, var(--bg-input) 60%, transparent);
   }
   /* 暗金边框装饰 */
   .gold-border {
@@ -275,14 +398,18 @@
 .mention-highlight {
   border-bottom: 1px dashed currentColor;
   cursor: pointer;
-  color: var(--color-gold-400);
+  color: var(--reader-accent, var(--color-gold-400));
   transition: opacity 0.2s;
   text-indent: 0;
 }
 .mention-highlight:hover {
   opacity: 0.7;
-  background: rgba(212, 168, 67, 0.08);
+  background: color-mix(in srgb, var(--reader-accent, #d4a843) 12%, transparent);
   border-radius: 2px;
+}
+/* 羊皮纸/米黄：厚重复古的内阴影晕染 */
+.reader-vignette {
+  box-shadow: inset 0 0 80px rgba(90, 58, 24, 0.1);
 }
 
 /* 小说书架网格 */

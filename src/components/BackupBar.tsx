@@ -238,7 +238,7 @@ export default function BackupBar() {
           await importAll(payload);
           await Promise.all([refresh(), refreshComments()]);
           showToast('ok', '档案已导入，请刷新页面以查看');
-        } catch (e) {
+        } catch {
           showToast('err', '文件无效');
         } finally {
           setBusy(false);
@@ -274,7 +274,7 @@ export default function BackupBar() {
             await Promise.all([refresh(), refreshComments()]);
             showToast('ok', `已从 ${r.path} 导入完成`);
           }
-        } catch (e) {
+        } catch {
           showToast('err', '文件无效');
         } finally {
           setBusy(false);
@@ -305,7 +305,7 @@ export default function BackupBar() {
           await importAll(payload);
           await Promise.all([refresh(), refreshComments()]);
           showToast('ok', `已从 ${r.name} 导入`);
-        } catch (e) {
+        } catch {
           showToast('err', '文件无效');
         } finally {
           setBusy(false);
@@ -343,7 +343,7 @@ export default function BackupBar() {
             showToast('ok', `已从 ${name} 恢复`);
             await refreshAutoBackups();
           }
-        } catch (e) {
+        } catch {
           showToast('err', '文件无效');
         } finally {
           setBusy(false);

@@ -7,13 +7,14 @@ import { useBindingStore } from '../store/bindingStore';
 import { IS_WEB_BUILD } from '../lib/buildTarget';
 import { platform } from '../platform';
 import { ConfirmDialog, PromptDialog, AlertDialog } from '../components/Dialog';
+import type { NovelChapter } from '../types';
 
 export default function NovelDetail() {
   const { bookId } = useParams<{ bookId: string }>();
   const navigate = useNavigate();
   const isBound = useBindingStore(s => s.isBound);
-  const chapters = useNovelStore(s => s.chapters);
-  const volumes = useNovelStore(s => s.volumes);
+  const bookChapters = useNovelStore(s => bookId ? (s.chapters[bookId] || []) : []);
+  const bookVolumes = useNovelStore(s => bookId ? (s.volumes[bookId] || []) : []);
   const books = useNovelStore(s => s.books);
   const createVolume = useNovelStore(s => s.createVolume);
   const deleteVolume = useNovelStore(s => s.deleteVolume);
@@ -27,8 +28,16 @@ export default function NovelDetail() {
   const characters = useMemo(() => entries.filter(e => e.type === 'character'), [entries]);
 
   const book = books.find(b => b.id === bookId);
-  const bookChapters = bookId ? (chapters[bookId] || []) : [];
-  const bookVolumes = bookId ? (volumes[bookId] || []) : [];
+
+  const groupedByVolumeMap = useMemo(() => {
+    const map: Record<string, NovelChapter[]> = {};
+    for (const vol of bookVolumes) {
+      map[vol.id] = bookChapters.filter(c => c.volumeId === vol.id).sort((a, b) => a.order - b.order);
+    }
+    return map;
+  }, [bookChapters, bookVolumes]);
+
+  const unassigned = useMemo(() => bookChapters.filter(c => !c.volumeId), [bookChapters]);
 
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [editingTitle, setEditingTitle] = useState(false);
@@ -119,11 +128,6 @@ export default function NovelDetail() {
     }
   };
 
-  const groupedByVolume = (volId: string) =>
-    bookChapters.filter(c => c.volumeId === volId).sort((a, b) => a.order - b.order);
-
-  const unassigned = bookChapters.filter(c => !c.volumeId);
-
   return (
     <div className="max-w-3xl mx-auto space-y-4">
       {/* 书信息 */}
@@ -213,7 +217,7 @@ export default function NovelDetail() {
       ) : (
         <div className="space-y-2">
           {bookVolumes.map(vol => {
-            const volChapters = groupedByVolume(vol.id);
+            const volChapters = groupedByVolumeMap[vol.id] || [];
             const isOpen = expanded[vol.id] ?? true;
             return (
               <div key={vol.id} className="panel overflow-hidden">

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   Home,
@@ -18,6 +18,8 @@ import {
   Info,
   RefreshCw,
   BookOpen,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
@@ -25,7 +27,7 @@ import { SECTION_PREFIX } from '../types';
 import BackupBar from './BackupBar';
 import { IS_WEB_BUILD } from '../lib/buildTarget';
 import { useHiddenUnlock } from '../lib/hiddenUnlock';
-import { ConfirmDialog } from './Dialog';
+import { ConfirmDialog, BaseDialog } from './Dialog';
 
 const navItems = [
   { to: '/', label: '首页', icon: Home },
@@ -53,9 +55,36 @@ export default function Layout() {
   const refreshData = useDataStore(s => s.refresh);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showRefreshConfirm, setShowRefreshConfirm] = useState(false);
+  const [showThemeDialog, setShowThemeDialog] = useState(false);
+  const [pendingTheme, setPendingTheme] = useState<'dark' | 'light'>('dark');
   const navigate = useNavigate();
   const location = useLocation();
   const isUnlocked = useHiddenUnlock(s => s.isUnlocked);
+
+  // 主题初始化：从 localStorage 读取，默认深色
+  useEffect(() => {
+    const saved = localStorage.getItem('theme') as 'dark' | 'light' | null;
+    if (saved === 'light') {
+      document.documentElement.classList.add('light');
+    }
+  }, []);
+
+  const handleThemeClick = () => {
+    const isLight = document.documentElement.classList.contains('light');
+    setPendingTheme(isLight ? 'light' : 'dark');
+    setShowThemeDialog(true);
+  };
+
+  const handleThemeConfirm = () => {
+    if (pendingTheme === 'light') {
+      document.documentElement.classList.add('light');
+      localStorage.setItem('theme', 'light');
+    } else {
+      document.documentElement.classList.remove('light');
+      localStorage.setItem('theme', 'dark');
+    }
+    setShowThemeDialog(false);
+  };
 
   const handleLogout = () => {
     logout();
@@ -162,6 +191,16 @@ export default function Layout() {
         <span className="text-sm tracking-wide">强制刷新</span>
       </button>
 
+      {/* 主题切换按钮 */}
+      <button
+        onClick={handleThemeClick}
+        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 border-l-2 border-transparent text-ink-400 hover:text-gold-400/80 hover:bg-ink-800/30"
+        title="切换深色/浅色主题"
+      >
+        <Sun size={17} />
+        <span className="text-sm tracking-wide">主题切换</span>
+      </button>
+
       {/* 桌面 App 状态提示 */}
       {typeof window !== 'undefined' && window.archiveApp && (
         <div className="mt-3 px-2 py-1.5 rounded-md bg-gold-900/10 border border-gold-800/30 flex items-center gap-2">
@@ -265,6 +304,47 @@ export default function Layout() {
           }
         }}
       />
+
+      {/* 主题切换对话框 */}
+      <BaseDialog
+        open={showThemeDialog}
+        onClose={() => setShowThemeDialog(false)}
+        title="切换主题"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-ink-400">选择界面主题，切换会立即生效并记忆选择。</p>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => setPendingTheme('dark')}
+              className={`p-4 rounded-lg border transition-all flex flex-col items-center gap-2 ${
+                pendingTheme === 'dark'
+                  ? 'border-gold-500 bg-gold-900/20'
+                  : 'border-ink-700 hover:border-gold-700/50'
+              }`}
+            >
+              <Moon size={22} className={pendingTheme === 'dark' ? 'text-gold-300' : 'text-ink-400'} />
+              <span className={`text-sm font-medium ${pendingTheme === 'dark' ? 'text-gold-200' : 'text-ink-300'}`}>深色</span>
+              <span className="text-[11px] text-ink-500">默认 · 鎏金黑底</span>
+            </button>
+            <button
+              onClick={() => setPendingTheme('light')}
+              className={`p-4 rounded-lg border transition-all flex flex-col items-center gap-2 ${
+                pendingTheme === 'light'
+                  ? 'border-gold-500 bg-gold-900/20'
+                  : 'border-ink-700 hover:border-gold-700/50'
+              }`}
+            >
+              <Sun size={22} className={pendingTheme === 'light' ? 'text-gold-300' : 'text-ink-400'} />
+              <span className={`text-sm font-medium ${pendingTheme === 'light' ? 'text-gold-200' : 'text-ink-300'}`}>浅色</span>
+              <span className="text-[11px] text-ink-500">明亮 · 护眼白底</span>
+            </button>
+          </div>
+          <div className="flex gap-2 justify-end pt-2">
+            <button onClick={() => setShowThemeDialog(false)} className="btn-ghost text-sm">取消</button>
+            <button onClick={handleThemeConfirm} className="btn-gold text-sm">确定</button>
+          </div>
+        </div>
+      </BaseDialog>
     </div>
   );
 }

@@ -298,7 +298,7 @@ export async function verifyAndDecrypt(
   }
 
   // v1 旧明文格式（向后兼容）
-  const { verifySign, buildSignPayload } = await import('../lib/hiddenUnlock');
+  const { verifySign } = await import('../lib/hiddenUnlock');
   let ok: boolean;
   try {
     ok = await verifySign(data, privateKey);
