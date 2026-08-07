@@ -17,6 +17,7 @@ const EMPTY_CHAPTERS: NovelChapter[] = [];
 type ReaderTheme = 'dark' | 'light' | 'parchment';
 type FontSize = 'sm' | 'md' | 'lg' | 'xl';
 type LineHeight = 'compact' | 'normal' | 'loose';
+type ReadMode = 'scroll' | 'page';
 
 interface ReaderThemeConfig {
   label: string;
@@ -24,6 +25,7 @@ interface ReaderThemeConfig {
   titleColor: string;
   accentColor: string;
   vars: Record<string, string>;
+  bgOverlay?: string;
 }
 
 const READER_THEMES: Record<ReaderTheme, ReaderThemeConfig> = {
@@ -65,21 +67,23 @@ const READER_THEMES: Record<ReaderTheme, ReaderThemeConfig> = {
   },
   parchment: {
     label: '牛皮纸',
-    swatch: '#e8ddc7',
-    titleColor: '#5a3e14',
-    accentColor: '#5a3e14',
+    swatch: '#d4c4a0',
+    titleColor: '#4a300c',
+    accentColor: '#4a300c',
     vars: {
-      '--bg-base': '#e8ddc7',
-      '--bg-surface': '#e8ddc7',
-      '--bg-elevated': '#ddd0b4',
-      '--text-primary': '#4a4236',
-      '--text-secondary': '#6a6156',
-      '--text-tertiary': '#8a8278',
-      '--border-default': '#c4b898',
-      '--border-subtle': '#d0c4a8',
-      '--rune-opacity': '0.28',
-      '--rune-filter': 'brightness(1.1) saturate(0.7)',
+      '--bg-base': '#d4c4a0',
+      '--bg-surface': '#d4c4a0',
+      '--bg-elevated': '#c8b896',
+      '--text-primary': '#3a2f24',
+      '--text-secondary': '#5a4f44',
+      '--text-tertiary': '#7a6e64',
+      '--border-default': '#b0a088',
+      '--border-subtle': '#bfae96',
+      '--rune-opacity': '0.30',
+      '--rune-filter': 'brightness(1.15) saturate(0.65)',
     },
+    // 做旧渐变：中心透亮，边缘泛黄褐，模拟牛皮纸老化效果
+    bgOverlay: 'radial-gradient(ellipse 85% 65% at 50% 40%, transparent 0%, rgba(120, 80, 30, 0.07) 55%, rgba(80, 50, 15, 0.14) 100%)',
   },
 };
 
@@ -101,10 +105,11 @@ interface ReaderSettings {
   theme: ReaderTheme;
   fontSize: FontSize;
   lineHeight: LineHeight;
+  readMode: ReadMode;
 }
 
 function loadReaderSettings(): ReaderSettings {
-  const defaults: ReaderSettings = { theme: 'dark', fontSize: 'md', lineHeight: 'normal' };
+  const defaults: ReaderSettings = { theme: 'dark', fontSize: 'md', lineHeight: 'normal', readMode: 'scroll' };
   try {
     const raw = localStorage.getItem(READER_SETTINGS_KEY);
     if (!raw) return defaults;
@@ -113,6 +118,7 @@ function loadReaderSettings(): ReaderSettings {
       theme: p.theme && READER_THEMES[p.theme] ? p.theme : 'dark',
       fontSize: p.fontSize && FONT_SIZES[p.fontSize] ? p.fontSize : 'md',
       lineHeight: p.lineHeight && LINE_HEIGHTS[p.lineHeight] ? p.lineHeight : 'normal',
+      readMode: p.readMode === 'page' || p.readMode === 'scroll' ? p.readMode : 'scroll',
     };
   } catch {
     return defaults;
@@ -147,13 +153,14 @@ export default function NovelReader() {
   const [readerTheme, setReaderTheme] = useState<ReaderTheme>(initial.current.theme);
   const [fontSize, setFontSize] = useState<FontSize>(initial.current.fontSize);
   const [lineHeight, setLineHeight] = useState<LineHeight>(initial.current.lineHeight);
+  const [readMode, setReadMode] = useState<ReadMode>(initial.current.readMode);
 
   // 持久化阅读设置
   useEffect(() => {
     try {
-      localStorage.setItem(READER_SETTINGS_KEY, JSON.stringify({ theme: readerTheme, fontSize, lineHeight }));
+      localStorage.setItem(READER_SETTINGS_KEY, JSON.stringify({ theme: readerTheme, fontSize, lineHeight, readMode }));
     } catch { /* ignore */ }
-  }, [readerTheme, fontSize, lineHeight]);
+  }, [readerTheme, fontSize, lineHeight, readMode]);
 
   // 核心：覆盖全局 CSS 变量，让整个页面统一变色
   // 退出时恢复原值，不污染其他页面
@@ -199,6 +206,17 @@ export default function NovelReader() {
   const markedReadRef = useRef<string | null>(null);
   const restoredRef = useRef<string | null>(null);
 
+  // ===== 翻页模式状态 =====
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [pageDims, setPageDims] = useState({ w: 0, h: 0 });
+  const pagedWrapperRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const goToLastPageRef = useRef(false);
+  const pendingRestoreRatioRef = useRef<number | null>(null);
+  const isPageAnimatingRef = useRef(false);
+
   const theme = READER_THEMES[readerTheme];
 
   // 剧透保护
@@ -240,19 +258,79 @@ export default function NovelReader() {
     return map;
   }, [chapter, paragraphs, showMentions]);
 
+  // ===== 翻页模式：body 滚动锁定 =====
+  useEffect(() => {
+    if (readMode === 'page') {
+      document.body.style.overflow = 'hidden';
+      return () => { document.body.style.overflow = ''; };
+    }
+  }, [readMode]);
+
+  // ===== 翻页模式：测量容器尺寸 =====
+  useEffect(() => {
+    if (readMode !== 'page') return;
+    const wrapper = pagedWrapperRef.current;
+    if (!wrapper) return;
+
+    const measure = () => {
+      const rect = wrapper.getBoundingClientRect();
+      const w = Math.floor(rect.width);
+      const h = Math.floor(rect.height);
+      if (w > 0 && h > 0) {
+        setPageDims(prev => prev.w !== w || prev.h !== h ? { w, h } : prev);
+      }
+    };
+
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(wrapper);
+    return () => ro.disconnect();
+  }, [readMode]);
+
+  // ===== 翻页模式：计算总页数 =====
+  useEffect(() => {
+    if (readMode !== 'page' || pageDims.w === 0) return;
+    const content = contentRef.current;
+    if (!content) return;
+
+    const raf = requestAnimationFrame(() => {
+      const scrollW = content.scrollWidth;
+      const total = Math.max(1, Math.round(scrollW / pageDims.w));
+      setTotalPages(prev => prev !== total ? total : prev);
+
+      // 恢复进度或跳转到最后一页
+      if (goToLastPageRef.current) {
+        setCurrentPage(Math.max(0, total - 1));
+        goToLastPageRef.current = false;
+      } else if (pendingRestoreRatioRef.current !== null) {
+        const page = Math.round(pendingRestoreRatioRef.current * Math.max(1, total - 1));
+        setCurrentPage(Math.max(0, Math.min(page, total - 1)));
+        pendingRestoreRatioRef.current = null;
+      } else {
+        setCurrentPage(prev => Math.min(prev, total - 1));
+      }
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [readMode, pageDims, chapter?.id, fontSize, lineHeight]);
+
   // 加载阅读进度 + 标记已读（仅首次加载该章节时执行）
   useEffect(() => {
     if (!chapter || !bookId || !chapterId) return;
 
-    // 恢复滚动位置
+    // 恢复进度
     if (restoredRef.current !== chapterId) {
       restoredRef.current = chapterId;
+      setCurrentPage(0);
       const progress = useNovelStore.getState().progress[bookId];
       if (progress && progress.lastChapterId === chapterId) {
-        requestAnimationFrame(() => {
-          const target = progress.scrollRatio * (document.body.scrollHeight - window.innerHeight);
-          window.scrollTo({ top: Math.max(0, target) });
-        });
+        if (readMode === 'scroll') {
+          requestAnimationFrame(() => {
+            const target = progress.scrollRatio * (document.body.scrollHeight - window.innerHeight);
+            window.scrollTo({ top: Math.max(0, target) });
+          });
+        } else {
+          pendingRestoreRatioRef.current = progress.scrollRatio;
+        }
       }
     }
 
@@ -261,11 +339,11 @@ export default function NovelReader() {
       markedReadRef.current = chapterId;
       markChapterRead(bookId, chapterId);
     }
-  }, [chapter, book, bookId, chapterId, markChapterRead]);
+  }, [chapter, book, bookId, chapterId, markChapterRead, readMode]);
 
-  // 滚动监听：更新进度条 + 防抖保存进度
+  // 滚动监听：更新进度条 + 防抖保存进度（仅滚动模式）
   useEffect(() => {
-    if (!chapter || !bookId || !chapterId) return;
+    if (readMode !== 'scroll' || !chapter || !bookId || !chapterId) return;
 
     let ticking = false;
     const onScroll = () => {
@@ -281,7 +359,17 @@ export default function NovelReader() {
 
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
-  }, [chapter, bookId, chapterId]);
+  }, [chapter, bookId, chapterId, readMode]);
+
+  // 翻页模式：基于页码更新进度
+  useEffect(() => {
+    if (readMode !== 'page') return;
+    if (totalPages <= 1) {
+      setScrollRatio(0);
+    } else {
+      setScrollRatio(currentPage / (totalPages - 1));
+    }
+  }, [readMode, currentPage, totalPages]);
 
   // 防抖保存进度
   useEffect(() => {
@@ -303,15 +391,32 @@ export default function NovelReader() {
   // 键盘导航
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft' && currentIndex > 0) {
-        navigate(`/novel/${bookId}/chapter/${bookChapters[currentIndex - 1].id}`, { replace: true });
-      } else if (e.key === 'ArrowRight' && currentIndex < bookChapters.length - 1) {
-        navigate(`/novel/${bookId}/chapter/${bookChapters[currentIndex + 1].id}`, { replace: true });
+      if (readMode === 'page') {
+        if (e.key === 'ArrowLeft') {
+          if (currentPage > 0) {
+            setCurrentPage(p => p - 1);
+          } else if (currentIndex > 0) {
+            goToLastPageRef.current = true;
+            navigate(`/novel/${bookId}/chapter/${bookChapters[currentIndex - 1].id}`, { replace: true });
+          }
+        } else if (e.key === 'ArrowRight') {
+          if (currentPage < totalPages - 1) {
+            setCurrentPage(p => p + 1);
+          } else if (currentIndex < bookChapters.length - 1) {
+            navigate(`/novel/${bookId}/chapter/${bookChapters[currentIndex + 1].id}`, { replace: true });
+          }
+        }
+      } else {
+        if (e.key === 'ArrowLeft' && currentIndex > 0) {
+          navigate(`/novel/${bookId}/chapter/${bookChapters[currentIndex - 1].id}`, { replace: true });
+        } else if (e.key === 'ArrowRight' && currentIndex < bookChapters.length - 1) {
+          navigate(`/novel/${bookId}/chapter/${bookChapters[currentIndex + 1].id}`, { replace: true });
+        }
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [currentIndex, bookChapters, bookId, navigate]);
+  }, [readMode, currentPage, totalPages, currentIndex, bookChapters, bookId, navigate]);
 
   if (!chapter || !book) {
     return (
@@ -324,6 +429,46 @@ export default function NovelReader() {
 
   const prevChapter = currentIndex > 0 ? bookChapters[currentIndex - 1] : null;
   const nextChapter = currentIndex < bookChapters.length - 1 ? bookChapters[currentIndex + 1] : null;
+
+  // ===== 翻页模式导航 =====
+  const goNextPage = () => {
+    if (isPageAnimatingRef.current) return;
+    if (currentPage < totalPages - 1) {
+      isPageAnimatingRef.current = true;
+      setCurrentPage(p => p + 1);
+      setTimeout(() => { isPageAnimatingRef.current = false; }, 380);
+    } else if (nextChapter) {
+      navigate(`/novel/${bookId}/chapter/${nextChapter.id}`, { replace: true });
+    }
+  };
+
+  const goPrevPage = () => {
+    if (isPageAnimatingRef.current) return;
+    if (currentPage > 0) {
+      isPageAnimatingRef.current = true;
+      setCurrentPage(p => p - 1);
+      setTimeout(() => { isPageAnimatingRef.current = false; }, 380);
+    } else if (prevChapter) {
+      goToLastPageRef.current = true;
+      navigate(`/novel/${bookId}/chapter/${prevChapter.id}`, { replace: true });
+    }
+  };
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    if (readMode !== 'page') return;
+    touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  };
+
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (readMode !== 'page' || !touchStartRef.current) return;
+    const dx = e.changedTouches[0].clientX - touchStartRef.current.x;
+    const dy = e.changedTouches[0].clientY - touchStartRef.current.y;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      if (dx < 0) goNextPage();
+      else goPrevPage();
+    }
+    touchStartRef.current = null;
+  };
 
   const renderParagraph = (para: string, pi: number) => {
     const mentionsInPara = mentionIndices.get(pi);
@@ -364,10 +509,37 @@ export default function NovelReader() {
     return <p key={pi} className="novel-para">{parts}</p>;
   };
 
+  // 翻页模式内容样式
+  const isPageMode = readMode === 'page';
+  const pagedContentStyle: React.CSSProperties = isPageMode && pageDims.w > 0 ? {
+    columnWidth: `${pageDims.w}px`,
+    columnGap: '0px',
+    columnFill: 'auto',
+    height: `${pageDims.h}px`,
+    maxWidth: 'none',
+    transform: `translateX(-${currentPage * pageDims.w}px)`,
+    transition: 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+    overflow: 'hidden',
+  } : isPageMode ? { visibility: 'hidden', maxWidth: 'none' } : {};
+
   return (
-    <div className="max-w-2xl mx-auto px-2 sm:px-0 pb-20">
+    <div
+      className={isPageMode
+        ? 'max-w-2xl mx-auto px-2 sm:px-0 flex flex-col'
+        : 'max-w-2xl mx-auto px-2 sm:px-0 pb-20'
+      }
+      style={isPageMode ? { height: '100dvh' } : {}}
+    >
+      {/* 牛皮纸做旧渐变叠加层 */}
+      {theme.bgOverlay && (
+        <div
+          className="fixed inset-0 pointer-events-none"
+          style={{ zIndex: 0, background: theme.bgOverlay }}
+        />
+      )}
+
       {/* 顶部工具栏 */}
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center py-3 mb-4">
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center py-3 mb-2 relative z-10 shrink-0">
         <div className="flex items-center">
           <button
             onClick={() => navigate(`/novel/${bookId}`)}
@@ -393,7 +565,7 @@ export default function NovelReader() {
       </div>
 
       {/* 阅读进度条 */}
-      <div className="h-0.5 mb-8 rounded-full" style={{ backgroundColor: 'var(--border-subtle)' }}>
+      <div className="h-0.5 mb-4 mx-2 rounded-full relative z-10 shrink-0" style={{ backgroundColor: 'var(--border-subtle)' }}>
         <div
           className="h-full rounded-full transition-all duration-200"
           style={{
@@ -404,69 +576,162 @@ export default function NovelReader() {
         />
       </div>
 
-      {/* 章节标题 */}
-      <h1
-        className="text-center mb-3"
-        style={{
-          color: theme.titleColor,
-          fontSize: `${Math.round(FONT_SIZES[fontSize].px * 1.5)}px`,
-          letterSpacing: '0.08em',
-          fontWeight: 600,
-        }}
-      >
-        {chapter.title}
-      </h1>
-
-      {/* 标题装饰线 */}
-      <div
-        className="w-12 h-px mx-auto mb-10"
-        style={{ backgroundColor: `${theme.accentColor}60` }}
-      />
-
-      {/* 正文 */}
-      <div
-        className="novel-content chapter-enter"
-        style={{
-          fontSize: `${FONT_SIZES[fontSize].px}px`,
-          lineHeight: LINE_HEIGHTS[lineHeight].value,
-        }}
-      >
-        {paragraphs.map((para, pi) => renderParagraph(para, pi))}
-      </div>
-
-      {/* 章节结尾分隔 */}
-      <div className="flex items-center justify-center gap-3 my-10">
-        <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border-subtle)' }} />
-        <span
-          className="text-xs tracking-widest"
-          style={{ color: 'var(--text-tertiary)' }}
+      {isPageMode ? (
+        /* ===== 翻页模式 ===== */
+        <div
+          ref={pagedWrapperRef}
+          className="flex-1 overflow-hidden relative"
+          onTouchStart={onTouchStart}
+          onTouchEnd={onTouchEnd}
         >
-          · 本章完 ·
-        </span>
-        <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border-subtle)' }} />
-      </div>
+          <div
+            ref={contentRef}
+            className="novel-content chapter-enter"
+            style={{
+              fontSize: `${FONT_SIZES[fontSize].px}px`,
+              lineHeight: LINE_HEIGHTS[lineHeight].value,
+              ...pagedContentStyle,
+            }}
+          >
+            {/* 章节标题（在分页内容内，仅第一页显示） */}
+            <h1
+              className="text-center mb-3"
+              style={{
+                color: theme.titleColor,
+                fontSize: `${Math.round(FONT_SIZES[fontSize].px * 1.5)}px`,
+                letterSpacing: '0.08em',
+                fontWeight: 600,
+              }}
+            >
+              {chapter.title}
+            </h1>
+            <div
+              className="w-12 h-px mx-auto mb-10"
+              style={{ backgroundColor: `${theme.accentColor}60` }}
+            />
+            {paragraphs.map((para, pi) => renderParagraph(para, pi))}
+            {/* 本章完分隔 */}
+            <div className="flex items-center justify-center gap-3 my-10">
+              <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border-subtle)' }} />
+              <span className="text-xs tracking-widest" style={{ color: 'var(--text-tertiary)' }}>
+                · 本章完 ·
+              </span>
+              <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border-subtle)' }} />
+            </div>
+          </div>
+
+          {/* 点击翻页区域：左1/4上一页，右1/4下一页，中间留给角色点击 */}
+          <div
+            className="absolute left-0 top-0 w-1/4 h-full z-10"
+            onClick={goPrevPage}
+          />
+          <div
+            className="absolute right-0 top-0 w-1/4 h-full z-10"
+            onClick={goNextPage}
+          />
+
+          {/* 页码指示器 */}
+          <div
+            className="absolute bottom-1 left-1/2 -translate-x-1/2 text-xs pointer-events-none z-10"
+            style={{ color: 'var(--text-tertiary)' }}
+          >
+            {currentPage + 1} / {totalPages}
+          </div>
+        </div>
+      ) : (
+        /* ===== 滚动模式（原有逻辑不变） ===== */
+        <>
+          {/* 章节标题 */}
+          <h1
+            className="text-center mb-3"
+            style={{
+              color: theme.titleColor,
+              fontSize: `${Math.round(FONT_SIZES[fontSize].px * 1.5)}px`,
+              letterSpacing: '0.08em',
+              fontWeight: 600,
+            }}
+          >
+            {chapter.title}
+          </h1>
+
+          {/* 标题装饰线 */}
+          <div
+            className="w-12 h-px mx-auto mb-10"
+            style={{ backgroundColor: `${theme.accentColor}60` }}
+          />
+
+          {/* 正文 */}
+          <div
+            className="novel-content chapter-enter"
+            style={{
+              fontSize: `${FONT_SIZES[fontSize].px}px`,
+              lineHeight: LINE_HEIGHTS[lineHeight].value,
+            }}
+          >
+            {paragraphs.map((para, pi) => renderParagraph(para, pi))}
+          </div>
+
+          {/* 章节结尾分隔 */}
+          <div className="flex items-center justify-center gap-3 my-10">
+            <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border-subtle)' }} />
+            <span
+              className="text-xs tracking-widest"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
+              · 本章完 ·
+            </span>
+            <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border-subtle)' }} />
+          </div>
+        </>
+      )}
 
       {/* 章节导航 */}
-      <div className="flex items-center justify-between text-sm">
-        <button
-          onClick={() => prevChapter && navigate(`/novel/${bookId}/chapter/${prevChapter.id}`, { replace: true })}
-          disabled={!prevChapter}
-          className="flex items-center gap-1 disabled:opacity-30 transition-opacity"
-          style={{ color: prevChapter ? theme.accentColor : 'var(--text-tertiary)' }}
-        >
-          <ChevronLeft size={16} /> 上一章
-        </button>
-        <span style={{ color: 'var(--text-tertiary)', fontSize: '0.8rem' }}>
-          {currentIndex + 1} / {bookChapters.length}
-        </span>
-        <button
-          onClick={() => nextChapter && navigate(`/novel/${bookId}/chapter/${nextChapter.id}`, { replace: true })}
-          disabled={!nextChapter}
-          className="flex items-center gap-1 disabled:opacity-30 transition-opacity"
-          style={{ color: nextChapter ? theme.accentColor : 'var(--text-tertiary)' }}
-        >
-          下一章 <ChevronRight size={16} />
-        </button>
+      <div className="flex items-center justify-between text-sm px-2 py-3 relative z-10 shrink-0">
+        {isPageMode ? (
+          <>
+            <button
+              onClick={goPrevPage}
+              className="flex items-center gap-1 transition-opacity"
+              style={{ color: theme.accentColor }}
+            >
+              <ChevronLeft size={16} />
+              {currentPage > 0 ? '上一页' : '上一章'}
+            </button>
+            <span style={{ color: 'var(--text-tertiary)', fontSize: '0.8rem' }}>
+              {isPageMode ? `第${currentIndex + 1}章 ${currentPage + 1}/${totalPages}页` : `${currentIndex + 1} / ${bookChapters.length}`}
+            </span>
+            <button
+              onClick={goNextPage}
+              className="flex items-center gap-1 transition-opacity"
+              style={{ color: theme.accentColor }}
+            >
+              {currentPage < totalPages - 1 ? '下一页' : '下一章'}
+              <ChevronRight size={16} />
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={() => prevChapter && navigate(`/novel/${bookId}/chapter/${prevChapter.id}`, { replace: true })}
+              disabled={!prevChapter}
+              className="flex items-center gap-1 disabled:opacity-30 transition-opacity"
+              style={{ color: prevChapter ? theme.accentColor : 'var(--text-tertiary)' }}
+            >
+              <ChevronLeft size={16} /> 上一章
+            </button>
+            <span style={{ color: 'var(--text-tertiary)', fontSize: '0.8rem' }}>
+              {currentIndex + 1} / {bookChapters.length}
+            </span>
+            <button
+              onClick={() => nextChapter && navigate(`/novel/${bookId}/chapter/${nextChapter.id}`, { replace: true })}
+              disabled={!nextChapter}
+              className="flex items-center gap-1 disabled:opacity-30 transition-opacity"
+              style={{ color: nextChapter ? theme.accentColor : 'var(--text-tertiary)' }}
+            >
+              下一章 <ChevronRight size={16} />
+            </button>
+          </>
+        )}
       </div>
 
       {/* 目录抽屉 */}
@@ -535,6 +800,35 @@ export default function NovelReader() {
               </button>
             </div>
             <div className="p-4 space-y-6">
+              {/* 阅读模式 */}
+              <div>
+                <label className="text-sm font-medium mb-3 block" style={{ color: 'var(--text-primary)' }}>阅读模式</label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setReadMode('scroll')}
+                    className="flex-1 py-2 rounded text-sm transition-all"
+                    style={{
+                      backgroundColor: readMode === 'scroll' ? `${theme.accentColor}20` : 'transparent',
+                      color: readMode === 'scroll' ? theme.accentColor : 'var(--text-tertiary)',
+                      border: `1px solid ${readMode === 'scroll' ? theme.accentColor : 'var(--border-default)'}`,
+                    }}
+                  >
+                    滚动
+                  </button>
+                  <button
+                    onClick={() => setReadMode('page')}
+                    className="flex-1 py-2 rounded text-sm transition-all"
+                    style={{
+                      backgroundColor: readMode === 'page' ? `${theme.accentColor}20` : 'transparent',
+                      color: readMode === 'page' ? theme.accentColor : 'var(--text-tertiary)',
+                      border: `1px solid ${readMode === 'page' ? theme.accentColor : 'var(--border-default)'}`,
+                    }}
+                  >
+                    翻页
+                  </button>
+                </div>
+              </div>
+
               {/* 主题 */}
               <div>
                 <label className="text-sm font-medium mb-3 block" style={{ color: 'var(--text-primary)' }}>阅读主题</label>

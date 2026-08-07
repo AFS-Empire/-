@@ -554,6 +554,11 @@ html.light [class*="text-gold-"] {
   text-align: justify;
   text-justify: inter-ideograph;
   line-break: strict;
+  break-inside: avoid;
+}
+.novel-content h1,
+.novel-content > div {
+  break-inside: avoid;
 }
 .mention-highlight {
   border-bottom: 1px dashed currentColor;
