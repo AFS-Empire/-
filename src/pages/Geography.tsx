@@ -58,7 +58,7 @@ export default function Geography() {
     const Icon = LEVEL_ICON[node.level];
     return (
       <div key={node.id} style={{ paddingLeft: depth * 20 }}>
-        <div className="card-entry group flex items-center gap-2 mb-2">
+        <div className="card-entry group flex items-center gap-2 mb-2 px-4 py-3">
           {hasChildren ? (
             <button className="text-gold-500 hover:text-gold-300 shrink-0" onClick={() => toggle(node.id)}>
               {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
@@ -135,7 +135,7 @@ export default function Geography() {
             {flatFiltered.map(g => {
               const Icon = LEVEL_ICON[g.level];
               return (
-                <div key={g.id} className="card-entry group flex items-center gap-2">
+                <div key={g.id} className="card-entry group flex items-center gap-2 px-4 py-3">
                   <Icon className="w-4 h-4 text-gold-500 shrink-0" />
                   <button className="flex-1 text-left min-w-0" onClick={() => navigate(`/entry/${g.id}`)}>
                     <div className="flex items-center gap-2 flex-wrap">

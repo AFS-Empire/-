@@ -68,7 +68,7 @@ export default function Tech() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map(t => (
             <div key={t.id} className="card-entry group relative">
-              <button className="block w-full text-left" onClick={() => navigate(`/entry/${t.id}`)}>
+              <button className="block w-full text-left px-4 py-4" onClick={() => navigate(`/entry/${t.id}`)}>
                 <div className="flex items-center gap-2">
                   <span className="text-gold-100 font-bold text-lg truncate flex-1">{t.title}</span>
                   <span className="tag-gold shrink-0">{CATEGORY_LABEL[t.category]}</span>

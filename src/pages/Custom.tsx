@@ -109,7 +109,7 @@ export default function Custom() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {sectionEntries.map(e => (
               <div key={e.id} className="card-entry group relative">
-                <button className="block w-full text-left" onClick={() => navigate(`/entry/${e.id}`)}>
+                <button className="block w-full text-left px-4 py-4" onClick={() => navigate(`/entry/${e.id}`)}>
                   <div className="text-gold-100 font-bold truncate">{e.title}</div>
                   {e.summary && <p className="text-sm text-ink-400 mt-1 line-clamp-2">{e.summary}</p>}
                 </button>
@@ -196,7 +196,7 @@ export default function Custom() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {customSections.map(s => (
             <div key={s.id} className="card-entry group relative">
-              <button className="block w-full text-left" onClick={() => setSelectedId(s.id)}>
+              <button className="block w-full text-left px-4 py-4" onClick={() => setSelectedId(s.id)}>
                 <div className="flex items-center gap-3">
                   <span className="text-3xl">{s.icon || '📁'}</span>
                   <div className="min-w-0">

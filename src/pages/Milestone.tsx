@@ -62,7 +62,7 @@ export default function Milestone() {
             <div key={m.id} className="relative">
               <span className="absolute -left-6 top-5 w-3 h-3 rounded-full bg-gold-500 border-2 border-ink-950 z-10" />
               <div className="card-entry group relative">
-                <button className="block w-full text-left" onClick={() => navigate(`/entry/${m.id}`)}>
+                <button className="block w-full text-left px-4 py-3" onClick={() => navigate(`/entry/${m.id}`)}>
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="tag-gold">{m.year || '—'}</span>
                     <span className={IMPORTANCE_CLASS[m.importance]}>{IMPORTANCE_LABEL[m.importance]}</span>

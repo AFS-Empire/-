@@ -95,6 +95,25 @@
   --color-ink-950-runtime: #121008;
 }
 
+/* 浅色模式：所有文字统一加黑色细描边，强光下提升可读性 */
+html.light,
+:root.light body {
+  -webkit-text-stroke: 0.25px rgba(0, 0, 0, 0.7);
+  text-stroke: 0.25px rgba(0, 0, 0, 0.7);
+}
+html.light *,
+:root.light body * {
+  -webkit-text-stroke: inherit;
+  text-stroke: inherit;
+}
+/* 标签/按钮/标题金色文字描边改为深棕色，更自然 */
+html.light .section-title,
+html.light h1, html.light h2, html.light h3, html.light h4,
+html.light [class*="text-gold-"] {
+  -webkit-text-stroke: 0.25px rgba(90, 55, 10, 0.85);
+  text-stroke: 0.25px rgba(90, 55, 10, 0.85);
+}
+
 /* ======================
    Tailwind @theme — 颜色 token 必须在此定义才能生成工具类
    颜色值由 :root / :root.light 中的对应 CSS 变量控制（浅/深切换时自动生效）

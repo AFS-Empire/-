@@ -188,7 +188,7 @@ export default function EntryDetail() {
               <Link
                 key={link.id}
                 to={`/entry/${link.id}`}
-                className="card-entry w-full flex items-center justify-between gap-3"
+                className="card-entry w-full flex items-center justify-between gap-3 px-4 py-3"
               >
                 <div className="min-w-0">
                   <div className="text-gold-100 font-medium truncate">{link.title}</div>

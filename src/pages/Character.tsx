@@ -86,7 +86,7 @@ export default function Character() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map(c => (
             <div key={c.id} className="card-entry group relative">
-              <button className="block w-full text-left" onClick={() => navigate(`/entry/${c.id}`)}>
+              <button className="block w-full text-left px-4 py-4" onClick={() => navigate(`/entry/${c.id}`)}>
                 <div className="text-gold-100 font-bold text-lg truncate">{c.title}</div>
                 {c.identity && <p className="text-sm text-gold-400 mt-1">{c.identity}</p>}
                 <div className="flex flex-wrap gap-1.5 mt-2">

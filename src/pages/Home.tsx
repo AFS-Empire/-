@@ -108,7 +108,7 @@ export default function Home() {
               <div
                 key={entry.id}
                 onClick={() => navigate(`/entry/${entry.id}`)}
-                className="card-entry flex items-center gap-4"
+                className="card-entry flex items-center gap-4 px-4 py-3"
               >
                 <span className="tag-gold shrink-0">{sectionLabel[entry.type] || entry.type}</span>
                 <div className="flex-1 min-w-0">

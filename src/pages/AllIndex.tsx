@@ -119,7 +119,7 @@ export default function AllIndex() {
                   <div
                     key={entry.id}
                     onClick={() => navigate(`/entry/${entry.id}`)}
-                    className="card-entry flex items-center gap-3"
+                    className="card-entry flex items-center gap-3 px-4 py-3"
                   >
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-ink-100 truncate">{entry.title}</div>
