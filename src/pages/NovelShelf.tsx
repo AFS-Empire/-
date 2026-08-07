@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, Plus, Trash2, EyeOff } from 'lucide-react';
+import { BookOpen, Plus, Trash2, EyeOff, Image as ImageIcon } from 'lucide-react';
 import { useNovelStore } from '../store/novelStore';
 import { useBindingStore } from '../store/bindingStore';
 import { IS_WEB_BUILD } from '../lib/buildTarget';
@@ -21,6 +21,9 @@ export default function NovelShelf() {
   const [showModeDialog, setShowModeDialog] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
   const [alertMsg, setAlertMsg] = useState('');
+  const updateBook = useNovelStore(s => s.updateBook);
+  const coverInputRef = useRef<HTMLInputElement | null>(null);
+  const coverTargetBookIdRef = useRef<string>('');
 
   const handleCreateClick = () => {
     if (!isBound) { setAlertMsg('设备未绑定，无法新建小说'); return; }
@@ -65,6 +68,58 @@ export default function NovelShelf() {
     await deleteBook(target.id);
   };
 
+  // 封面上传：文件转 base64，最大 2MB 压缩，存到 book.cover
+  const handleCoverClick = (bookId: string) => {
+    if (!isBound) { setAlertMsg('设备未绑定，无法修改封面'); return; }
+    coverTargetBookIdRef.current = bookId;
+    coverInputRef.current?.click();
+  };
+  const handleCoverClear = async (bookId: string) => {
+    if (!isBound) { setAlertMsg('设备未绑定'); return; }
+    await updateBook(bookId, { cover: undefined });
+  };
+  const handleCoverFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    const bookId = coverTargetBookIdRef.current;
+    if (!bookId) return;
+
+    // 限制文件大小，超了走 canvas 压缩
+    const maxSize = 2 * 1024 * 1024;
+    let dataUrl: string;
+    if (file.size <= maxSize && file.type.startsWith('image/')) {
+      dataUrl = await new Promise((res, rej) => {
+        const reader = new FileReader();
+        reader.onload = () => res(reader.result as string);
+        reader.onerror = rej;
+        reader.readAsDataURL(file);
+      });
+    } else {
+      dataUrl = await new Promise((res, rej) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const targetW = 600;
+            const scale = targetW / img.width;
+            canvas.width = targetW;
+            canvas.height = Math.round(img.height * scale);
+            const ctx = canvas.getContext('2d')!;
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            res(canvas.toDataURL('image/jpeg', 0.85));
+          };
+          img.onerror = rej;
+          img.src = reader.result as string;
+        };
+        reader.onerror = rej;
+        reader.readAsDataURL(file);
+      });
+    }
+    await updateBook(bookId, { cover: dataUrl });
+  };
+
   return (
     <div className="max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
@@ -92,57 +147,98 @@ export default function NovelShelf() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-          {books.map(book => {
-            const prog = progress[book.id];
-            const pct = book.totalChapters > 0 ? Math.round((book.completedChapters / book.totalChapters) * 100) : 0;
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {books.map(book => {
+              const prog = progress[book.id];
+              const pct = book.totalChapters > 0 ? Math.round((book.completedChapters / book.totalChapters) * 100) : 0;
 
-            return (
-              <div
-                key={book.id}
-                onClick={() => navigate(`/novel/${book.id}`)}
-                className="panel-gold p-4 cursor-pointer group hover:border-gold-700/50 transition-all"
-              >
-                <div className="aspect-[3/4] bg-gradient-to-br from-ink-800 to-ink-950 rounded-lg mb-3 flex items-center justify-center border border-gold-900/30 relative overflow-hidden">
-                  <BookOpen size={36} className="text-gold-700/50" />
-                  {book.spoilerMode === 'unlock' && (
-                    <div className="absolute top-2 right-2">
-                      <EyeOff size={14} className="text-gold-600/70" />
+              return (
+                <div
+                  key={book.id}
+                  className="panel-gold p-3 cursor-pointer group relative"
+                  onClick={() => navigate(`/novel/${book.id}`)}
+                >
+                  {/* 封面区域 */}
+                  <div className="aspect-[3/4] rounded-lg mb-3 border border-gold-900/30 relative overflow-hidden group/cover">
+                    {book.cover ? (
+                      <img
+                        src={book.cover}
+                        alt={book.title}
+                        className="w-full h-full object-cover"
+                        draggable={false}
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-ink-800 to-ink-950 flex items-center justify-center">
+                        <BookOpen size={36} className="text-gold-700/50" />
+                      </div>
+                    )}
+                    {book.spoilerMode === 'unlock' && (
+                      <div className="absolute top-2 right-2">
+                        <EyeOff size={14} className="text-gold-600/80" />
+                      </div>
+                    )}
+                    {!IS_WEB_BUILD && (
+                      <div className="absolute inset-0 bg-black/55 opacity-0 group-hover/cover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
+                        <button
+                          onClick={e => { e.stopPropagation(); handleCoverClick(book.id); }}
+                          className="btn-gold text-xs py-1 px-3"
+                        >
+                          <ImageIcon size={12} />
+                          {book.cover ? '更换封面' : '上传封面'}
+                        </button>
+                        {book.cover && (
+                          <button
+                            onClick={e => { e.stopPropagation(); handleCoverClear(book.id); }}
+                            className="text-xs text-ink-300 hover:text-red-400 transition-colors"
+                          >
+                            清除封面
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <h3 className="font-bold text-gold-200 truncate group-hover:text-gold-100">
+                    {book.title}
+                  </h3>
+                  <div className="flex items-center justify-between mt-2 text-xs text-ink-500">
+                    <span>{book.totalChapters} 章</span>
+                    <span>{pct}%</span>
+                  </div>
+                  {book.totalChapters > 0 && prog && (
+                    <div className="mt-1.5 h-1 bg-ink-800 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gold-500 transition-all"
+                        style={{ width: `${pct}%` }}
+                      />
                     </div>
                   )}
+                  {!IS_WEB_BUILD && (
+                    <button
+                      onClick={e => {
+                        e.stopPropagation();
+                        if (!isBound) { setAlertMsg('设备未绑定，无法删除'); return; }
+                        setDeleteTarget({ id: book.id, title: book.title });
+                      }}
+                      className="absolute top-1 right-1 p-1 rounded text-ink-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                      title="删除"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
                 </div>
-                <h3 className="font-bold text-gold-200 truncate group-hover:text-gold-100">
-                  {book.title}
-                </h3>
-                <div className="flex items-center justify-between mt-2 text-xs text-ink-500">
-                  <span>{book.totalChapters} 章</span>
-                  <span>{pct}%</span>
-                </div>
-                {book.totalChapters > 0 && prog && (
-                  <div className="mt-1.5 h-1 bg-ink-800 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gold-500 transition-all"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                )}
-                {!IS_WEB_BUILD && (
-                  <button
-                    onClick={e => {
-                      e.stopPropagation();
-                      if (!isBound) { setAlertMsg('设备未绑定，无法删除'); return; }
-                      setDeleteTarget({ id: book.id, title: book.title });
-                    }}
-                    className="absolute top-1 right-1 p-1 rounded text-ink-600 hover:text-red-400 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-                    title="删除"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                )}
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+          <input
+            ref={coverInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleCoverFileChange}
+          />
+        </>
       )}
 
       {/* 输入小说名称 */}

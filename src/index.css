@@ -32,7 +32,7 @@
   --select-text: #f0f0f3;
   --autofill-bg: #1c1c20;
   --autofill-text: #fff8e8;
-  --rune-opacity: 0.4;
+  --rune-opacity: 0.5;
 
   /* ======================
      Tailwind 主题 token 运行时值（暗色模式）
@@ -76,7 +76,7 @@
   --select-text: #1a1816;
   --autofill-bg: #faf7f0;
   --autofill-text: #1a1816;
-  --rune-opacity: 0.45;
+  --rune-opacity: 0.55;
 
   /* ink 色阶运行时值（浅色模式）
      @theme 中的 --color-ink-* 会引用这些变量 */
@@ -308,15 +308,20 @@
     box-shadow: 0 0 0 1px var(--color-gold-700), 0 0 12px rgba(200, 144, 42, 0.25);
   }
 
-  /* panel：无边框，用背景色区分层次 */
+  /* panel：半透明毛玻璃，让下面的铭文水印隐约透出来 */
   .panel {
     @apply rounded-xl relative overflow-hidden;
-    background-color: var(--bg-elevated);
+    background-color: color-mix(in srgb, var(--bg-elevated) 72%, transparent);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid color-mix(in srgb, var(--border-default) 50%, transparent);
   }
   .panel-gold {
-    @apply rounded-xl relative overflow-hidden border;
-    background-color: var(--bg-elevated);
-    border-color: rgba(101, 62, 28, 0.35);
+    @apply rounded-xl relative overflow-hidden;
+    background-color: color-mix(in srgb, var(--bg-elevated) 68%, transparent);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(101, 62, 28, 0.35);
   }
 
   .input-field {

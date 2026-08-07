@@ -41,7 +41,7 @@ const READER_THEMES: Record<ReaderTheme, ReaderThemeConfig> = {
       '--text-tertiary': '#6e6a60',
       '--border-default': '#2a2a28',
       '--border-subtle': '#1e1e1c',
-      '--rune-opacity': '0.28',
+      '--rune-opacity': '0.33',
     },
   },
   light: {
@@ -58,7 +58,7 @@ const READER_THEMES: Record<ReaderTheme, ReaderThemeConfig> = {
       '--text-tertiary': '#8a8478',
       '--border-default': '#d8d0c0',
       '--border-subtle': '#e0d8c8',
-      '--rune-opacity': '0.35',
+      '--rune-opacity': '0.40',
     },
   },
   parchment: {
@@ -75,7 +75,7 @@ const READER_THEMES: Record<ReaderTheme, ReaderThemeConfig> = {
       '--text-tertiary': '#8a8278',
       '--border-default': '#c4b898',
       '--border-subtle': '#d0c4a8',
-      '--rune-opacity': '0.22',
+      '--rune-opacity': '0.27',
     },
   },
 };
@@ -364,20 +364,22 @@ export default function NovelReader() {
   return (
     <div className="max-w-2xl mx-auto pb-20">
       {/* 顶部工具栏 */}
-      <div className="flex items-center justify-between py-3 mb-4">
-        <button
-          onClick={() => navigate(`/novel/${bookId}`)}
-          className="btn-ghost p-2"
-        >
-          <ChevronLeft size={20} />
-        </button>
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center py-3 mb-4">
+        <div className="flex items-center">
+          <button
+            onClick={() => navigate(`/novel/${bookId}`)}
+            className="btn-ghost p-2"
+          >
+            <ChevronLeft size={20} />
+          </button>
+        </div>
         <span
-          className="text-sm font-medium truncate flex-1 text-center px-2"
+          className="text-sm font-medium truncate px-2 max-w-full text-center"
           style={{ color: theme.titleColor }}
         >
           {chapter.title}
         </span>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center justify-end gap-1">
           <button onClick={() => setShowToc(true)} className="btn-ghost p-2" title="目录">
             <List size={18} />
           </button>
