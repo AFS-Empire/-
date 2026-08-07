@@ -210,6 +210,8 @@ export default function NovelReader() {
     return map;
   }, [chapter, paragraphs, showMentions]);
 
+  const markedReadRef = useRef<string | null>(null);
+
   // 加载进度
   useEffect(() => {
     if (!chapter || !containerRef.current) return;
@@ -222,7 +224,9 @@ export default function NovelReader() {
         }
       });
     }
-    if (!chapter.read && book) {
+    // 仅在章节首次加载时标记已读，防止重复调用导致循环
+    if (!chapter.read && book && markedReadRef.current !== chapterId) {
+      markedReadRef.current = chapterId!;
       markChapterRead(bookId!, chapterId!);
     }
   }, [chapter, book, markChapterRead, bookId, chapterId]);

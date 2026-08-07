@@ -387,7 +387,7 @@ export default function BackupBar() {
 
       {/* 数据存储位置（仅桌面版） */}
       {appInfo && (
-        <div className="px-2 py-1.5 rounded-md bg-ink-900/40 border border-ink-700/50 text-[10px] text-ink-400 leading-relaxed">
+        <div className="px-2 py-1.5 rounded-md bg-[var(--bg-elevated)] border border-[var(--border-default)] text-[10px] text-ink-400 leading-relaxed">
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-1 text-gold-500/70">
               <Database size={10} />
@@ -521,7 +521,7 @@ export default function BackupBar() {
                 autoBackups.map(item => (
                   <div
                     key={item.name}
-                    className="group flex items-center gap-1.5 px-2 py-1.5 rounded-md bg-ink-900/40 border border-ink-700/40 hover:border-gold-700/40 transition-colors"
+                    className="group flex items-center gap-1.5 px-2 py-1.5 rounded-md bg-[var(--bg-elevated)] border border-[var(--border-default)] hover:border-gold-700/40 transition-colors"
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1">

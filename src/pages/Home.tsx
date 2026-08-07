@@ -76,7 +76,7 @@ export default function Home() {
             <button
               key={item.to}
               onClick={() => navigate(item.to)}
-              className="group panel-gold p-5 text-left transition-all duration-300 hover:border-gold-700/50 hover:bg-ink-900/80"
+              className="group panel-gold p-5 text-left transition-all duration-300 hover:border-gold-700/50 hover:bg-[var(--bg-elevated)]"
             >
               <div className="flex items-center justify-between mb-3">
                 <Icon size={22} className="text-gold-500/70 group-hover:text-gold-400 transition-colors" />

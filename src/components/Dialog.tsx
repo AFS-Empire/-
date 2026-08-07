@@ -278,7 +278,7 @@ export function Picker({ value, onChange, options, placeholder = '请选择', cl
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={`w-full px-4 py-2.5 rounded-lg bg-ink-850 border border-ink-700 text-ink-100 focus:outline-none focus:border-gold-700 focus:ring-1 focus:ring-gold-700/50 transition-all flex items-center justify-between text-left ${className}`}
+        className={`w-full px-4 py-2.5 rounded-lg bg-[var(--bg-input)] border border-[var(--border-default)] text-[var(--text-primary)] focus:outline-none focus:border-gold-700 focus:ring-1 focus:ring-gold-700/50 transition-all flex items-center justify-between text-left ${className}`}
       >
         <span className={selected ? 'text-ink-100' : 'text-ink-500'}>
           {selected?.label || placeholder}

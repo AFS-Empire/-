@@ -298,7 +298,7 @@ export default function About() {
                 <CheckCircle2 size={36} className="text-green-400 mx-auto" />
                 <p className="text-sm text-green-400">已解锁 · 导入功能已开启</p>
                 {keyFingerprint && (
-                  <div className="text-left bg-ink-900/60 rounded p-2 border border-ink-800/80 space-y-1">
+                  <div className="text-left bg-[var(--bg-elevated)] rounded p-2 border border-[var(--border-default)] space-y-1">
                     <p className="text-[10px] text-ink-500">
                       同步密钥指纹（请与 App 端「技术信息」中指纹比对）
                     </p>

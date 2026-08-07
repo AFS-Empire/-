@@ -31,7 +31,7 @@ export default class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-ink-950 p-6">
+        <div className="min-h-screen flex items-center justify-center bg-[var(--bg-base)] p-6">
           <div className="max-w-sm text-center space-y-4">
             <div className="text-6xl">⚠️</div>
             <h1 className="text-xl font-bold text-gold-200">页面出错了</h1>
@@ -41,7 +41,7 @@ export default class ErrorBoundary extends Component<Props, State> {
               尝试刷新页面，如果问题持续请重新安装。
             </p>
             {this.state.error && (
-              <details className="text-left text-xs text-ink-600 bg-ink-900/60 rounded-lg p-3 border border-ink-800">
+              <details className="text-left text-xs text-ink-600 bg-[var(--bg-surface)] rounded-lg p-3 border border-[var(--border-default)]">
                 <summary className="cursor-pointer text-ink-500">错误详情</summary>
                 <pre className="mt-2 whitespace-pre-wrap break-all">{this.state.error.message}</pre>
               </details>

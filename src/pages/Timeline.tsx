@@ -138,7 +138,7 @@ export default function Timeline() {
           </div>
 
           {editingEra && (
-            <div key={editingEra.id} className="p-4 bg-ink-900 rounded-lg border border-gold-800/50 space-y-3">
+            <div key={editingEra.id} className="p-4 bg-[var(--bg-elevated)] rounded-lg border border-gold-800/50 space-y-3">
               <h3 className="text-gold-300 font-medium">{editingEra.name ? '编辑纪元' : '新增纪元'}</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>

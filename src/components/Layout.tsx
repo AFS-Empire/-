@@ -126,10 +126,8 @@ export default function Layout() {
             end={item.to === '/'}
             onClick={onNavigate}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 border-l-2 ${
-                isActive
-                  ? 'bg-gold-900/20 text-gold-300 border-gold-500'
-                  : 'text-ink-400 hover:text-gold-400/80 hover:bg-ink-800/30 border-transparent'
+              `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 border-l-2 app-nav-item ${
+                isActive ? 'active' : ''
               }`
             }
           >
@@ -145,10 +143,8 @@ export default function Layout() {
         end
         onClick={onNavigate}
         className={({ isActive }) =>
-          `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 border-l-2 ${
-            isActive
-              ? 'bg-gold-900/20 text-gold-300 border-gold-500'
-              : 'text-ink-400 hover:text-gold-400/80 hover:bg-ink-800/30 border-transparent'
+          `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 border-l-2 app-nav-item ${
+            isActive ? 'active' : ''
           }`
         }
       >
@@ -161,10 +157,8 @@ export default function Layout() {
         to="/about"
         onClick={onNavigate}
         className={({ isActive }) =>
-          `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 border-l-2 ${
-            isActive
-              ? 'bg-gold-900/20 text-gold-300 border-gold-500'
-              : 'text-ink-400 hover:text-gold-400/80 hover:bg-ink-800/30 border-transparent'
+          `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 border-l-2 app-nav-item ${
+            isActive ? 'active' : ''
           }`
         }
       >
@@ -184,7 +178,7 @@ export default function Layout() {
       <div className="gold-divider my-3" />
       <button
         onClick={handleForceRefresh}
-        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 border-l-2 border-transparent text-ink-400 hover:text-gold-400/80 hover:bg-ink-800/30"
+        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 border-l-2 border-transparent app-nav-item"
         title="卡住或数据不同步时点击"
       >
         <RefreshCw size={17} />
@@ -194,7 +188,7 @@ export default function Layout() {
       {/* 主题切换按钮 */}
       <button
         onClick={handleThemeClick}
-        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 border-l-2 border-transparent text-ink-400 hover:text-gold-400/80 hover:bg-ink-800/30"
+        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 border-l-2 border-transparent app-nav-item"
         title="切换深色/浅色主题"
       >
         <Sun size={17} />
@@ -214,7 +208,7 @@ export default function Layout() {
   return (
     <div className="min-h-screen flex flex-col">
       {/* 顶部导航栏（pt 用 safe-area 避开刘海/状态栏） */}
-      <header className="sticky top-0 z-30 bg-ink-950/95 backdrop-blur border-b border-gold-900/20" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+      <header className="sticky top-0 z-30 app-header backdrop-blur" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className="flex items-center justify-between px-4 h-14">
           <div className="flex items-center gap-3">
             <button
@@ -254,7 +248,7 @@ export default function Layout() {
 
       <div className="flex flex-1">
         {/* 桌面侧边栏 */}
-        <aside className="hidden lg:block w-56 shrink-0 border-r border-gold-900/15 bg-ink-950/60 p-4">
+        <aside className="hidden lg:block w-56 shrink-0 app-sidebar p-4">
           {renderNav()}
         </aside>
 
@@ -265,7 +259,7 @@ export default function Layout() {
               className="lg:hidden fixed inset-0 top-14 z-30 bg-black/60"
               onClick={() => setSidebarOpen(false)}
             />
-            <aside className="lg:hidden fixed left-0 top-14 bottom-0 z-40 w-56 bg-ink-950 border-r border-gold-900/20 p-4 overflow-y-auto animate-slide-up">
+            <aside className="lg:hidden fixed left-0 top-14 bottom-0 z-40 w-56 app-sidebar-mobile p-4 overflow-y-auto animate-slide-up">
               {renderNav(() => setSidebarOpen(false))}
             </aside>
           </>

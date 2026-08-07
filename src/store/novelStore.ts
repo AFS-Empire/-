@@ -75,6 +75,41 @@ export const useNovelStore = create<NovelState>((set, get) => ({
       if (progress) progressMap[book.id] = progress;
     }
 
+    // Stability guard: only set() if data actually changed to prevent cascading re-renders
+    const cur = get();
+    const sameBookIds = cur.books.length === books.length &&
+      cur.books.every((b, i) => b.id === books[i].id);
+    if (cur.loaded && sameBookIds) {
+      // 比较书籍关键属性（标题、章节数、已读数）
+      const sameBookData = books.every(nb => {
+        const cb = cur.books.find(b => b.id === nb.id);
+        if (!cb) return false;
+        return cb.title === nb.title &&
+          cb.totalChapters === nb.totalChapters &&
+          cb.completedChapters === nb.completedChapters &&
+          cb.updatedAt === nb.updatedAt;
+      });
+      // 比较章节的 read 状态
+      const sameChapterRead = Object.keys(chaptersMap).every(id => {
+        const curChapters = cur.chapters[id] || [];
+        const newChapters = chaptersMap[id];
+        if (curChapters.length !== newChapters.length) return false;
+        return newChapters.every(nc => {
+          const cc = curChapters.find(c => c.id === nc.id);
+          return cc && cc.read === nc.read && cc.updatedAt === nc.updatedAt;
+        });
+      });
+      // 比较进度
+      const sameProgress = Object.keys(progressMap).every(id => {
+        const cp = cur.progress[id];
+        const np = progressMap[id];
+        if (!cp && !np) return true;
+        if (!cp || !np) return false;
+        return cp.lastChapterId === np.lastChapterId && cp.scrollRatio === np.scrollRatio;
+      });
+      if (sameBookData && sameChapterRead && sameProgress) return;
+    }
+
     set({ books, volumes: volumesMap, chapters: chaptersMap, progress: progressMap, loaded: true });
   },
 
@@ -253,7 +288,7 @@ export const useNovelStore = create<NovelState>((set, get) => ({
     // 标记已读属于普通用户操作，无需验证
     const db = await import('../data/db').then(m => m.getDB());
     const chap = await db.get('novelChapters', chapterId) as NovelChapter | undefined;
-    if (!chap) return;
+    if (!chap) return false;
     const updated = { ...chap, read: true };
     await novelDb.saveNovelChapter(updated);
 
@@ -264,6 +299,7 @@ export const useNovelStore = create<NovelState>((set, get) => ({
       await novelDb.saveNovelBook({ ...book, completedChapters: completed });
     }
     await get().refresh();
+    return true;
   },
 
   saveProgress: async (progress) => {

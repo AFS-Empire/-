@@ -253,7 +253,7 @@ export default function App() {
     // App 端设备绑定校验失败 → 锁定界面
     if (bindingResult && bindingResult.bound && !bindingResult.match) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-ink-950 p-6">
+        <div className="min-h-screen flex items-center justify-center bg-[var(--bg-base)] p-6">
           <div className="max-w-sm text-center space-y-4">
             <div className="text-6xl">🔒</div>
             <h1 className="text-xl font-bold text-red-400">设备未授权</h1>
