@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   Home,
@@ -57,9 +57,35 @@ export default function Layout() {
   const [showRefreshConfirm, setShowRefreshConfirm] = useState(false);
   const [showThemeDialog, setShowThemeDialog] = useState(false);
   const [pendingTheme, setPendingTheme] = useState<'dark' | 'light'>('dark');
+  // 讨论浮动按钮：'intro'(初始5s展示) → 'peek'(缩回只露黄色小边) → 'expanded'(点击后展开小圆球)
+  const [fabState, setFabState] = useState<'intro' | 'peek' | 'expanded'>('intro');
+  const fabTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const isUnlocked = useHiddenUnlock(s => s.isUnlocked);
+
+  // 自动缩回计时器：intro 5s 后 peek；expanded 3s 无操作后 peek
+  useEffect(() => {
+    if (fabTimerRef.current) clearTimeout(fabTimerRef.current);
+    if (fabState === 'intro') {
+      fabTimerRef.current = setTimeout(() => setFabState('peek'), 5000);
+    } else if (fabState === 'expanded') {
+      fabTimerRef.current = setTimeout(() => setFabState('peek'), 3000);
+    }
+    return () => {
+      if (fabTimerRef.current) clearTimeout(fabTimerRef.current);
+    };
+  }, [fabState]);
+
+  // 路由变化时自动最小化，不挡新页面内容
+  useEffect(() => {
+    setFabState('peek');
+  }, [location.pathname]);
+
+  // 小露黄条(peek)点一下 → 展开(expanded)；展开点主按钮 → 跳转评论区；展开点小叉 → 立刻缩回
+  const onPeekClick = () => setFabState('expanded');
+  const onMainFabClick = () => goToComments();
+  const onCollapseClick = (e: React.MouseEvent) => { e.stopPropagation(); setFabState('peek'); };
 
   // 主题初始化：从 localStorage 读取，默认深色
   useEffect(() => {
@@ -271,17 +297,70 @@ export default function Layout() {
         </main>
       </div>
 
-      {/* 右下角浮动按钮：快速前往评论区（bottom 用 calc 避开系统导航栏） */}
-      <button
-        onClick={goToComments}
-        className="fixed right-6 z-20 btn-gold rounded-full shadow-lg"
-        style={{ bottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)' }}
-        aria-label="讨论"
-        title="前往评论区"
-      >
-        <MessageCircle size={18} />
-        <span className="text-sm">讨论</span>
-      </button>
+      {/* 右下角讨论：三态 — intro(5s提示球)/peek(缩露黄边)/expanded(展开圆球) */}
+      {fabState === 'intro' && (
+        <button
+          onClick={onMainFabClick}
+          className="fixed right-5 z-20 btn-gold rounded-full shadow-xl animate-fade-in"
+          style={{ bottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)' }}
+          aria-label="讨论"
+        >
+          <MessageCircle size={18} />
+          <span className="text-sm">讨论</span>
+        </button>
+      )}
+
+      {fabState === 'peek' && (
+        <button
+          onClick={onPeekClick}
+          className="fixed z-20 transition-all duration-300"
+          style={{
+            right: 0,
+            bottom: 'calc(env(safe-area-inset-bottom) + 1.8rem)',
+            width: '14px',
+            height: '44px',
+            background: 'linear-gradient(90deg, transparent 0%, #c9a84c 40%, #d8b860 100%)',
+            borderRadius: '8px 0 0 8px',
+            boxShadow: '-2px 0 8px rgba(0,0,0,0.3), inset 1px 0 0 rgba(255,255,255,0.25)',
+            border: 'none',
+            cursor: 'pointer',
+          }}
+          aria-label="展开讨论按钮"
+          title="点击展开"
+        />
+      )}
+
+      {fabState === 'expanded' && (
+        <div
+          className="fixed right-4 z-20 animate-fade-in"
+          style={{ bottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)' }}
+        >
+          <div className="relative flex items-center">
+            <button
+              onClick={onMainFabClick}
+              className="btn-gold rounded-full shadow-xl w-14 h-14 flex items-center justify-center"
+              style={{ padding: 0 }}
+              aria-label="前往讨论区"
+              title="前往讨论区"
+            >
+              <MessageCircle size={22} />
+            </button>
+            <button
+              onClick={onCollapseClick}
+              className="absolute -top-1 -left-1 w-5 h-5 rounded-full flex items-center justify-center text-xs shadow"
+              style={{
+                backgroundColor: 'var(--bg-elevated)',
+                color: 'var(--text-tertiary)',
+                border: '1px solid var(--border-default)',
+              }}
+              aria-label="收起"
+              title="收起"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 强制刷新确认对话框 */}
       <ConfirmDialog
