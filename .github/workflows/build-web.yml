@@ -1,16 +1,6 @@
 name: 构建 Web 资源
 
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - 'src/**'
-      - 'index.html'
-      - 'vite.config.ts'
-      - 'tsconfig*.json'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/build-web.yml'
   workflow_dispatch:
 
 jobs:
