@@ -67,7 +67,7 @@ export default function Home() {
   };
 
   return (
-    <div className="animate-fade-in max-w-5xl mx-auto">
+    <div className="animate-fade-in max-w-3xl mx-auto px-2 sm:px-0">
       {/* 页眉三大入口 */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
         {headerEntries.map(item => {

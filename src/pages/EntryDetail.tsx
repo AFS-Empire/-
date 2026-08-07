@@ -114,7 +114,7 @@ export default function EntryDetail() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-4xl mx-auto">
+    <div className="space-y-6 animate-fade-in max-w-3xl mx-auto px-2 sm:px-0">
       <div className="flex items-center justify-between">
         <button className="btn-ghost" onClick={() => navigate(-1)}><ArrowLeft className="w-4 h-4" /> 返回</button>
         {isAdmin && (

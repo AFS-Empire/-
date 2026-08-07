@@ -325,7 +325,7 @@ export default function EntryEditor() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-3xl mx-auto">
+    <div className="space-y-6 animate-fade-in max-w-3xl mx-auto px-2 sm:px-0">
       <div className="flex items-center justify-between">
         <button className="btn-ghost" onClick={() => navigate(-1)}><ArrowLeft className="w-4 h-4" /> 取消</button>
         <h1 className="text-xl font-bold text-gold-200">

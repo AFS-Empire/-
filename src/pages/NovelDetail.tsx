@@ -132,7 +132,7 @@ export default function NovelDetail() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-4">
+    <div className="max-w-3xl mx-auto px-2 sm:px-0 space-y-4">
       {/* 书信息 */}
       <div className="panel-gold p-5">
         <div className="flex items-start justify-between">

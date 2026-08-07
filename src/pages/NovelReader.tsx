@@ -41,7 +41,8 @@ const READER_THEMES: Record<ReaderTheme, ReaderThemeConfig> = {
       '--text-tertiary': '#6e6a60',
       '--border-default': '#2a2a28',
       '--border-subtle': '#1e1e1c',
-      '--rune-opacity': '0.33',
+      '--rune-opacity': '0.35',
+      '--rune-filter': 'brightness(1.45) saturate(0.85)',
     },
   },
   light: {
@@ -59,6 +60,7 @@ const READER_THEMES: Record<ReaderTheme, ReaderThemeConfig> = {
       '--border-default': '#d8d0c0',
       '--border-subtle': '#e0d8c8',
       '--rune-opacity': '0.40',
+      '--rune-filter': 'brightness(1.15) saturate(0.8)',
     },
   },
   parchment: {
@@ -75,7 +77,8 @@ const READER_THEMES: Record<ReaderTheme, ReaderThemeConfig> = {
       '--text-tertiary': '#8a8278',
       '--border-default': '#c4b898',
       '--border-subtle': '#d0c4a8',
-      '--rune-opacity': '0.27',
+      '--rune-opacity': '0.28',
+      '--rune-filter': 'brightness(1.1) saturate(0.7)',
     },
   },
 };
@@ -362,7 +365,7 @@ export default function NovelReader() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto pb-20">
+    <div className="max-w-2xl mx-auto px-2 sm:px-0 pb-20">
       {/* 顶部工具栏 */}
       <div className="grid grid-cols-[1fr_auto_1fr] items-center py-3 mb-4">
         <div className="flex items-center">

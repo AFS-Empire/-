@@ -36,7 +36,7 @@ export default function Milestone() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
+    <div className="max-w-3xl mx-auto px-2 sm:px-0 space-y-6 animate-fade-in">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">
           <Flag className="w-7 h-7 text-gold-400 mt-1" />

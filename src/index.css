@@ -32,7 +32,8 @@
   --select-text: #f0f0f3;
   --autofill-bg: #1c1c20;
   --autofill-text: #fff8e8;
-  --rune-opacity: 0.55;
+  --rune-opacity: 0.5;
+  --rune-filter: brightness(1.5) saturate(0.85);
 
   /* ======================
      Tailwind 主题 token 运行时值（暗色模式）
@@ -76,7 +77,8 @@
   --select-text: #1a1816;
   --autofill-bg: #faf7f0;
   --autofill-text: #1a1816;
-  --rune-opacity: 0.60;
+  --rune-opacity: 0.55;
+  --rune-filter: brightness(1.2) saturate(0.8);
 
   /* ink 色阶运行时值（浅色模式）
      @theme 中的 --color-ink-* 会引用这些变量 */
@@ -195,6 +197,7 @@
     background-position: center top;
     background-size: 320px 1000px;
     opacity: var(--rune-opacity);
+    filter: var(--rune-filter, brightness(1.45) saturate(0.9));
     pointer-events: none;
     z-index: -1;
   }

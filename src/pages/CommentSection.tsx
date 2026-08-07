@@ -211,7 +211,7 @@ export default function CommentSection() {
   };
 
   return (
-    <div className="animate-fade-in max-w-3xl mx-auto space-y-6">
+    <div className="animate-fade-in max-w-3xl mx-auto px-2 sm:px-0 space-y-6">
       {/* 顶部 */}
       <div className="flex items-center gap-3">
         <button onClick={() => navigate(-1)} className="btn-ghost p-2">
