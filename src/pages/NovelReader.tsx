@@ -25,7 +25,8 @@ interface ReaderThemeConfig {
   titleColor: string;
   accentColor: string;
   vars: Record<string, string>;
-  bgOverlay?: string;
+  // 牛皮纸专用：直接画在 .novel-content 上的 background（纹理和文字是同一元素的前景+背景，天然同步动）
+  contentBg?: string;
 }
 
 const READER_THEMES: Record<ReaderTheme, ReaderThemeConfig> = {
@@ -67,59 +68,64 @@ const READER_THEMES: Record<ReaderTheme, ReaderThemeConfig> = {
   },
   parchment: {
     label: '牛皮纸',
-    swatch: '#c9b586',
+    swatch: '#cbae77',
     titleColor: '#4d2e0e',
     accentColor: '#4d2e0e',
     vars: {
-      // 基础底色不是纯黄，是带灰调的羊皮米色 — 避免简单的黄色滤镜感
-      '--bg-base': '#c9b586',
-      '--bg-surface': '#c9b586',
-      '--bg-elevated': '#b8a272',
-      '--text-primary': '#382818',
+      // 基础底色 = 牛皮纸整体基调，novel-content 边缘/缝隙露出时和内容底色一致
+      '--bg-base': '#d4bf82',
+      '--bg-surface': '#d4bf82',
+      '--bg-elevated': '#bfa569',
+      '--text-primary': '#3a2818',
       '--text-secondary': '#5a4832',
       '--text-tertiary': '#7a6850',
-      '--border-default': '#a5906a',
-      '--border-subtle': '#b59f78',
-      '--rune-opacity': '0.24',
-      '--rune-filter': 'brightness(1.05) saturate(0.55)',
+      '--border-default': '#a68d5c',
+      '--border-subtle': '#b39a6b',
+      '--rune-opacity': '0.18',
+      '--rune-filter': 'brightness(1.0) saturate(0.5)',
     },
-    // 五层叠加 — 从下往上依次：
-    //   1) 中心提亮、四角泛黄褐：模拟"长期摆放四角风化"（要求②）
-    //   2) 细密天然纸纤维（横向细纹 0.6px 高频率）：要求①第一层
-    //   3) 45° 斜向粗纤维条：要求①第二层（天然不单调）
-    //   4) SVG 稀疏尘埃状斑点（<20 个点，不密集）：要求③ "少量稀疏自然斑驳污渍"
-    //   5) 四向线性渐变做四边磨损暗边：要求③ "四边轻微磨损暗边"
-    bgOverlay: [
-      // 5) 四边磨损暗边（0-3% 最暗 → 6% 变淡）：top/right/bottom/left 各自一条
-      'linear-gradient(180deg, rgba(70,45,10,0.26) 0%, rgba(70,45,10,0.12) 3%, rgba(70,45,10,0) 7%)',
-      'linear-gradient(90deg, rgba(70,45,10,0.26) 0%, rgba(70,45,10,0.12) 3%, rgba(70,45,10,0) 7%)',
-      'linear-gradient(0deg, rgba(70,45,10,0.26) 0%, rgba(70,45,10,0.12) 3%, rgba(70,45,10,0) 7%)',
-      'linear-gradient(270deg, rgba(70,45,10,0.26) 0%, rgba(70,45,10,0.12) 3%, rgba(70,45,10,0) 7%)',
-      // 4) 稀疏尘埃斑点：用内联 SVG <circle> 随机撒 12 个点，viewBox 300×300 铺满整屏平铺
-      `url("data:image/svg+xml;utf8,${encodeURIComponent(
-        `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 300' width='300' height='300'>
-           <circle cx='42' cy='68' r='2.2' fill='%238a5a18' opacity='0.28'/>
-           <circle cx='210' cy='35' r='1.4' fill='%236a3e10' opacity='0.32'/>
-           <circle cx='172' cy='185' r='0.8' fill='%235a3210' opacity='0.4'/>
-           <circle cx='78' cy='248' r='3.1' fill='%236a4418' opacity='0.22'/>
-           <circle cx='265' cy='148' r='1.7' fill='%234a2810' opacity='0.3'/>
-           <circle cx='14' cy='150' r='1.2' fill='%237a4e18' opacity='0.35'/>
-           <circle cx='258' cy='270' r='2.6' fill='%235a3610' opacity='0.25'/>
-           <circle cx='132' cy='112' r='0.7' fill='%238a5820' opacity='0.3'/>
-           <circle cx='220' cy='228' r='1.9' fill='%236a4015' opacity='0.27'/>
-           <circle cx='50' cy='192' r='1.0' fill='%235a3410' opacity='0.38'/>
-           <circle cx='180' cy='10' r='0.9' fill='%237a4a18' opacity='0.35'/>
-           <circle cx='110' cy='285' r='2.0' fill='%234a2a10' opacity='0.28'/>
-           <circle cx='280' cy='80' r='0.6' fill='%236a4215' opacity='0.45'/>
-         </svg>`
-      )}")`,
-      // 3) 135° 粗纤维条（每 18px 一条 0.7px 线，只加 8% alpha 做隐约手感）
-      'repeating-linear-gradient(135deg, rgba(110,70,20,0.08) 0px, rgba(110,70,20,0.08) 0.7px, transparent 0.7px, transparent 18px)',
-      // 2) 0° 横向细密纤维（每 3px 一条 0.5px，alpha 6% 高频打底）
-      'repeating-linear-gradient(0deg, rgba(120,80,25,0.06) 0px, rgba(120,80,25,0.06) 0.5px, transparent 0.5px, transparent 3px)',
-      // 1) 径向明暗：中心提亮(overlay+20%白)，四角泛黄褐
-      'radial-gradient(ellipse 82% 72% at 50% 45%, rgba(255,245,215,0.22) 0%, rgba(255,240,200,0.06) 35%, rgba(120,70,15,0.08) 62%, rgba(90,50,10,0.24) 88%, rgba(70,40,5,0.36) 100%)',
-    ].join(', '),
+    // — 牛皮纸纹理 = SVG feTurbulence(fractalNoise) 多层合成 —
+    // 应用在 .novel-content 的 background-image 上，与文字属于同一 DOM 元素，
+    // 滑动/翻页时文字和纹理必然同步移动，不会出现"悬浮不动/错位"bug
+    // 合成顺序（从上到下 CSS）：径向微提亮 → 老化斑驳 → 絮状纤维 → 细小气孔 → 基础暖色渐变
+    contentBg: (() => {
+      const SVG_PORES = encodeURIComponent(
+        `<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'>
+          <filter id='p' x='0' y='0' width='100%' height='100%'>
+            <feTurbulence type='fractalNoise' baseFrequency='4.6' numOctaves='2' stitchTiles='stitch' seed='7'/>
+            <feColorMatrix type='matrix' values='0 0 0 0 0.14  0 0 0 0 0.07  0 0 0 0 0.02  0 0 0 0.18 0'/>
+          </filter>
+          <rect width='300' height='300' filter='url(#p)'/>
+        </svg>`
+      );
+      const SVG_FIBER = encodeURIComponent(
+        `<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'>
+          <filter id='f' x='0' y='0' width='100%' height='100%'>
+            <feTurbulence type='fractalNoise' baseFrequency='1.5 0.035' numOctaves='2' stitchTiles='stitch' seed='13'/>
+            <feColorMatrix type='matrix' values='0 0 0 0 0.30  0 0 0 0 0.17  0 0 0 0 0.06  0 0 0 0.16 0'/>
+          </filter>
+          <rect width='300' height='300' filter='url(#f)'/>
+        </svg>`
+      );
+      const SVG_STAIN = encodeURIComponent(
+        `<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='1200'>
+          <filter id='s' x='0' y='0' width='100%' height='100%'>
+            <feTurbulence type='fractalNoise' baseFrequency='0.011' numOctaves='3' stitchTiles='stitch' seed='29'/>
+            <feColorMatrix type='matrix' values='0 0 0 0 0.25  0 0 0 0 0.13  0 0 0 0 0.04  0 0 0 0.20 0'/>
+          </filter>
+          <rect width='1200' height='1200' filter='url(#s)'/>
+        </svg>`
+      );
+
+      const pores   = `url("data:image/svg+xml;utf8,${SVG_PORES}") 0 0 / 300px 300px repeat`;
+      const fiber   = `url("data:image/svg+xml;utf8,${SVG_FIBER}") 0 0 / 300px 300px repeat`;
+      const stain   = `url("data:image/svg+xml;utf8,${SVG_STAIN}")  0 0 / 1200px 1200px repeat`;
+      const vignette = 'radial-gradient(ellipse 80% 40% at 50% 30%, rgba(255,242,205,0.20) 0%, rgba(255,235,185,0.04) 50%, rgba(255,225,170,0) 75%) 0 0 / 100% 100% no-repeat';
+      // 基础牛皮纸底色：暖黄褐 → 稍微的色差，不是纯色滤镜
+      const base    = 'linear-gradient(160deg, #e2cc8e 0%, #d6bf7d 42%, #c7ad6a 82%, #b99c5b 100%) 0 0 / 100% 100% no-repeat';
+
+      return [vignette, stain, fiber, pores, base].join(', ');
+    })(),
   },
 };
 
@@ -625,14 +631,6 @@ export default function NovelReader() {
       }
       style={isPageMode ? { height: '100dvh' } : {}}
     >
-      {/* 牛皮纸做旧渐变叠加层 */}
-      {theme.bgOverlay && (
-        <div
-          className="fixed inset-0 pointer-events-none"
-          style={{ zIndex: 0, background: theme.bgOverlay }}
-        />
-      )}
-
       {/* 顶部工具栏 */}
       <div className="grid grid-cols-[1fr_auto_1fr] items-center py-3 mb-2 relative z-10 shrink-0">
         <div className="flex items-center">
@@ -685,6 +683,7 @@ export default function NovelReader() {
             style={{
               fontSize: `${FONT_SIZES[fontSize].px}px`,
               lineHeight: LINE_HEIGHTS[lineHeight].value,
+              background: theme.contentBg || undefined,
               ...pagedContentStyle,
             }}
           >
@@ -789,6 +788,7 @@ export default function NovelReader() {
             style={{
               fontSize: `${FONT_SIZES[fontSize].px}px`,
               lineHeight: LINE_HEIGHTS[lineHeight].value,
+              background: theme.contentBg || undefined,
             }}
           >
             {paragraphs.map((para, pi) => renderParagraph(para, pi))}
