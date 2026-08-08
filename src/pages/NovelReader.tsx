@@ -344,7 +344,7 @@ export default function NovelReader() {
         className="text-center mb-3"
         style={{
           color: theme.titleColor,
-          fontSize: `${Math.round(FONT_SIZES[fontSize].px * 1.5)}px`,
+          fontSize: `${Math.round((FONT_SIZES[fontSize] || FONT_SIZES.md).px * 1.5)}px`,
           letterSpacing: '0.08em',
           fontWeight: 600,
         }}
@@ -363,8 +363,8 @@ export default function NovelReader() {
         ref={contentRef}
         className="novel-content chapter-enter"
         style={{
-          fontSize: `${FONT_SIZES[fontSize].px}px`,
-          lineHeight: LINE_HEIGHTS[lineHeight].value,
+          fontSize: `${(FONT_SIZES[fontSize] || FONT_SIZES.md).px}px`,
+          lineHeight: (LINE_HEIGHTS[lineHeight] || LINE_HEIGHTS.normal).value,
         }}
       >
         {paragraphs.map((para, pi) => renderParagraph(para, pi))}

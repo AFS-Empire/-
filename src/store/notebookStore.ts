@@ -7,7 +7,7 @@ interface NotebookState {
   error: string | null;
   loadNotes: () => Promise<void>;
   addNote: (title: string, content: string, color?: string) => Promise<NotebookNote | null>;
-  updateNote: (id: number, updates: Partial<NotebookNote>) => Promise<void>;
+  updateNote: (id: number, updates: Partial<NotebookNote>) => Promise<NotebookNote | null>;
   removeNote: (id: number) => Promise<void>;
   togglePin: (id: number) => Promise<void>;
 }
@@ -48,13 +48,20 @@ export const useNotebookStore = create<NotebookState>((set, get) => ({
   updateNote: async (id, updates) => {
     set({ loading: true, error: null });
     try {
-      await saveNote({ ...updates, id, updatedAt: Date.now() } as NotebookNote);
+      const now = Date.now();
+      const merged = { ...updates, id, updatedAt: now } as NotebookNote;
+      await saveNote(merged);
+      const updated = { ...updates, id, updatedAt: now } as NotebookNote;
       set(state => ({
-        notes: state.notes.map(n => n.id === id ? { ...n, ...updates, updatedAt: Date.now() } : n),
+        notes: state.notes.map(n => n.id === id ? { ...n, ...updated } : n),
         loading: false,
       }));
+      // 返回完整笔记（从 state 中取出原笔记合并）
+      const original = get().notes.find(n => n.id === id);
+      return original ? { ...original, ...updated } : null;
     } catch (e) {
       set({ error: (e as Error).message, loading: false });
+      return null;
     }
   },
 
