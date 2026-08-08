@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Pin, PinOff, Trash2, Edit3 } from 'lucide-react';
 import { useNotebookStore } from '../store/notebookStore';
 import { formatTime } from './Notebook';
@@ -62,13 +62,13 @@ export default function NotebookView() {
           >
             <Trash2 size={18} />
           </button>
-          <Link
-            to={`/notebook/${noteId}/edit`}
+          <button
+            onClick={() => navigate(`/notebook/${noteId}/edit`, { replace: true })}
             className="btn-gold py-2 px-3 flex items-center gap-1.5"
           >
             <Edit3 size={16} />
             <span className="text-sm">编辑</span>
-          </Link>
+          </button>
         </div>
       </div>
 

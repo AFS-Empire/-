@@ -36,16 +36,16 @@ export default function NotebookEdit() {
       if (isNew) {
         const created = await addNote(title, content, color);
         if (created) {
-          navigate(`/notebook/${created.id}`);
+          navigate(`/notebook/${created.id}`, { replace: true });
         } else {
-          navigate('/notebook');
+          navigate('/notebook', { replace: true });
         }
       } else if (noteId !== null) {
         const updated = await updateNote(noteId, { title, content, color });
         if (updated) {
-          navigate(`/notebook/${noteId}`);
+          navigate(`/notebook/${noteId}`, { replace: true });
         } else {
-          navigate('/notebook');
+          navigate('/notebook', { replace: true });
         }
       }
     } catch (e) {

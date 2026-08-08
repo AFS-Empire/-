@@ -117,13 +117,13 @@ export default function Notebook() {
                   {note.title || '无标题笔记'}
                 </h3>
                 <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
-                  <Link
-                    to={`/notebook/${note.id}/edit`}
+                  <button
+                    onClick={() => navigate(`/notebook/${note.id}/edit`)}
                     className="p-1 text-ink-500 hover:text-gold-400 transition-colors"
                     title="编辑"
                   >
                     <Edit3 size={14} />
-                  </Link>
+                  </button>
                   <button
                     onClick={() => togglePin(note.id!)}
                     className="p-1 text-ink-500 hover:text-gold-400 transition-colors"
