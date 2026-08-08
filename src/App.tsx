@@ -45,13 +45,15 @@ const importers = [
   () => import('./pages/NovelDetail'),
   () => import('./pages/NovelReader'),
   () => import('./pages/Notebook'),
+  () => import('./pages/NotebookView'),
+  () => import('./pages/NotebookEdit'),
 ];
 const [
   Login, Home, Timeline, Character, Geography, Tech,
   Milestone, Custom, EntryDetail, EntryEditor, AllIndex,
   CommentSection, CommentOverview, About,
   NovelShelf, NovelDetail, NovelReader,
-  Notebook,
+  NotebookPage, NotebookView, NotebookEdit,
 ] = importers.map(lazy);
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -303,7 +305,10 @@ export default function App() {
               <Route path="novel" element={<PrivateRoute><NovelShelf /></PrivateRoute>} />
               <Route path="novel/:bookId" element={<PrivateRoute><NovelDetail /></PrivateRoute>} />
               <Route path="novel/:bookId/chapter/:chapterId" element={<PrivateRoute><NovelReader /></PrivateRoute>} />
-              <Route path="notebook" element={<PrivateRoute><Notebook /></PrivateRoute>} />
+              <Route path="notebook" element={<PrivateRoute><NotebookPage /></PrivateRoute>} />
+              <Route path="notebook/new" element={<PrivateRoute><NotebookEdit /></PrivateRoute>} />
+              <Route path="notebook/:id" element={<PrivateRoute><NotebookView /></PrivateRoute>} />
+              <Route path="notebook/:id/edit" element={<PrivateRoute><NotebookEdit /></PrivateRoute>} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Routes>
