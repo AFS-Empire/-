@@ -397,43 +397,43 @@ export default function Layout() {
         title="切换主题"
       >
         <div className="space-y-4">
-          <p className="text-sm text-ink-400">选择界面主题，切换会立即生效并记忆选择。</p>
+          <p style={{ color: 'var(--text-secondary)' }} className="text-sm">选择界面主题，切换会立即生效并记忆选择。</p>
           <div className="grid grid-cols-3 gap-3">
             <button
               onClick={() => setPendingTheme('dark')}
-              className={`p-4 rounded-lg border transition-all flex flex-col items-center gap-2 ${
-                pendingTheme === 'dark'
-                  ? 'border-gold-500 bg-gold-900/20'
-                  : 'border-ink-700 hover:border-gold-700/50'
-              }`}
+              className="p-4 rounded-lg border transition-all flex flex-col items-center gap-2"
+              style={{
+                borderColor: pendingTheme === 'dark' ? 'var(--color-gold-500)' : 'var(--border-default)',
+                backgroundColor: pendingTheme === 'dark' ? 'color-mix(in srgb, var(--color-gold-500) 12%, transparent)' : 'var(--bg-elevated)',
+              }}
             >
-              <Moon size={22} className={pendingTheme === 'dark' ? 'text-gold-300' : 'text-ink-400'} />
-              <span className={`text-sm font-medium ${pendingTheme === 'dark' ? 'text-gold-200' : 'text-ink-300'}`}>深色</span>
-              <span className="text-[11px] text-ink-500">鎏金黑底</span>
+              <Moon size={22} style={{ color: pendingTheme === 'dark' ? 'var(--color-gold-400)' : 'var(--text-tertiary)' }} />
+              <span className="text-sm font-medium" style={{ color: pendingTheme === 'dark' ? 'var(--accent-color, var(--color-gold-400))' : 'var(--text-primary)' }}>深色</span>
+              <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>鎏金黑底</span>
             </button>
             <button
               onClick={() => setPendingTheme('light')}
-              className={`p-4 rounded-lg border transition-all flex flex-col items-center gap-2 ${
-                pendingTheme === 'light'
-                  ? 'border-gold-500 bg-gold-900/20'
-                  : 'border-ink-700 hover:border-gold-700/50'
-              }`}
+              className="p-4 rounded-lg border transition-all flex flex-col items-center gap-2"
+              style={{
+                borderColor: pendingTheme === 'light' ? 'var(--color-gold-500)' : 'var(--border-default)',
+                backgroundColor: pendingTheme === 'light' ? 'color-mix(in srgb, var(--color-gold-500) 12%, transparent)' : 'var(--bg-elevated)',
+              }}
             >
-              <Sun size={22} className={pendingTheme === 'light' ? 'text-gold-300' : 'text-ink-400'} />
-              <span className={`text-sm font-medium ${pendingTheme === 'light' ? 'text-gold-200' : 'text-ink-300'}`}>浅色</span>
-              <span className="text-[11px] text-ink-500">护眼白底</span>
+              <Sun size={22} style={{ color: pendingTheme === 'light' ? 'var(--color-gold-400)' : 'var(--text-tertiary)' }} />
+              <span className="text-sm font-medium" style={{ color: pendingTheme === 'light' ? 'var(--accent-color, var(--color-gold-400))' : 'var(--text-primary)' }}>浅色</span>
+              <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>护眼白底</span>
             </button>
             <button
               onClick={() => setPendingTheme('parchment')}
-              className={`p-4 rounded-lg border transition-all flex flex-col items-center gap-2 ${
-                pendingTheme === 'parchment'
-                  ? 'border-gold-500 bg-gold-900/20'
-                  : 'border-ink-700 hover:border-gold-700/50'
-              }`}
+              className="p-4 rounded-lg border transition-all flex flex-col items-center gap-2"
+              style={{
+                borderColor: pendingTheme === 'parchment' ? 'var(--color-gold-500)' : 'var(--border-default)',
+                backgroundColor: pendingTheme === 'parchment' ? 'color-mix(in srgb, var(--color-gold-500) 12%, transparent)' : 'var(--bg-elevated)',
+              }}
             >
-              <ScrollText size={22} className={pendingTheme === 'parchment' ? 'text-gold-300' : 'text-ink-400'} />
-              <span className={`text-sm font-medium ${pendingTheme === 'parchment' ? 'text-gold-200' : 'text-ink-300'}`}>牛皮纸</span>
-              <span className="text-[11px] text-ink-500">复古纸感</span>
+              <ScrollText size={22} style={{ color: pendingTheme === 'parchment' ? 'var(--color-gold-400)' : 'var(--text-tertiary)' }} />
+              <span className="text-sm font-medium" style={{ color: pendingTheme === 'parchment' ? 'var(--accent-color, var(--color-gold-400))' : 'var(--text-primary)' }}>牛皮纸</span>
+              <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>复古纸感</span>
             </button>
           </div>
           <div className="flex gap-2 justify-end pt-2">

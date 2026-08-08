@@ -68,7 +68,7 @@ export default function Notebook() {
     setView({ mode: 'view', note });
   };
 
-  const enterEditFromView = (note: NotebookNote) => {
+  const openEditFromList = (note: NotebookNote) => {
     setEditTitle(note.title);
     setEditContent(note.content);
     setEditColor(note.color || '');
@@ -171,6 +171,13 @@ export default function Notebook() {
                   </h3>
                   <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
                     <button
+                      onClick={() => openEditFromList(note)}
+                      className="p-1 text-ink-500 hover:text-gold-400 transition-colors"
+                      title="编辑"
+                    >
+                      <Edit3 size={14} />
+                    </button>
+                    <button
                       onClick={() => togglePin(note.id!)}
                       className="p-1 text-ink-500 hover:text-gold-400 transition-colors"
                       title={note.pinned ? '取消置顶' : '置顶'}
@@ -238,7 +245,7 @@ export default function Notebook() {
               <Trash2 size={18} />
             </button>
             <button
-              onClick={() => enterEditFromView(note)}
+              onClick={() => openEditFromList(note)}
               className="btn-gold py-2 px-3 flex items-center gap-1.5"
             >
               <Edit3 size={16} />
@@ -275,16 +282,15 @@ export default function Notebook() {
     );
   }
 
-  // ===== 编辑页（全屏，毛玻璃遮罩，无模态框） =====
-  // （其实是全屏覆盖页，毛玻璃盖住列表，避免了用户看到"底部内容"）
+  // ===== 编辑页（全屏覆盖，毛玻璃遮罩列表） =====
   {
     const isNew = view.editingId === null;
     return (
       <div className="fixed inset-0 z-50 flex flex-col animate-fade-in"
         style={{
-          backgroundColor: 'color-mix(in srgb, var(--bg-base) 88%, transparent)',
-          backdropFilter: 'blur(14px) saturate(1.1)',
-          WebkitBackdropFilter: 'blur(14px) saturate(1.1)',
+          backgroundColor: 'var(--bg-base)',
+          paddingTop: 'env(safe-area-inset-top)',
+          paddingBottom: 'env(safe-area-inset-bottom)',
         }}
       >
         {/* 编辑顶栏 */}
@@ -292,7 +298,7 @@ export default function Notebook() {
           className="flex items-center justify-between px-4 py-3 shrink-0 border-b"
           style={{
             borderColor: 'var(--border-subtle)',
-            backgroundColor: 'color-mix(in srgb, var(--bg-surface) 82%, transparent)',
+            backgroundColor: 'var(--bg-surface)',
           }}
         >
           <button onClick={backToList} className="btn-ghost p-2 flex items-center gap-1">
@@ -332,7 +338,7 @@ export default function Notebook() {
           className="flex items-center justify-between gap-3 px-4 py-3 shrink-0 border-t"
           style={{
             borderColor: 'var(--border-subtle)',
-            backgroundColor: 'color-mix(in srgb, var(--bg-surface) 82%, transparent)',
+            backgroundColor: 'var(--bg-surface)',
           }}
         >
           <div className="flex items-center gap-2 flex-wrap">
@@ -345,7 +351,7 @@ export default function Notebook() {
                   editColor === c.value ? 'scale-125' : ''
                 }`}
                 style={{
-                  backgroundColor: c.value || 'color-mix(in srgb, var(--bg-elevated) 80%, transparent)',
+                  backgroundColor: c.value || 'var(--bg-elevated)',
                   borderColor: editColor === c.value ? 'var(--color-gold-500)' : 'var(--border-subtle)',
                 }}
                 title={c.name}

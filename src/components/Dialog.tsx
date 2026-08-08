@@ -14,15 +14,32 @@ export function BaseDialog({ open, onClose, title, children }: BaseDialogProps) 
   // 使用 Portal 渲染到 document.body，彻底脱离祖先 DOM 树
   // 解决 position:fixed 被祖先 transform/backdrop-filter 限制导致弹窗内嵌的问题
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 animate-fade-in" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-fade-in"
+      style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}
+      onClick={onClose}
+    >
       <div
-        className="panel-gold w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden relative"
+        className="w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden relative rounded-xl"
+        style={{
+          backgroundColor: 'var(--bg-surface)',
+          border: '1px solid var(--border-default)',
+          boxShadow: '0 20px 50px -10px rgba(0,0,0,0.5)',
+        }}
         onClick={e => e.stopPropagation()}
       >
         {/* 标题栏：固定高度，不被压缩 */}
-        <div className="flex items-center justify-between p-5 pb-3 shrink-0">
-          <h3 className="text-base font-semibold text-gold-200 tracking-wide">{title}</h3>
-          <button onClick={onClose} className="p-1.5 rounded text-ink-500 hover:text-gold-300 hover:bg-ink-800/50" aria-label="关闭">
+        <div
+          className="flex items-center justify-between p-5 pb-3 shrink-0"
+          style={{ borderBottom: '1px solid var(--border-subtle)' }}
+        >
+          <h3 className="text-base font-semibold tracking-wide" style={{ color: 'var(--text-primary)' }}>{title}</h3>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded transition-colors"
+            style={{ color: 'var(--text-tertiary)' }}
+            aria-label="关闭"
+          >
             <X size={16} />
           </button>
         </div>
