@@ -95,21 +95,71 @@
   --color-ink-950-runtime: #121008;
 }
 
-/* 浅色模式：所有文字统一加黑色细描边，强光下提升可读性 */
+/* 牛皮纸主题：暖色纸质感 */
+:root.parchment {
+  --bg-base: #dcc896;
+  --bg-surface: #dcc896;
+  --bg-elevated: #cbb882;
+  --bg-input: #c9b67e;
+
+  --text-primary: #3a2818;
+  --text-secondary: #5a4832;
+  --text-tertiary: #7a6850;
+  --text-disabled: #9a8a70;
+
+  --border-default: #b09868;
+  --border-subtle: #bda574;
+  --border-strong: #9a8555;
+
+  --scrollbar-track: #cbb882;
+  --scrollbar-thumb: #9a8555;
+  --scrollbar-thumb-hover: #7a6535;
+
+  --accent-glow: rgba(100, 65, 20, 0.08);
+  --select-bg: #dcc896;
+  --select-border: #b09868;
+  --select-text: #3a2818;
+  --autofill-bg: #dcc896;
+  --autofill-text: #3a2818;
+  --rune-opacity: 0.15;
+  --rune-filter: brightness(1.0) saturate(0.4);
+
+  /* ink 色阶运行时值（牛皮纸模式） */
+  --color-ink-50-runtime: #f0e8d8;
+  --color-ink-100-runtime: #e4d8c0;
+  --color-ink-200-runtime: #d4c8a8;
+  --color-ink-300-runtime: #b8ad90;
+  --color-ink-400-runtime: #948870;
+  --color-ink-500-runtime: #756855;
+  --color-ink-600-runtime: #5c5040;
+  --color-ink-700-runtime: #463e32;
+  --color-ink-800-runtime: #332e24;
+  --color-ink-900-runtime: #25201a;
+  --color-ink-950-runtime: #1a1612;
+}
+
+/* 浅色模式 / 牛皮纸模式：所有文字统一加黑色细描边，强光下提升可读性 */
 html.light,
-:root.light body {
+:root.light body,
+html.parchment,
+:root.parchment body {
   -webkit-text-stroke: 0.25px rgba(0, 0, 0, 0.7);
   text-stroke: 0.25px rgba(0, 0, 0, 0.7);
 }
 html.light *,
-:root.light body * {
+:root.light body *,
+html.parchment *,
+:root.parchment body * {
   -webkit-text-stroke: inherit;
   text-stroke: inherit;
 }
 /* 标签/按钮/标题金色文字描边改为深棕色，更自然 */
 html.light .section-title,
 html.light h1, html.light h2, html.light h3, html.light h4,
-html.light [class*="text-gold-"] {
+html.light [class*="text-gold-"],
+html.parchment .section-title,
+html.parchment h1, html.parchment h2, html.parchment h3, html.parchment h4,
+html.parchment [class*="text-gold-"] {
   -webkit-text-stroke: 0.25px rgba(90, 55, 10, 0.85);
   text-stroke: 0.25px rgba(90, 55, 10, 0.85);
 }
@@ -202,6 +252,15 @@ html.light [class*="text-gold-"] {
     min-height: 100vh;
     transition: background-color 0.3s ease, color 0.3s ease;
   }
+  :root.parchment body {
+    background-color: #dcc896;
+    background-image:
+      linear-gradient(170deg, #e8d8ac 0%, #e0cfa0 30%, #dcc896 60%, #d5bf8a 100%);
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    background-position: center top;
+    background-size: 100% 100%;
+  }
   .rune-bg {
     position: relative;
     isolation: isolate;
@@ -219,6 +278,9 @@ html.light [class*="text-gold-"] {
     filter: var(--rune-filter, brightness(1.45) saturate(0.9));
     pointer-events: none;
     z-index: -1;
+  }
+  :root.parchment .rune-bg::before {
+    opacity: 0.08;
   }
   .rune-bg > * {
     position: relative;
@@ -318,6 +380,14 @@ html.light [class*="text-gold-"] {
     border-color: #8f591c;
     background-color: color-mix(in srgb, var(--color-gold-500) 10%, transparent);
   }
+  :root.parchment .btn-outline {
+    border-color: rgba(90, 60, 20, 0.4);
+    color: #5c3a18;
+  }
+  :root.parchment .btn-outline:hover {
+    border-color: #7a5220;
+    background-color: color-mix(in srgb, var(--color-gold-500) 10%, transparent);
+  }
 
   .skeleton-block {
     @apply border;
@@ -377,6 +447,9 @@ html.light [class*="text-gold-"] {
   :root.light .label-text {
     color: #7c531a;
   }
+  :root.parchment .label-text {
+    color: #5c3a18;
+  }
 
   .gold-divider {
     @apply h-px;
@@ -419,6 +492,15 @@ html.light [class*="text-gold-"] {
       #653e1c 100%
     );
   }
+  :root.parchment .gold-title {
+    background-image: linear-gradient(
+      180deg,
+      #5c3a18 0%,
+      #7a5220 30%,
+      #5c3a18 60%,
+      #3e2810 100%
+    );
+  }
   :root.light .gold-text {
     background-image: linear-gradient(
       135deg,
@@ -429,6 +511,16 @@ html.light [class*="text-gold-"] {
       #653e1c 100%
     );
   }
+  :root.parchment .gold-text {
+    background-image: linear-gradient(
+      135deg,
+      #3e2810 0%,
+      #5c3a18 25%,
+      #8a5a20 50%,
+      #5c3a18 75%,
+      #3e2810 100%
+    );
+  }
 
   .section-title {
     @apply text-xl font-bold tracking-wider;
@@ -436,6 +528,9 @@ html.light [class*="text-gold-"] {
   }
   :root.light .section-title {
     color: #7a5020;
+  }
+  :root.parchment .section-title {
+    color: #5c3a18;
   }
 
   .tag {
@@ -454,6 +549,11 @@ html.light [class*="text-gold-"] {
     background-color: rgba(200, 144, 42, 0.12);
     color: #7c531a;
     border-color: rgba(140, 90, 30, 0.35);
+  }
+  :root.parchment .tag-gold {
+    background-color: rgba(90, 60, 20, 0.2);
+    color: #3e2810;
+    border-color: rgba(90, 60, 20, 0.4);
   }
 
   /* card-entry：轻边框，不用重底色形成方框 */
@@ -507,6 +607,13 @@ html.light [class*="text-gold-"] {
     color: #7c531a;
     background-color: color-mix(in srgb, var(--color-gold-500) 10%, transparent);
   }
+  :root.parchment .app-nav-item:hover {
+    color: #5c3a18;
+  }
+  :root.parchment .app-nav-item.active {
+    color: #5c3a18;
+    background-color: color-mix(in srgb, var(--color-gold-500) 15%, transparent);
+  }
 
   .tab-bar {
     border-bottom: 1px solid var(--border-default);
@@ -532,9 +639,15 @@ html.light [class*="text-gold-"] {
   :root.light .sidebar-overlay {
     background-color: rgba(0, 0, 0, 0.35);
   }
+  :root.parchment .sidebar-overlay {
+    background-color: rgba(60, 40, 15, 0.4);
+  }
 
   :root.light .btn-ghost:hover {
     color: #7c531a;
+  }
+  :root.parchment .btn-ghost:hover {
+    color: #5c3a18;
   }
 }
 

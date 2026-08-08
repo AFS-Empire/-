@@ -20,6 +20,8 @@ import {
   BookOpen,
   Sun,
   Moon,
+  ScrollText,
+  StickyNote,
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
@@ -37,6 +39,7 @@ const navItems = [
   { to: '/tech', label: '科技与设定', icon: Cog },
   { to: '/milestone', label: '剧情里程碑', icon: Flag },
   { to: '/novel', label: '小说馆', icon: BookOpen },
+  { to: '/notebook', label: '记忆本', icon: StickyNote },
   { to: '/custom', label: '扩展分类', icon: Layers },
   { to: '/index', label: '全部内容', icon: List },
 ];
@@ -56,7 +59,7 @@ export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showRefreshConfirm, setShowRefreshConfirm] = useState(false);
   const [showThemeDialog, setShowThemeDialog] = useState(false);
-  const [pendingTheme, setPendingTheme] = useState<'dark' | 'light'>('dark');
+  const [pendingTheme, setPendingTheme] = useState<'dark' | 'light' | 'parchment'>('dark');
   // 讨论浮动按钮：'intro'(初始5s展示) → 'peek'(缩回只露黄色小边) → 'expanded'(点击后展开小圆球)
   const [fabState, setFabState] = useState<'intro' | 'peek' | 'expanded'>('intro');
   const fabTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -89,24 +92,33 @@ export default function Layout() {
 
   // 主题初始化：从 localStorage 读取，默认深色
   useEffect(() => {
-    const saved = localStorage.getItem('theme') as 'dark' | 'light' | null;
+    const saved = localStorage.getItem('theme') as 'dark' | 'light' | 'parchment' | null;
     if (saved === 'light') {
       document.documentElement.classList.add('light');
+    } else if (saved === 'parchment') {
+      document.documentElement.classList.add('parchment');
     }
   }, []);
 
   const handleThemeClick = () => {
-    const isLight = document.documentElement.classList.contains('light');
-    setPendingTheme(isLight ? 'light' : 'dark');
+    const el = document.documentElement;
+    let current: 'dark' | 'light' | 'parchment' = 'dark';
+    if (el.classList.contains('parchment')) current = 'parchment';
+    else if (el.classList.contains('light')) current = 'light';
+    setPendingTheme(current);
     setShowThemeDialog(true);
   };
 
   const handleThemeConfirm = () => {
+    const el = document.documentElement;
+    el.classList.remove('light', 'parchment');
     if (pendingTheme === 'light') {
-      document.documentElement.classList.add('light');
+      el.classList.add('light');
       localStorage.setItem('theme', 'light');
+    } else if (pendingTheme === 'parchment') {
+      el.classList.add('parchment');
+      localStorage.setItem('theme', 'parchment');
     } else {
-      document.documentElement.classList.remove('light');
       localStorage.setItem('theme', 'dark');
     }
     setShowThemeDialog(false);
@@ -234,7 +246,7 @@ export default function Layout() {
   return (
     <div className="min-h-screen flex flex-col">
       {/* 顶部导航栏（pt 用 safe-area 避开刘海/状态栏） */}
-      <header className="sticky top-0 z-30 app-header backdrop-blur" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+      <header className="sticky top-0 z-30 app-header" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className="flex items-center justify-between px-4 h-14">
           <div className="flex items-center gap-3">
             <button
@@ -386,7 +398,7 @@ export default function Layout() {
       >
         <div className="space-y-4">
           <p className="text-sm text-ink-400">选择界面主题，切换会立即生效并记忆选择。</p>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <button
               onClick={() => setPendingTheme('dark')}
               className={`p-4 rounded-lg border transition-all flex flex-col items-center gap-2 ${
@@ -397,7 +409,7 @@ export default function Layout() {
             >
               <Moon size={22} className={pendingTheme === 'dark' ? 'text-gold-300' : 'text-ink-400'} />
               <span className={`text-sm font-medium ${pendingTheme === 'dark' ? 'text-gold-200' : 'text-ink-300'}`}>深色</span>
-              <span className="text-[11px] text-ink-500">默认 · 鎏金黑底</span>
+              <span className="text-[11px] text-ink-500">鎏金黑底</span>
             </button>
             <button
               onClick={() => setPendingTheme('light')}
@@ -409,7 +421,19 @@ export default function Layout() {
             >
               <Sun size={22} className={pendingTheme === 'light' ? 'text-gold-300' : 'text-ink-400'} />
               <span className={`text-sm font-medium ${pendingTheme === 'light' ? 'text-gold-200' : 'text-ink-300'}`}>浅色</span>
-              <span className="text-[11px] text-ink-500">明亮 · 护眼白底</span>
+              <span className="text-[11px] text-ink-500">护眼白底</span>
+            </button>
+            <button
+              onClick={() => setPendingTheme('parchment')}
+              className={`p-4 rounded-lg border transition-all flex flex-col items-center gap-2 ${
+                pendingTheme === 'parchment'
+                  ? 'border-gold-500 bg-gold-900/20'
+                  : 'border-ink-700 hover:border-gold-700/50'
+              }`}
+            >
+              <ScrollText size={22} className={pendingTheme === 'parchment' ? 'text-gold-300' : 'text-ink-400'} />
+              <span className={`text-sm font-medium ${pendingTheme === 'parchment' ? 'text-gold-200' : 'text-ink-300'}`}>牛皮纸</span>
+              <span className="text-[11px] text-ink-500">复古纸感</span>
             </button>
           </div>
           <div className="flex gap-2 justify-end pt-2">

@@ -4,7 +4,7 @@ import { SECTION_PREFIX } from '../types';
 import { backupStorage } from '../lib/storage';
 
 const DB_NAME = 'worldarchive';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 // 档案备份存储键（走 backupStorage 独立分区）
 const BACKUP_KEY = 'snapshot_v1';
@@ -66,6 +66,12 @@ export async function getDB(): Promise<IDBPDatabase> {
       // 小说：阅读进度（v3 新增）
       if (!db.objectStoreNames.contains('novelProgress')) {
         db.createObjectStore('novelProgress', { keyPath: 'bookId' });
+      }
+      // 记忆本（v4 新增）
+      if (!db.objectStoreNames.contains('notebook')) {
+        const store = db.createObjectStore('notebook', { keyPath: 'id', autoIncrement: true });
+        store.createIndex('updatedAt', 'updatedAt', { unique: false });
+        store.createIndex('title', 'title', { unique: false });
       }
     },
   });
@@ -397,6 +403,67 @@ export async function togglePinComment(id: string): Promise<void> {
   if (c) {
     c.isPinned = !c.isPinned;
     await db.put('comments', c);
+  }
+}
+
+// ============ 记忆本 CRUD ============
+export interface NotebookNote {
+  id?: number;
+  title: string;
+  content: string;
+  color?: string;
+  pinned?: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export async function getAllNotes(): Promise<NotebookNote[]> {
+  const db = await getDB();
+  const notes = await db.getAll('notebook');
+  return notes.sort((a, b) => {
+    if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+    return b.updatedAt - a.updatedAt;
+  });
+}
+
+export async function saveNote(note: NotebookNote): Promise<NotebookNote> {
+  const db = await getDB();
+  const now = Date.now();
+  if (note.id === undefined) {
+    const id = await db.add('notebook', {
+      title: note.title,
+      content: note.content,
+      color: note.color,
+      pinned: false,
+      createdAt: now,
+      updatedAt: now,
+    });
+    return { ...note, id, createdAt: now, updatedAt: now };
+  } else {
+    const existing = await db.get('notebook', note.id);
+    const updated = {
+      ...existing,
+      ...note,
+      id: note.id,
+      updatedAt: now,
+    };
+    await db.put('notebook', updated);
+    return updated as NotebookNote;
+  }
+}
+
+export async function deleteNote(id: number): Promise<void> {
+  const db = await getDB();
+  await db.delete('notebook', id);
+}
+
+export async function togglePinNote(id: number): Promise<void> {
+  const db = await getDB();
+  const note = await db.get('notebook', id) as NotebookNote | undefined;
+  if (note) {
+    note.pinned = !note.pinned;
+    note.updatedAt = Date.now();
+    await db.put('notebook', note);
   }
 }
 
