@@ -30,6 +30,7 @@ import BackupBar from './BackupBar';
 import { IS_WEB_BUILD } from '../lib/buildTarget';
 import { useHiddenUnlock } from '../lib/hiddenUnlock';
 import { ConfirmDialog, BaseDialog } from './Dialog';
+import { usePageScroll } from '../hooks/usePageScroll';
 
 const navItems = [
   { to: '/', label: '首页', icon: Home },
@@ -66,6 +67,9 @@ export default function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const isUnlocked = useHiddenUnlock(s => s.isUnlocked);
+
+  // 保存并恢复滚动位置：离开列表页再回来时，回到离开前的位置
+  usePageScroll();
 
   // 自动缩回计时器：intro 5s 后 peek；expanded 3s 无操作后 peek
   useEffect(() => {

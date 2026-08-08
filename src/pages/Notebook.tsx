@@ -6,17 +6,6 @@ import {
 } from 'lucide-react';
 import { useNotebookStore } from '../store/notebookStore';
 
-const NOTE_COLORS = [
-  { name: '默认', value: '' },
-  { name: '暖黄', value: '#f5e6b8' },
-  { name: '淡粉', value: '#f0d0d0' },
-  { name: '浅蓝', value: '#d0e0f0' },
-  { name: '青绿', value: '#d0e8d8' },
-  { name: '丁香', value: '#e0d0e8' },
-];
-
-export { NOTE_COLORS };
-
 export function formatTime(ts: number): string {
   const d = new Date(ts);
   const now = new Date();
